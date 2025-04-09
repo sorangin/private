@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sora Lab Results - Historical</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js" integrity="sha512-Hn1w6YpuoZNQSzqWUo7X5xmH Citro4GNKUwTRPAxbKMI0TQTsQxGwubEC9F3GWPvO+kRk7MWsczPqJ21hkBbGcw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-gray: #f8f9fa;
+            --medium-gray: #ced4da;
+            --dark-gray: #5a6268;
+            --text-color: #343a40;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --card-border: #e1e5ea;
+            --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            --status-good-bg: var(--success-color);
+            --status-warning-bg: var(--warning-color);
+            --status-bad-bg: var(--danger-color);
+            --primary-color-transparent: rgba(0, 123, 255, 0.1);
+            --medium-gray-transparent: rgba(108, 117, 125, 0.5);
+        }
+        body {
+            padding-top: 45px;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color); padding-left: 20px; padding-right: 20px; padding-bottom: 20px; color: var(--text-color);
+            max-width: 1100px; margin: 15px auto; position: relative; line-height: 1.4;
+        }
+        .date-navigation {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background-color: var(--bg-color);
+            padding-top: 5px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--card-border);
+            text-align: center; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 15px;
+        }
+        .nav-arrow {
+            background: none; border: 1px solid var(--medium-gray); color: var(--primary-color); padding: 3px 8px;
+            border-radius: 4px; cursor: pointer; font-size: 1.2em; line-height: 1; transition: background-color 0.2s, color 0.2s;
+        }
+        .nav-arrow:hover:not(:disabled) { background-color: var(--primary-color); color: white; }
+        .nav-arrow:disabled { color: var(--medium-gray); border-color: var(--light-gray); cursor: not-allowed; }
+        #displayed-date-btn {
+            background: none; border: none; padding: 0; margin: 0; font: inherit;
+            font-size: 1.1em; font-weight: 600; color: var(--text-color);
+            min-width: 120px; text-align: center; cursor: pointer;
+             text-decoration: underline; text-decoration-color: var(--primary-color); text-underline-offset: 3px;
+        }
+        #displayed-date-btn:hover { color: var(--primary-color); }
+
+        h2 { margin-top: 20px; margin-bottom: 20px; text-align: center; color: var(--primary-color); font-weight: 600; font-size: 1.6em; }
+        .category { margin-bottom: 25px; }
+        .category h3 {
+            margin-bottom: 15px; padding: 6px 12px; border: none; background-color: var(--primary-color);
+            color: var(--card-bg); border-radius: 5px; font-size: 1.05em; font-weight: 600; letter-spacing: 0.3px;
+        }
+        .lab-grid { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-start; }
+        #grid-health-overview { padding-top: 5px; margin-bottom: 0;}
+
+        .lab-test {
+            border: 1px solid var(--card-border); padding: 8px 10px; border-radius: 6px; background-color: var(--card-bg);
+            box-shadow: var(--card-shadow); flex-basis: calc(33.333% - 8px); box-sizing: border-box; margin-bottom: 0;
+            display: flex; flex-direction: column; justify-content: space-between; min-height: 75px;
+            transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out; position: relative;
+        }
+        .lab-test.placeholder {
+             visibility: hidden; border: none; background: none; box-shadow: none;
+             flex-grow: 1; padding:0; margin:0; min-height: 0;
+        }
+
+        .lab-test:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); z-index: 5; }
+        .lab-test.no-data-hover:hover {
+             transform: none;
+             box-shadow: var(--card-shadow);
+             z-index: auto;
+        }
+        .lab-info { margin-bottom: 5px; flex-grow: 1; }
+        .lab-name { font-size: 0.9em; font-weight: 600; color: var(--text-color); margin-bottom: 2px; }
+        .lab-range { font-size: 0.7em; color: var(--dark-gray); margin-bottom: 1px; line-height: 1.2; }
+        .lab-value-text { font-size: 0.8em; font-weight: 500; color: var(--text-color); margin-top: 2px; }
+        .value-good { color: var(--success-color); }
+        .value-warning { color: var(--warning-color); }
+        .value-bad { color: var(--danger-color); }
+
+        .range-visualization { position: relative; height: 30px; margin-top: auto; flex-shrink: 0; }
+        .range-visualization .no-viz-text {
+            font-size:0.7em; color: var(--dark-gray); padding-left: 5px;
+            line-height: 30px;
+            display: inline-block; position: absolute; left: 5px; bottom: 0;
+        }
+        .range-track { position: absolute; bottom: 8px; left: 5%; right: 5%; height: 4px; background-color: var(--light-gray); border-radius: 2px; }
+        .range-normal { position: absolute; bottom: 8px; height: 4px; background-color: var(--success-color); border-radius: 2px; }
+        .range-out-of-range { position: absolute; bottom: 8px; height: 4px; background-color: var(--danger-color); border-radius: 2px; z-index: 0; }
+        .value-marker { position: absolute; bottom: 14px; transform: translateX(-50%); z-index: 1; }
+        .value-box {
+             color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75em; font-weight: 600;
+             white-space: nowrap; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+             background-color: var(--dark-gray);
+        }
+        .value-box::after {
+            content: ''; position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+            border-top: 4px solid var(--dark-gray);
+        }
+        .value-box-good { background-color: var(--status-good-bg); }
+        .value-box-good::after { border-top-color: var(--status-good-bg); }
+        .value-box-warning { background-color: var(--status-warning-bg); color: #333; }
+        .value-box-warning::after { border-top-color: var(--status-warning-bg); }
+        .value-box-bad { background-color: var(--status-bad-bg); }
+        .value-box-bad::after { border-top-color: var(--status-bad-bg); }
+
+        .range-labels { position: absolute; bottom: -2px; left: 0; right: 0; height: 10px; font-size: 0.65em; color: var(--dark-gray); }
+        .min-label, .max-label, .single-label { position: absolute; bottom: 0; transform: translateX(-50%); white-space: nowrap; }
+
+        .trend-popup {
+            display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.98); color: var(--text-color); padding: 10px;
+            border-radius: 6px; border: 1px solid var(--medium-gray); box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10; pointer-events: none; min-width: 300px; margin-bottom: 5px;
+        }
+         .trend-popup-title {
+            font-size: 0.85em; font-weight: 600; color: var(--primary-color);
+            margin-bottom: 5px; text-align: center; border-bottom: 1px solid var(--light-gray); padding-bottom: 3px;
+        }
+        .trend-popup canvas { max-height: 120px; display: block; }
+        .lab-test:not(.no-data-hover):hover .trend-popup { display: block; }
+        .lab-test:nth-child(3n):hover .trend-popup { left: auto; right: 5%; transform: none; }
+        .lab-test:nth-child(3n+1):hover .trend-popup { left: 5%; transform: none; }
+
+         #date-picker-popup {
+            position: fixed;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            margin-top: 0;
+            background-color: white; border: 1px solid var(--medium-gray); border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); z-index: 100; width: 90%;
+            max-width: 250px;
+            max-height: 50vh;
+            overflow: hidden;
+            flex-direction: column;
+        }
+        #date-picker-popup.visible { display: flex; }
+
+        #date-picker-popup h4 { margin: 0; padding: 8px 12px; font-size: 1em; font-weight: 600; border-bottom: 1px solid var(--medium-gray); color: var(--primary-color); }
+        #date-picker-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex-grow: 1; }
+        #date-picker-list li { padding: 7px 12px; cursor: pointer; border-bottom: 1px solid var(--light-gray); font-size: 0.9em; }
+        #date-picker-list li:last-child { border-bottom: none; }
+        #date-picker-list li:hover { background-color: var(--light-gray); }
+        #date-picker-list li.active { background-color: var(--primary-color); color: white; font-weight: bold;}
+        .popup-close-btn { position: absolute; top: 3px; right: 6px; background: none; border: none; font-size: 1.4em; font-weight: bold; color: var(--medium-gray); cursor: pointer; padding: 0 5px; line-height: 1; }
+        .popup-close-btn:hover { color: var(--dark-gray); }
+
+        @media screen and (max-width: 992px) {
+             .lab-test { flex-basis: calc(50% - 6px); min-height: 70px; }
+             #grid-health-overview .lab-test { flex-basis: calc(33.333% - 8px);}
+             .lab-test:nth-child(3n):hover .trend-popup,
+             .lab-test:nth-child(3n+1):hover .trend-popup { left: 50%; transform: translateX(-50%); right: auto; }
+             .lab-test:nth-child(2n):hover .trend-popup { left: auto; right: 5%; transform: none; }
+             .lab-test:nth-child(2n+1):hover .trend-popup { left: 5%; transform: none; }
+             .trend-popup { min-width: 280px; }
+        }
+         @media screen and (max-width: 768px) {
+            #grid-health-overview .lab-test { flex-basis: calc(50% - 6px);}
+             .trend-popup { min-width: 250px; }
+        }
+        @media screen and (max-width: 600px) {
+            body { padding-top: 40px; padding-left: 10px; padding-right: 10px; padding-bottom: 10px; }
+            .date-navigation { margin-bottom: 15px; gap: 10px; padding-top: 4px; padding-bottom: 4px; }
+            #displayed-date-btn { font-size: 1em; min-width: 100px; }
+            .nav-arrow { font-size: 1.1em; }
+            h2 { font-size: 1.4em; margin-top: 15px; margin-bottom: 15px;}
+            .category h3 { font-size: 1.0em; padding: 5px 10px; }
+            .lab-grid { flex-direction: column; gap: 0; }
+            .lab-test { flex-basis: 100% !important; margin-bottom: 10px; min-height: auto; border-radius: 5px; padding: 6px 8px; }
+            .lab-test:hover { transform: none; box-shadow: var(--card-shadow); z-index: auto;}
+            .lab-test.no-data-hover:hover { transform: none; box-shadow: var(--card-shadow); }
+            .lab-test:last-child { margin-bottom: 0; }
+            .lab-name { font-size: 0.85em; }
+            .lab-range, .lab-value-text { font-size: 0.7em; }
+            .lab-value-text { font-size: 0.9em; }
+            .range-visualization { height: 28px; }
+            .value-box { font-size: 0.7em; padding: 1px 4px;}
+            .range-labels { font-size: 0.6em; bottom: -1px;}
+            .trend-popup { display: none !important; }
+            #date-picker-popup { max-width: 220px; font-size: 0.9em; top: 35px; }
+        }
+         @media screen and (max-width: 400px) {
+             body { padding-top: 35px; padding-left: 5px; padding-right: 5px; padding-bottom: 10px; }
+             #displayed-date-btn { font-size: 0.9em; }
+             h2 { font-size: 1.3em; margin-top: 10px; margin-bottom: 10px;}
+             .lab-test { padding: 5px 6px; }
+             .lab-name { font-size: 0.8em;}
+             .lab-value-text { font-size: 0.85em;}
+             #date-picker-popup { top: 30px; }
+         }
+    </style>
+</head>
+<body>
+
+    <div class="date-navigation">
+        <button id="prev-date" class="nav-arrow" title="Previous Date (Left Arrow)">&larr;</button>
+        <button id="displayed-date-btn" title="Select Date">
+            <span id="displayed-date">Loading...</span>
+        </button>
+        <button id="next-date" class="nav-arrow" title="Next Date (Right Arrow)">&rarr;</button>
+
+        <div id="date-picker-popup">
+            <h4>Select a Date</h4>
+            <ul id="date-picker-list"></ul>
+            <button class="popup-close-btn" title="Close">&times;</button>
+        </div>
+    </div>
+
+    <h2>Sora Lab Results</h2>
+
+    <div class="category">
+        <h3>Health Overview</h3>
+        <div class="lab-grid" id="grid-health-overview"></div>
+    </div>
+
+    <div class="category">
+        <h3>Electrolytes & Metabolism</h3>
+        <div class="lab-grid" id="grid-electrolytes"></div>
+    </div>
+
+    <div class="category">
+        <h3>Liver Function</h3>
+        <div class="lab-grid" id="grid-liver"></div>
+    </div>
+
+    <div class="category">
+        <h3>Thyroid</h3>
+        <div class="lab-grid" id="grid-thyroid"></div>
+    </div>
+
+    <div class="category">
+        <h3>CBC with Differential</h3>
+        <div class="lab-grid" id="grid-cbc"></div>
+    </div>
+
+    <script>
+        const healthData = [
+             { date: "2020-01-01", BP: "113 / 59", Glucose: null, Weight: 160, A1c: 5, Cholesterol: 167, HDL: 39, Triglycerides: null, LDL: "106?", "Sodium, Ser/Plas": null, "Potassium, Ser/Plas": null, "Chloride, Ser/Plas": null, "CO2, Ser/Plas": null, "Anion Gap": null, "Glucose, Ser/Plas": null, "Glucose, Random": null, "Creatinine": null, "eGFR Refit Without Race (2021)": null, "BUN, Ser/Plas": null, "Calcium, Ser/Plas": null, "Protein, Total, Ser/Plas": null, "Albumin, Ser/Plas": null, "Globulin": null, "Total Bilirubin, Ser/Plas": null, "Alk P'TASE, Total, Ser/Plas": null, "AST (SGOT), Ser/Plas": null, "ALT (SGPT), Ser/Plas": null, "TSH": null, "WBC Count": null, "RBC Count": null, "Hemoglobin": null, "Hematocrit": null, "MCV": null, "MCH": null, "MCHC": null, "RDW": null, "Platelet count": null, "Neutrophil %": null, "Lymphocyte %": null, "Monocyte %": null, "Eosinophil %": null, "Basophil %": null, "Imm. Granulocyte, %": null, "Neutrophil, Absolute": null, "Lymphocyte, Absolute": null, "Monocyte, Absolute": null, "Eosinophil, Absolute": null, "Basophil, Absolute": null, "Imm. Granulocyte, Abs": null, "nRBC, Abs": null, "nRBC, %": null },
+             { date: "2021-07-01", BP: "131 / 85", Glucose: null, Weight: 164, A1c: 5.1, Cholesterol: 194, HDL: 44, Triglycerides: 115, LDL: 127, "Sodium, Ser/Plas": null, "Potassium, Ser/Plas": null, "Chloride, Ser/Plas": null, "CO2, Ser/Plas": null, "Anion Gap": null, "Glucose, Ser/Plas": null, "Glucose, Random": null, "Creatinine": null, "eGFR Refit Without Race (2021)": null, "BUN, Ser/Plas": null, "Calcium, Ser/Plas": null, "Protein, Total, Ser/Plas": null, "Albumin, Ser/Plas": null, "Globulin": null, "Total Bilirubin, Ser/Plas": null, "Alk P'TASE, Total, Ser/Plas": null, "AST (SGOT), Ser/Plas": null, "ALT (SGPT), Ser/Plas": null, "TSH": null, "WBC Count": null, "RBC Count": null, "Hemoglobin": null, "Hematocrit": null, "MCV": null, "MCH": null, "MCHC": null, "RDW": null, "Platelet count": null, "Neutrophil %": null, "Lymphocyte %": null, "Monocyte %": null, "Eosinophil %": null, "Basophil %": null, "Imm. Granulocyte, %": null, "Neutrophil, Absolute": null, "Lymphocyte, Absolute": null, "Monocyte, Absolute": null, "Eosinophil, Absolute": null, "Basophil, Absolute": null, "Imm. Granulocyte, Abs": null, "nRBC, Abs": null, "nRBC, %": null },
+             { date: "2023-04-01", BP: "145 / 91", Glucose: 90, Weight: 178, A1c: 5.4, Cholesterol: 237, HDL: 39, Triglycerides: 204, LDL: 162, "Sodium, Ser/Plas": null, "Potassium, Ser/Plas": null, "Chloride, Ser/Plas": null, "CO2, Ser/Plas": null, "Anion Gap": null, "Glucose, Ser/Plas": null, "Glucose, Random": null, "Creatinine": null, "eGFR Refit Without Race (2021)": null, "BUN, Ser/Plas": null, "Calcium, Ser/Plas": null, "Protein, Total, Ser/Plas": null, "Albumin, Ser/Plas": null, "Globulin": null, "Total Bilirubin, Ser/Plas": null, "Alk P'TASE, Total, Ser/Plas": null, "AST (SGOT), Ser/Plas": null, "ALT (SGPT), Ser/Plas": null, "TSH": null, "WBC Count": null, "RBC Count": null, "Hemoglobin": null, "Hematocrit": null, "MCV": null, "MCH": null, "MCHC": null, "RDW": null, "Platelet count": null, "Neutrophil %": null, "Lymphocyte %": null, "Monocyte %": null, "Eosinophil %": null, "Basophil %": null, "Imm. Granulocyte, %": null, "Neutrophil, Absolute": null, "Lymphocyte, Absolute": null, "Monocyte, Absolute": null, "Eosinophil, Absolute": null, "Basophil, Absolute": null, "Imm. Granulocyte, Abs": null, "nRBC, Abs": null, "nRBC, %": null },
+             { date: "2023-08-17", BP: null, Glucose: 103, Weight: null, A1c: null, Cholesterol: null, HDL: null, Triglycerides: null, LDL: null, "Sodium, Ser/Plas": 138, "Potassium, Ser/Plas": 3.5, "Chloride, Ser/Plas": 99, "CO2, Ser/Plas": 20, "Anion Gap": 19, "Glucose, Ser/Plas": null, "Glucose, Random": 103, "Creatinine": 1.02, "eGFR Refit Without Race (2021)": ">60", "BUN, Ser/Plas": 10, "Calcium, Ser/Plas": 9.9, "Protein, Total, Ser/Plas": null, "Albumin, Ser/Plas": null, "Globulin": null, "Total Bilirubin, Ser/Plas": null, "Alk P'TASE, Total, Ser/Plas": null, "AST (SGOT), Ser/Plas": 18, "ALT (SGPT), Ser/Plas": 18, "TSH": null, "WBC Count": 5.9, "RBC Count": 5.92, "Hemoglobin": 16.6, "Hematocrit": 49.3, "MCV": 83, "MCH": null, "MCHC": null, "RDW": 12, "Platelet count": 260, "Neutrophil %": 43, "Lymphocyte %": 47, "Monocyte %": 8, "Eosinophil %": 2, "Basophil %": 0, "Imm. Granulocyte, %": 0, "Neutrophil, Absolute": 2.5, "Lymphocyte, Absolute": 2.8, "Monocyte, Absolute": 0.5, "Eosinophil, Absolute": 0.1, "Basophil, Absolute": 0, "Imm. Granulocyte, Abs": 0, "nRBC, Abs": 0.00, "nRBC, %": 0.0 },
+             { date: "2023-08-28", BP: "106 / 62", Glucose: 80, Weight: 165, A1c: null, Cholesterol: 274, HDL: 42, Triglycerides: 74, LDL: 214, "Sodium, Ser/Plas": 141, "Potassium, Ser/Plas": 4.4, "Chloride, Ser/Plas": 105, "CO2, Ser/Plas": 26, "Anion Gap": null, "Glucose, Ser/Plas": null, "Glucose, Random": 80, "Creatinine": 1.05, "eGFR Refit Without Race (2021)": 97, "BUN, Ser/Plas": 13, "Calcium, Ser/Plas": 9.6, "Protein, Total, Ser/Plas": 7.2, "Albumin, Ser/Plas": 4.5, "Globulin": 2.7, "Total Bilirubin, Ser/Plas": 0.9, "Alk P'TASE, Total, Ser/Plas": 60, "AST (SGOT), Ser/Plas": 18, "ALT (SGPT), Ser/Plas": 18, "TSH": null, "WBC Count": 5.8, "RBC Count": 5.52, "Hemoglobin": 16.2, "Hematocrit": 47.8, "MCV": 86.6, "MCH": 29.3, "MCHC": 33.9, "RDW": 12.8, "Platelet count": 301, "Neutrophil %": 49.2, "Lymphocyte %": 44.3, "Monocyte %": 4.8, "Eosinophil %": 1.4, "Basophil %": 0.3, "Imm. Granulocyte, %": 0, "Neutrophil, Absolute": 2.854, "Lymphocyte, Absolute": 2.569, "Monocyte, Absolute": 0.278, "Eosinophil, Absolute": 0.081, "Basophil, Absolute": 0.017, "Imm. Granulocyte, Abs": null, "nRBC, Abs": null, "nRBC, %": null },
+             { date: "2025-04-08", BP: null, Glucose: 97, Weight: 165, A1c: null, Cholesterol: null, HDL: null, Triglycerides: null, LDL: null, "Sodium, Ser/Plas": 138, "Potassium, Ser/Plas": 4.5, "Chloride, Ser/Plas": 101, "CO2, Ser/Plas": 24, "Anion Gap": 13, "Glucose, Ser/Plas": 97, "Glucose, Random": null, "Creatinine": 1.01, "eGFR Refit Without Race (2021)": 101, "BUN, Ser/Plas": 15, "Calcium, Ser/Plas": 9.4, "Protein, Total, Ser/Plas": 7.8, "Albumin, Ser/Plas": 4.4, "Globulin": 3.4, "Total Bilirubin, Ser/Plas": 0.9, "Alk P'TASE, Total, Ser/Plas": 85, "AST (SGOT), Ser/Plas": 32, "ALT (SGPT), Ser/Plas": 34, "TSH": 2.39, "WBC Count": 6.0, "RBC Count": 5.76, "Hemoglobin": 16.6, "Hematocrit": 49.2, "MCV": 85.4, "MCH": 28.8, "MCHC": 33.7, "RDW": 11.7, "Platelet count": 291, "Neutrophil %": 56.3, "Lymphocyte %": 35.5, "Monocyte %": 6.0, "Eosinophil %": 1.8, "Basophil %": 0.2, "Imm. Granulocyte, %": 0.2, "Neutrophil, Absolute": 3.39, "Lymphocyte, Absolute": 2.14, "Monocyte, Absolute": 0.36, "Eosinophil, Absolute": 0.11, "Basophil, Absolute": 0.01, "Imm. Granulocyte, Abs": 0.01, "nRBC, Abs": 0.00, "nRBC, %": 0.0 }
+        ];
+         const labConfig = {
+             "BP": { category: "healthOverview", name: "Blood Pressure", rangeText: "<120 / <80", unit: "mmHg", low: 0, high: 119, visLow: 80, visHigh: 160, warningLow: 120, warningHigh: 139, badLow: 140 },
+             "Weight": { category: "healthOverview", name: "Weight", rangeText: "140-175 lbs", unit: "lbs", low: 140, high: 175, visLow: 130, visHigh: 190 },
+             "A1c": { category: "healthOverview", name: "A1c", rangeText: "<5.7 %", unit: "%", low: 0, high: 5.69, warningLow: 5.7, warningHigh: 6.4, badLow: 6.5, visLow: 4.5, visHigh: 7.5 },
+             "Cholesterol": { category: "healthOverview", name: "Cholesterol", rangeText: "<200 mg/dL", unit: "mg/dL", low: 0, high: 199, visLow: 100, visHigh: 300, warningLow: 200, warningHigh: 239, badLow: 240 },
+             "HDL": { category: "healthOverview", name: "HDL", rangeText: ">=40 mg/dL", unit: "mg/dL", low: 40, high: Infinity, badHigh: 39, visLow: 20, visHigh: 90 },
+             "Triglycerides": { category: "healthOverview", name: "Triglycerides", rangeText: "<150 mg/dL", unit: "mg/dL", low: 0, high: 149, visLow: 0, visHigh: 250, warningLow: 150, warningHigh: 199, badLow: 200 },
+             "LDL": { category: "healthOverview", name: "LDL", rangeText: "<130 mg/dL", unit: "mg/dL", low: 0, high: 129, visLow: 50, visHigh: 220, warningLow: 130, warningHigh: 159, badLow: 160 },
+             "Sodium, Ser/Plas": { category: "electrolytes", name: "Sodium", rangeText: "135-145 mmol/L", unit: "mmol/L", low: 135, high: 145, visLow: 130, visHigh: 150 },
+             "Potassium, Ser/Plas": { category: "electrolytes", name: "Potassium", rangeText: "3.5-5.3 mmol/L", unit: "mmol/L", low: 3.5, high: 5.3, visLow: 3, visHigh: 6 },
+             "Chloride, Ser/Plas": { category: "electrolytes", name: "Chloride", rangeText: "100-111 mmol/L", unit: "mmol/L", low: 100, high: 111, visLow: 95, visHigh: 115 },
+             "CO2, Ser/Plas": { category: "electrolytes", name: "CO2", rangeText: "24-33 mmol/L", unit: "mmol/L", low: 24, high: 33, visLow: 20, visHigh: 35 },
+             "Anion Gap": { category: "electrolytes", rangeText: "5-16 mmol/L", unit: "mmol/L", low: 5, high: 16, visLow: 0, visHigh: 22 },
+             "Glucose, Ser/Plas": { category: "electrolytes", name: "Glucose (Fasting)", rangeText: "70-100 mg/dL", unit: "mg/dL", low: 70, high: 100, visLow: 60, visHigh: 160, warningLow: 101, warningHigh: 125, badLow: 126 },
+             "Glucose, Random": { category: "electrolytes", name: "Glucose (Random)", rangeText: "<140 mg/dL", unit: "mg/dL", low: 0, high: 139, visLow: 60, visHigh: 160 },
+             "Creatinine": { category: "electrolytes", name: "Creatinine", rangeText: "<=1.34 mg/dL", unit: "mg/dL", low: 0, high: 1.34, visLow: 0.5, visHigh: 1.6, badLow: 1.35 },
+             "eGFR Refit Without Race (2021)": { category: "electrolytes", name: "eGFR", rangeText: ">=60 mL/min/1.73m2", unit: "mL/min/1.73m2", low: 60, high: Infinity, visLow: 0, visHigh: 120, warningHigh: 59, badHigh: 44 },
+             "BUN, Ser/Plas": { category: "electrolytes", name: "BUN", rangeText: "7-27 mg/dL", unit: "mg/dL", low: 7, high: 27, visLow: 0, visHigh: 35 },
+             "Calcium, Ser/Plas": { category: "electrolytes", name: "Calcium", rangeText: "8.8-10.5 mg/dL", unit: "mg/dL", low: 8.8, high: 10.5, visLow: 8.0, visHigh: 11.0 },
+             "Protein, Total, Ser/Plas": { category: "electrolytes", name: "Total Protein", rangeText: "6.1-8.1 g/dL", unit: "g/dL", low: 6.1, high: 8.1, visLow: 5.5, visHigh: 9.0 },
+             "Albumin, Ser/Plas": { category: "electrolytes", name: "Albumin", rangeText: "3.6-5.1 g/dL", unit: "g/dL", low: 3.6, high: 5.1, visLow: 3.0, visHigh: 6.0 },
+             "Globulin": { category: "electrolytes", name: "Globulin", rangeText: "1.9-3.7 g/dL", unit: "g/dL", low: 1.9, high: 3.7, visLow: 1.0, visHigh: 4.5 },
+             "Total Bilirubin, Ser/Plas": { category: "liver", name: "Total Bilirubin", rangeText: "0.2-1.2 mg/dL", unit: "mg/dL", low: 0.2, high: 1.2, visLow: 0, visHigh: 1.5 },
+             "Alk P'TASE, Total, Ser/Plas": { category: "liver", name: "Alk Phos", rangeText: "36-130 IU/L", unit: "IU/L", low: 36, high: 130, visLow: 0, visHigh: 170 },
+             "AST (SGOT), Ser/Plas": { category: "liver", name: "AST (SGOT)", rangeText: "10-40 IU/L", unit: "IU/L", low: 10, high: 40, visLow: 0, visHigh: 60 },
+             "ALT (SGPT), Ser/Plas": { category: "liver", name: "ALT (SGPT)", rangeText: "9-46 IU/L", unit: "IU/L", low: 9, high: 46, visLow: 0, visHigh: 60 },
+             "TSH": { category: "thyroid", name: "TSH", rangeText: "0.27-4.20 uIU/mL", unit: "uIU/mL", low: 0.27, high: 4.20, visLow: 0, visHigh: 5.5 },
+             "WBC Count": { category: "cbc", name: "WBC Count", rangeText: "3.7-11.1 K/uL", unit: "K/uL", low: 3.7, high: 11.1, visLow: 2, visHigh: 12 },
+             "RBC Count": { category: "cbc", name: "RBC Count", rangeText: "4.10-5.70 M/uL", unit: "M/uL", low: 4.10, high: 5.70, visLow: 3.8, visHigh: 6.2 },
+             "Hemoglobin": { category: "cbc", name: "Hemoglobin", rangeText: "13.0-17.0 g/dL", unit: "g/dL", low: 13.0, high: 17.0, visLow: 12, visHigh: 18 },
+             "Hematocrit": { category: "cbc", name: "Hematocrit", rangeText: "39-51 %", unit: "%", low: 39, high: 51, visLow: 34, visHigh: 58 },
+             "MCV": { category: "cbc", name: "MCV", rangeText: "80-100 fL", unit: "fL", low: 80, high: 100, visLow: 78, visHigh: 103 },
+             "MCH": { category: "cbc", name: "MCH", rangeText: null, unit: "pg" },
+             "MCHC": { category: "cbc", name: "MCHC", rangeText: null, unit: "g/dL" },
+             "RDW": { category: "cbc", name: "RDW", rangeText: "12.0-16.5 %", unit: "%", low: 12.0, high: 16.5, visLow: 10, visHigh: 18 },
+             "Platelet count": { category: "cbc", name: "Platelets", rangeText: "140-400 K/uL", unit: "K/uL", low: 140, high: 400, visLow: 50, visHigh: 450 },
+             "Neutrophil %": { category: "cbc", name: "Neutrophil %", rangeText: null, unit: "%" },
+             "Lymphocyte %": { category: "cbc", name: "Lymphocyte %", rangeText: null, unit: "%" },
+             "Monocyte %": { category: "cbc", name: "Monocyte %", rangeText: null, unit: "%" },
+             "Eosinophil %": { category: "cbc", name: "Eosinophil %", rangeText: null, unit: "%" },
+             "Basophil %": { category: "cbc", name: "Basophil %", rangeText: null, unit: "%" },
+             "Imm. Granulocyte, %": { category: "cbc", name: "Imm Gran %", rangeText: "0.0-0.1 %", unit: "%", low: 0, high: 0.1, visLow: 0, visHigh: 0.5 },
+             "Neutrophil, Absolute": { category: "cbc", name: "Abs Neutrophil", rangeText: "1.8-7.9 K/uL", unit: "K/uL", low: 1.8, high: 7.9, visLow: 0, visHigh: 9 },
+             "Lymphocyte, Absolute": { category: "cbc", name: "Abs Lymphocyte", rangeText: "0.9-3.2 K/uL", unit: "K/uL", low: 0.9, high: 3.2, visLow: 0, visHigh: 4 },
+             "Monocyte, Absolute": { category: "cbc", name: "Abs Monocyte", rangeText: "0.3-0.9 K/uL", unit: "K/uL", low: 0.3, high: 0.9, visLow: 0, visHigh: 1.2 },
+             "Eosinophil, Absolute": { category: "cbc", name: "Abs Eosinophil", rangeText: "0.0-0.4 K/uL", unit: "K/uL", low: 0.0, high: 0.4, visLow: 0, visHigh: 0.6 },
+             "Basophil, Absolute": { category: "cbc", name: "Abs Basophil", rangeText: "0.0-0.1 K/uL", unit: "K/uL", low: 0.0, high: 0.1, visLow: 0, visHigh: 0.2 },
+             "Imm. Granulocyte, Abs": { category: "cbc", name: "Abs Imm Gran", rangeText: "0.0-0.1 K/uL", unit: "K/uL", low: 0.0, high: 0.1, visLow: 0, visHigh: 0.2 },
+             "nRBC, Abs": { category: "cbc", name: "nRBC Abs", rangeText: null, unit: "/100 WBC" },
+             "nRBC, %": { category: "cbc", name: "nRBC %", rangeText: "<=0 %", unit: "%", low: 0, high: 0, visLow: 0, visHigh: 1 }
+         };
+
+        let currentDateIndex = healthData.length - 1;
+        let activeChart = null;
+
+        const displayedDateEl = document.getElementById('displayed-date');
+        const displayedDateBtn = document.getElementById('displayed-date-btn');
+        const prevDateBtn = document.getElementById('prev-date');
+        const nextDateBtn = document.getElementById('next-date');
+        const datePickerPopup = document.getElementById('date-picker-popup');
+        const datePickerList = document.getElementById('date-picker-list');
+        const popupCloseBtn = datePickerPopup.querySelector('.popup-close-btn');
+        const gridContainers = {
+            healthOverview: document.getElementById('grid-health-overview'),
+            electrolytes: document.getElementById('grid-electrolytes'),
+            liver: document.getElementById('grid-liver'),
+            thyroid: document.getElementById('grid-thyroid'),
+            cbc: document.getElementById('grid-cbc')
+        };
+
+        if (window.ChartAnnotation) {
+            Chart.register(window.ChartAnnotation);
+        } else {
+            console.error("Chartjs Annotation Plugin not loaded!");
+        }
+
+        function formatDate(dateString) {
+             try {
+                 const date = new Date(dateString + 'T00:00:00');
+                 if (isNaN(date.getTime())) return dateString;
+                 return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
+             } catch (e) {
+                 console.error("Error formatting date:", dateString, e);
+                 return dateString;
+            }
+        }
+
+         function getValueStatus(value, config) {
+             if (value == null || value === "No data" || isNaN(value) || !config) return { box: '', text: '' };
+             const { low, high, warningLow, warningHigh, badLow, badHigh } = config;
+             let boxStatus = ''; let textStatus = '';
+
+             if ((badLow != null && value >= badLow) || (badHigh != null && value <= badHigh)) {
+                 boxStatus = 'value-box-bad';
+             }
+             else if ((warningLow != null && value >= warningLow && (warningHigh == null || value <= warningHigh)) ||
+                       (warningHigh != null && value <= warningHigh && (warningLow == null || value >= warningLow))) {
+                  boxStatus = 'value-box-warning';
+             }
+             else if ((low == null || value >= low) && (high == null || !isFinite(high) || value <= high)) {
+                  boxStatus = 'value-box-good';
+             }
+             else if (low != null || (high != null && isFinite(high))) {
+                  boxStatus = 'value-box-bad';
+             }
+
+             if (boxStatus === 'value-box-good') textStatus = 'value-good';
+             else if (boxStatus === 'value-box-warning') textStatus = 'value-warning';
+             else if (boxStatus === 'value-box-bad') textStatus = 'value-bad';
+
+             return { box: boxStatus, text: textStatus };
+         }
+
+
+        function calculateVisualization(value, config) {
+            const { low, high, visLow, visHigh } = config;
+            const totalVisRange = visHigh - visLow;
+
+            if (totalVisRange <= 0) {
+                 console.warn("Invalid visRange in calculateVisualization for:", config.name);
+                 return { normLeft: '5%', normWidth: '0%', valueLeft: '50%', oorLeft: '5%', oorWidth: '0%' };
+            }
+
+            const normStart = Math.max(low ?? -Infinity, visLow);
+            const normEnd = Math.min(high ?? Infinity, visHigh);
+
+            let normLeftPercent = ((normStart - visLow) / totalVisRange) * 90;
+            let normWidthPercent = Math.max(0, (normEnd - normStart) / totalVisRange) * 90;
+
+            if (low != null && (high == null || !isFinite(high))) {
+                 normWidthPercent = Math.max(0, (visHigh - normStart) / totalVisRange) * 90;
+            }
+            if (high != null && (low == null || !isFinite(low))) {
+                 normLeftPercent = 0;
+                 normWidthPercent = Math.max(0, (normEnd - visLow) / totalVisRange) * 90;
+            }
+
+            const clampedValue = Math.max(visLow, Math.min(value, visHigh));
+            let valueLeftPercent = (((clampedValue - visLow) / totalVisRange) * 90) + 5;
+
+            let oorLeftPercent = 0;
+            let oorWidthPercent = 0;
+            const baseNormLeft = normLeftPercent + 5;
+            const baseNormRight = baseNormLeft + normWidthPercent;
+
+            if (low != null && value < low) {
+                oorLeftPercent = valueLeftPercent;
+                oorWidthPercent = Math.max(0, baseNormLeft - valueLeftPercent);
+            } else if (high != null && isFinite(high) && value > high) {
+                oorLeftPercent = baseNormRight;
+                oorWidthPercent = Math.max(0, valueLeftPercent - baseNormRight);
+            }
+
+            normLeftPercent += 5;
+            const clamp = (val, min = 5, max = 95) => Math.max(min, Math.min(max, val));
+
+            return {
+                 normLeft: `${clamp(normLeftPercent).toFixed(1)}%`,
+                 normWidth: `${Math.max(0, Math.min(100 - clamp(normLeftPercent), normWidthPercent)).toFixed(1)}%`,
+                 valueLeft: `${clamp(valueLeftPercent).toFixed(1)}%`,
+                 oorLeft: `${clamp(oorLeftPercent).toFixed(1)}%`,
+                 oorWidth: `${Math.max(0, Math.min(100 - clamp(oorLeftPercent), oorWidthPercent)).toFixed(1)}%`
+             };
+        }
+
+        function renderPageForDate(index) {
+            if (!healthData || index < 0 || index >= healthData.length) {
+                console.error("Invalid index for renderPageForDate:", index);
+                return;
+            };
+            const currentData = healthData[index];
+            currentDateIndex = index;
+
+            displayedDateEl.textContent = formatDate(currentData.date);
+            prevDateBtn.disabled = (index === 0);
+            nextDateBtn.disabled = (index === healthData.length - 1);
+
+            document.querySelectorAll('#date-picker-list li').forEach((li) => {
+                 li.classList.toggle('active', parseInt(li.dataset.index) === index);
+            });
+
+            Object.values(gridContainers).forEach(container => { if (container) container.textContent = ''; });
+            let itemsPerCategory = {};
+            const fragments = {};
+            Object.keys(gridContainers).forEach(key => fragments[key] = document.createDocumentFragment());
+
+            for (const testKey in labConfig) {
+                if (testKey === "Glucose, Random") continue; // Skip explicitly rendering the Random Glucose card
+
+                const config = labConfig[testKey];
+                const category = config.category;
+                const gridFragment = fragments[category];
+                if (!gridFragment) continue;
+
+                let currentValue = currentData[testKey] ?? null;
+
+                if (testKey === "Glucose, Ser/Plas") {
+                    if (currentValue === null || currentValue === "") {
+                        const randomValue = currentData["Glucose, Random"] ?? null;
+                        if (randomValue !== null && randomValue !== "") {
+                            currentValue = randomValue;
+                        }
+                    }
+                }
+
+                const displayValue = (currentValue === null || currentValue === "") ? "No data" : currentValue;
+
+                const card = document.createElement('div');
+                card.className = 'lab-test';
+                card.dataset.testKey = testKey;
+                if (displayValue === "No data") {
+                    card.classList.add('no-data-hover');
+                }
+
+                let valueAsNumber = NaN;
+                let status = { box: '', text: '' };
+                let viz = null;
+                let rangeLabelHtml = '';
+
+                if (displayValue !== "No data") {
+                    if (testKey === 'BP' && typeof displayValue === 'string' && displayValue.includes('/')) {
+                        const parts = displayValue.split('/');
+                        const sys = parseInt(parts[0], 10);
+                        const dia = parseInt(parts[1], 10);
+                        if (!isNaN(sys) && !isNaN(dia)) {
+                            if (sys < 120 && dia < 80) status.text = 'value-good';
+                            else if (sys >= 140 || dia >= 90) status.text = 'value-bad';
+                            else status.text = 'value-warning';
+                            valueAsNumber = sys;
+                            status.box = getValueStatus(valueAsNumber, config).box;
+                            if (config.visLow != null && config.visHigh != null) {
+                                viz = calculateVisualization(valueAsNumber, config);
+                            }
+                        } else { valueAsNumber = null; }
+                    } else {
+                        valueAsNumber = parseFloat(String(displayValue).replace(/[^\d?.-]/g, ''));
+                        if (isNaN(valueAsNumber)) {
+                            valueAsNumber = null;
+                        }
+                        if (valueAsNumber !== null) {
+                            status = getValueStatus(valueAsNumber, config);
+                            if (config.visLow != null && config.visHigh != null) {
+                                viz = calculateVisualization(valueAsNumber, config);
+                            }
+                        }
+                    }
+                } else {
+                    valueAsNumber = null;
+                }
+
+                if (viz && config.rangeText) {
+                    const normLeftNum = parseFloat(viz.normLeft);
+                    const normWidthNum = parseFloat(viz.normWidth);
+                    const minLabelPos = Math.max(5, normLeftNum);
+                    const maxLabelPos = Math.min(95, normLeftNum + normWidthNum);
+
+                    if (config.low != null && isFinite(config.low) && config.high != null && isFinite(config.high)) {
+                        rangeLabelHtml = `<span class="min-label" style="left: ${minLabelPos}%;">${config.low}</span><span class="max-label" style="left: ${maxLabelPos}%;">${config.high}</span>`;
+                    } else if (config.low != null && isFinite(config.low)) {
+                        rangeLabelHtml = `<span class="single-label" style="left: ${minLabelPos}%;">${config.low}</span>`;
+                    } else if (config.high != null && isFinite(config.high)) {
+                        rangeLabelHtml = `<span class="single-label" style="left: ${maxLabelPos}%;">${config.high}</span>`;
+                    }
+                }
+
+                card.innerHTML = `
+                    <div class="trend-popup">
+                        <div class="trend-popup-title"></div>
+                        <canvas></canvas>
+                    </div>
+                    <div class="lab-info">
+                        <div class="lab-name">${config.name || testKey}</div>
+                        ${config.rangeText ? `<div class="lab-range">Range: ${config.rangeText}</div>` : ''}
+                        <div class="lab-value-text ${valueAsNumber !== null ? status.text : ''}">${displayValue}</div>
+                    </div>
+                    ${viz ? `
+                    <div class="range-visualization">
+                        <div class="range-track"></div>
+                        <div class="range-normal" style="left: ${viz.normLeft}; width: ${viz.normWidth};"></div>
+                        ${parseFloat(viz.oorWidth) > 0 ? `<div class="range-out-of-range" style="left: ${viz.oorLeft}; width: ${viz.oorWidth};"></div>` : ''}
+                        <div class="value-marker" style="left: ${viz.valueLeft};">
+                            <div class="value-box ${status.box}">${displayValue}</div>
+                        </div>
+                        ${rangeLabelHtml ? `<div class="range-labels">${rangeLabelHtml}</div>` : ''}
+                    </div>
+                    ` :
+                    `<div class="range-visualization">
+                         <span class="no-viz-text">
+                             ${displayValue === "No data" ? 'No data' : '(Value not graphable)'}
+                         </span>
+                     </div>`}
+                `;
+
+                gridFragment.appendChild(card);
+                itemsPerCategory[category] = (itemsPerCategory[category] || 0) + 1;
+            }
+
+            Object.keys(gridContainers).forEach(categoryKey => {
+                const count = itemsPerCategory[categoryKey] || 0;
+                const currentGrid = gridContainers[categoryKey];
+                if (currentGrid) {
+                    currentGrid.appendChild(fragments[categoryKey]);
+
+                    if (count > 0 && window.innerWidth > 600) {
+                        let columns = 3;
+                        if (window.innerWidth <= 992 && categoryKey !== 'healthOverview') columns = 2;
+                        if (window.innerWidth <= 768 && categoryKey === 'healthOverview') columns = 2;
+
+                        const neededPlaceholders = (columns - (count % columns)) % columns;
+                        for (let i = 0; i < neededPlaceholders; i++) {
+                            const placeholder = document.createElement('div');
+                            placeholder.className = 'lab-test placeholder';
+                            currentGrid.appendChild(placeholder);
+                        }
+                    }
+                }
+            });
+
+            addHoverListeners();
+        }
+
+
+        function addHoverListeners() {
+            const isMobile = window.innerWidth <= 600;
+            document.querySelectorAll('.lab-test[data-test-key]').forEach(card => {
+                 card.removeEventListener('mouseenter', handleMouseEnter);
+                 card.removeEventListener('mouseleave', handleMouseLeave);
+                 if (!isMobile && !card.classList.contains('no-data-hover')) {
+                     card.addEventListener('mouseenter', handleMouseEnter);
+                     card.addEventListener('mouseleave', handleMouseLeave);
+                 }
+             });
+        }
+
+        function handleMouseEnter(event) {
+             const card = event.currentTarget;
+             const displayValueEl = card.querySelector('.lab-value-text');
+             if (displayValueEl && displayValueEl.textContent === 'No data') {
+                 const existingPopup = card.querySelector('.trend-popup');
+                 if (existingPopup) existingPopup.style.display = 'none';
+                 return;
+             }
+
+             if (activeChart) { activeChart.destroy(); activeChart = null; }
+
+             const testKey = card.dataset.testKey;
+             const popup = card.querySelector('.trend-popup');
+             const titleEl = popup?.querySelector('.trend-popup-title');
+             const canvas = popup?.querySelector('canvas');
+             const config = labConfig[testKey];
+
+             if (!testKey || !canvas || !config || !titleEl) return;
+
+             titleEl.textContent = `${config.name || testKey} Trend`;
+             canvas.innerHTML = ''; // Clear previous canvas content if any
+             const ctx = canvas.getContext('2d');
+
+             const chartDataPoints = [];
+             healthData.forEach(entry => {
+                 const date = new Date(entry.date + 'T00:00:00');
+                 if (isNaN(date.getTime())) return;
+
+                 const addPoint = (value, sourceKey) => {
+                     if (value != null && value !== "" && value !== "No data") {
+                         const numericValue = parseFloat(String(value).replace(/[^\d.-]/g, ''));
+                         if (!isNaN(numericValue)) {
+                             chartDataPoints.push({ x: date, y: numericValue, source: sourceKey });
+                         }
+                     }
+                 };
+
+                 if (testKey === "Glucose, Ser/Plas") {
+                     addPoint(entry["Glucose, Ser/Plas"], "Glucose, Ser/Plas");
+                     addPoint(entry["Glucose, Random"], "Glucose, Random");
+                 } else if (testKey === 'BP') {
+                    if (typeof entry.BP === 'string' && entry.BP.includes('/')) {
+                         const sys = parseFloat(entry.BP.split('/')[0]);
+                         if (!isNaN(sys)) {
+                             chartDataPoints.push({ x: date, y: sys, source: 'BP' });
+                         }
+                     }
+                 } else {
+                      addPoint(entry[testKey], testKey);
+                 }
+             });
+
+             chartDataPoints.sort((a, b) => a.x - b.x);
+
+             if (chartDataPoints.length > 1) {
+                 const annotations = {};
+                 const lineBorderWidth = 1;
+                 const lineBorderDash = [5, 5];
+                 const labelProps = (color) => ({
+                     display: true, position: 'start', font: { size: 9, weight: '600' },
+                     color: color, backgroundColor: 'rgba(255,255,255,0.7)',
+                     padding: { x: 4, y: 1 }, borderRadius: 2, xAdjust: 5
+                 });
+
+                 if (config.low != null && isFinite(config.low)) {
+                     annotations[`lowLine_${config.low}`] = { // Unique key
+                         type: 'line', yMin: config.low, yMax: config.low,
+                         borderColor: 'rgba(40, 167, 69, 0.7)', borderWidth: lineBorderWidth, borderDash: lineBorderDash,
+                         label: { ...labelProps('rgba(40, 167, 69, 1)'), content: `Normal Low: ${config.low}`, yAdjust: -10 }
+                     };
+                 }
+                 if (config.high != null && isFinite(config.high)) {
+                     annotations[`highLine_${config.high}`] = { // Unique key
+                         type: 'line', yMin: config.high, yMax: config.high,
+                         borderColor: 'rgba(40, 167, 69, 0.7)', borderWidth: lineBorderWidth, borderDash: lineBorderDash,
+                         label: { ...labelProps('rgba(40, 167, 69, 1)'), content: `Normal High: ${config.high}`, yAdjust: 10 }
+                     };
+                 }
+                 if (config.badLow != null && isFinite(config.badLow)) {
+                    annotations[`badLowLine_${config.badLow}`] = { // Unique key
+                        type: 'line', yMin: config.badLow, yMax: config.badLow,
+                        borderColor: 'rgba(220, 53, 69, 0.7)', borderWidth: lineBorderWidth, borderDash: lineBorderDash,
+                        label: { ...labelProps('rgba(220, 53, 69, 1)'), content: `High Risk > ${config.badLow}`, yAdjust: 10 }
+                    };
+                 }
+                 if (config.badHigh != null && isFinite(config.badHigh)) {
+                    annotations[`badHighLine_${config.badHigh}`] = { // Unique key
+                        type: 'line', yMin: config.badHigh, yMax: config.badHigh,
+                        borderColor: 'rgba(220, 53, 69, 0.7)', borderWidth: lineBorderWidth, borderDash: lineBorderDash,
+                        label: { ...labelProps('rgba(220, 53, 69, 1)'), content: `Risk Threshold < ${config.badHigh}`, yAdjust: -10 }
+                    };
+                 }
+                  if (config.warningLow != null && isFinite(config.warningLow)) {
+                    annotations[`warningLowLine_${config.warningLow}`] = { // Unique key
+                        type: 'line', yMin: config.warningLow, yMax: config.warningLow,
+                        borderColor: 'rgba(255, 193, 7, 0.7)', borderWidth: lineBorderWidth, borderDash: lineBorderDash,
+                        label: { ...labelProps('rgba(204, 154, 6, 1)'), content: `Warn > ${config.warningLow}`, yAdjust: 10 }
+                    };
+                 }
+                 if (config.warningHigh != null && isFinite(config.warningHigh) && config.low != null && config.warningHigh < config.low ) { // Only show low warning if it's below normal low
+                    annotations[`warningHighLine_${config.warningHigh}`] = { // Unique key
+                        type: 'line', yMin: config.warningHigh, yMax: config.warningHigh,
+                        borderColor: 'rgba(255, 193, 7, 0.7)', borderWidth: lineBorderWidth, borderDash: lineBorderDash,
+                        label: { ...labelProps('rgba(204, 154, 6, 1)'), content: `Warn < ${config.warningHigh}`, yAdjust: -10 }
+                    };
+                 }
+
+
+                 activeChart = new Chart(ctx, {
+                     type: 'line',
+                     data: {
+                         datasets: [{
+                             label: config.name || testKey,
+                             data: chartDataPoints,
+                             borderColor: 'var(--primary-color)',
+                             backgroundColor: 'var(--primary-color-transparent)',
+                             borderWidth: 2, pointRadius: 3, pointBackgroundColor: 'var(--primary-color)', pointHoverRadius: 5,
+                             tension: 0.1, fill: 'start', spanGaps: false,
+                         }]
+                     },
+                     options: {
+                         responsive: true, maintainAspectRatio: false,
+                         scales: {
+                             y: {
+                                 beginAtZero: (config.low === 0 || config.visLow === 0),
+                                 display: true, ticks: { font: { size: 9 } },
+                                 title: { display: !!config.unit, text: config.unit || '', font: { size: 10 } }
+                             },
+                             x: {
+                                 display: true, type: 'time',
+                                 time: {
+                                     unit: chartDataPoints.length > 10 ? 'year' : chartDataPoints.length > 3 ? 'quarter' : 'month',
+                                     tooltipFormat: 'MMM d, yyyy',
+                                     displayFormats: { year: 'yy', quarter: 'qQ yy', month: 'MMM yy' }
+                                 },
+                                 ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true, major: { enabled: true }, maxTicksLimit: 6 }
+                             }
+                         },
+                         plugins: {
+                             legend: { display: false },
+                             title: { display: false },
+                             tooltip: {
+                                 enabled: true, mode: 'index', intersect: false,
+                                 bodyFont: { size: 10 }, titleFont: { size: 11 }, boxPadding: 4,
+                                 callbacks: {
+                                     label: function(context) {
+                                         let label = context.dataset.label || '';
+                                         let pointSource = context.raw?.source || '';
+                                         if (label) {
+                                             label = config.name || label; // Use consistent name
+                                             // Add indication if it's a different source (e.g., random glucose on fasting chart)
+                                             if (pointSource && pointSource !== testKey && pointSource === "Glucose, Random") {
+                                                label += ' (Random)';
+                                             } else if (pointSource && pointSource !== testKey && pointSource === "Glucose, Ser/Plas"){
+                                                 label += ' (Fasting)';
+                                             }
+                                             label += ': ';
+                                         }
+                                         if (context.parsed.y !== null) {
+                                             label += context.parsed.y;
+                                             const unit = config.unit || '';
+                                             if (unit) label += ' ' + unit;
+                                         }
+                                         return label;
+                                     }
+                                 }
+                             },
+                             annotation: {
+                                 annotations: annotations,
+                                 clip: false // Allow labels to be drawn outside chart area slightly
+                             }
+                         },
+                         interaction: { mode: 'nearest', axis: 'x', intersect: false, },
+                         animation: { duration: 0 }
+                     }
+                 });
+             } else {
+                 titleEl.textContent = ''; // Clear title if no chart
+                 canvas.parentElement.innerHTML = `<div class="trend-popup-title">${config.name || testKey}</div><span style="font-size:0.8em; color: var(--dark-gray); display: block; text-align: center; padding: 10px;">Not enough data for trend.</span>`;
+             }
+         }
+
+        function handleMouseLeave(event) {
+             if (activeChart) {
+                 activeChart.destroy();
+                 activeChart = null;
+             }
+             // Find the popup relative to the card that triggered the leave event
+             const card = event.currentTarget;
+             const popup = card.querySelector('.trend-popup');
+             // Reset popup structure if it wasn't replaced by 'no data' message
+             if (popup && !popup.querySelector('span')) {
+                  popup.innerHTML = '<div class="trend-popup-title"></div><canvas></canvas>';
+             }
+        }
+
+         function populateDatePicker() {
+             datePickerList.textContent = '';
+             const fragment = document.createDocumentFragment();
+             healthData.forEach((entry, index) => {
+                 const li = document.createElement('li');
+                 li.textContent = formatDate(entry.date);
+                 li.dataset.index = index;
+                 if (index === currentDateIndex) { li.classList.add('active'); }
+                 fragment.appendChild(li);
+             });
+              const listItems = Array.from(fragment.childNodes);
+              listItems.reverse().forEach(li => datePickerList.appendChild(li));
+         }
+
+         function toggleDatePicker(show = null) {
+             const currentlyVisible = datePickerPopup.classList.contains('visible');
+             const makeVisible = show !== null ? show : !currentlyVisible;
+
+             if (makeVisible) {
+                 datePickerPopup.classList.add('visible');
+                 document.querySelectorAll('#date-picker-list li').forEach(li => {
+                      li.classList.toggle('active', parseInt(li.dataset.index) === currentDateIndex);
+                  });
+                  const activeItem = datePickerList.querySelector('li.active');
+                  if (activeItem) {
+                       activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                  }
+             } else {
+                 datePickerPopup.classList.remove('visible');
+             }
+         }
+
+        function handleArrowKeys(event) {
+            if (event.metaKey || event.ctrlKey || event.altKey || event.target.matches('input, textarea') || datePickerPopup.classList.contains('visible')) {
+                return;
+            }
+            let newIndex = currentDateIndex;
+            if (event.key === 'ArrowLeft') {
+                if (currentDateIndex > 0) newIndex--;
+                else return;
+            } else if (event.key === 'ArrowRight') {
+                if (currentDateIndex < healthData.length - 1) newIndex++;
+                else return;
+            } else {
+                return;
+            }
+            event.preventDefault();
+            renderPageForDate(newIndex);
+        }
+
+        prevDateBtn.addEventListener('click', () => { renderPageForDate(currentDateIndex - 1); });
+        nextDateBtn.addEventListener('click', () => { renderPageForDate(currentDateIndex + 1); });
+        displayedDateBtn.addEventListener('click', (event) => { event.stopPropagation(); toggleDatePicker(); });
+        popupCloseBtn.addEventListener('click', () => toggleDatePicker(false));
+
+         datePickerList.addEventListener('click', (event) => {
+            const targetLi = event.target.closest('li');
+            if (targetLi && targetLi.dataset.index) {
+                const newIndex = parseInt(targetLi.dataset.index, 10);
+                if (!isNaN(newIndex) && newIndex !== currentDateIndex) {
+                    renderPageForDate(newIndex);
+                }
+                toggleDatePicker(false);
+            }
+         });
+
+         window.addEventListener('click', (event) => {
+            if (datePickerPopup.classList.contains('visible') && !datePickerPopup.contains(event.target) && !displayedDateBtn.contains(event.target) ) {
+                 toggleDatePicker(false);
+             }
+         });
+
+        window.addEventListener('keydown', handleArrowKeys);
+
+        document.addEventListener('DOMContentLoaded', () => {
+             healthData.sort((a, b) => {
+                 const dateA = new Date(a.date + 'T00:00:00');
+                 const dateB = new Date(b.date + 'T00:00:00');
+                 const timeA = isNaN(dateA) ? -Infinity : dateA.getTime();
+                 const timeB = isNaN(dateB) ? -Infinity : dateB.getTime();
+                 return timeA - timeB;
+             });
+             currentDateIndex = healthData.length - 1;
+             populateDatePicker();
+             renderPageForDate(currentDateIndex);
+             window.addEventListener('resize', () => {
+                renderPageForDate(currentDateIndex); // Re-render to fix placeholders
+                addHoverListeners(); // Re-attach hover listeners if needed (e.g., mobile -> desktop)
+             });
+        });
+    </script>
+
+</body>
+</html>
