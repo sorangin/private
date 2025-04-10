@@ -9,6 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js" integrity="sha512-Hn1w6YpuoZNQSzqWUo7X5xmH Citro4GNKUwTRPAxbKMI0TQTsQxGwubEC9F3GWPvO+kRk7MWsczPqJ21hkBbGcw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <style>
+        /* --- Existing styles remain the same --- */
         :root {
             --primary-color: #007bff;
             --success-color: #28a745;
@@ -59,18 +60,65 @@
         #displayed-date-btn:hover { color: var(--primary-color); }
 
         h2 { margin-top: 20px; margin-bottom: 20px; text-align: center; color: var(--primary-color); font-weight: 600; font-size: 1.6em; }
-        .category { margin-bottom: 25px; }
+        .category { margin-bottom: 5px; /* Adjusted margin */ }
         .category h3 {
-            margin-bottom: 15px; padding: 6px 12px; border: none; background-color: var(--primary-color);
+            margin-bottom: 0; /* Adjusted margin */
+            padding: 8px 12px; /* Slightly increased padding */
+            border: none; background-color: var(--primary-color);
             color: var(--card-bg); border-radius: 5px; font-size: 1.05em; font-weight: 600; letter-spacing: 0.3px;
+            display: flex; /* Added for arrow alignment */
+            justify-content: space-between; /* Added for arrow alignment */
+            align-items: center; /* Added for arrow alignment */
+            cursor: pointer; /* Added for click indication */
+            transition: border-radius 0.2s ease-in-out; /* Smooth transition */
+            position: relative; /* Needed for z-index potentially */
+            z-index: 1; /* Keep header above content */
         }
-        .lab-grid { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-start; }
-        #grid-health-overview { padding-top: 5px; margin-bottom: 0;}
+        .category.collapsed h3 {
+            border-bottom-left-radius: 5px; /* Match bottom corners when collapsed */
+            border-bottom-right-radius: 5px;
+             margin-bottom: 5px; /* Add margin back when collapsed */
+        }
+        .toggle-arrow {
+            font-size: 0.9em;
+            margin-left: 10px;
+            font-weight: normal;
+            transition: transform 0.2s ease-in-out;
+        }
+        /* Optional: Rotate arrow instead of changing text */
+        /* .category.collapsed .toggle-arrow {
+            transform: rotate(-90deg);
+        } */
+
+        .lab-grid {
+            display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-start;
+            padding: 15px 0px 10px 0px; /* Added padding */
+            border-left: 1px solid var(--card-border); /* Optional visual separation */
+            border-right: 1px solid var(--card-border); /* Optional visual separation */
+            border-bottom: 1px solid var(--card-border); /* Optional visual separation */
+            border-bottom-left-radius: 5px; /* Match bottom corners */
+            border-bottom-right-radius: 5px; /* Match bottom corners */
+            background-color: var(--bg-color); /* Slightly different bg for content */
+            transition: padding 0.2s ease-in-out, max-height 0.3s ease-in-out, opacity 0.2s ease-in-out; /* Smooth transition */
+            max-height: 2000px; /* High enough value for expansion */
+            overflow: hidden;
+            opacity: 1;
+        }
+        #grid-health-overview { padding-top: 15px; margin-bottom: 0;} /* Adjust health overview padding */
+
+        .category.collapsed .collapsible-content {
+             max-height: 0;
+             padding-top: 0;
+             padding-bottom: 0;
+             opacity: 0;
+             overflow: hidden;
+             border-width: 0px; /* Hide borders when collapsed */
+        }
 
         .lab-test {
             border: 1px solid var(--card-border); padding: 8px 10px; border-radius: 6px; background-color: var(--card-bg);
             box-shadow: var(--card-shadow); flex-basis: calc(33.333% - 8px); box-sizing: border-box; margin-bottom: 0;
-            display: flex; flex-direction: column; justify-content: space-between; min-height: 75px;
+            display: flex; flex-direction: column; justify-content: space-between; min-height: 70px; /* Reduced min-height slightly */
             transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out; position: relative;
         }
         .lab-test.placeholder {
@@ -87,10 +135,11 @@
         .lab-info { margin-bottom: 5px; flex-grow: 1; }
         .lab-name { font-size: 0.9em; font-weight: 600; color: var(--text-color); margin-bottom: 2px; }
         .lab-range { font-size: 0.7em; color: var(--dark-gray); margin-bottom: 1px; line-height: 1.2; }
-        .lab-value-text { font-size: 0.8em; font-weight: 500; color: var(--text-color); margin-top: 2px; }
-        .value-good { color: var(--success-color); }
-        .value-warning { color: var(--warning-color); }
-        .value-bad { color: var(--danger-color); }
+        /* REMOVED .lab-value-text styling as the element is removed */
+        /* .lab-value-text { font-size: 0.8em; font-weight: 500; color: var(--text-color); margin-top: 2px; } */
+        /* .value-good { color: var(--success-color); } */
+        /* .value-warning { color: var(--warning-color); } */
+        /* .value-bad { color: var(--danger-color); } */
 
         .range-visualization { position: relative; height: 30px; margin-top: auto; flex-shrink: 0; }
         .range-visualization .no-viz-text {
@@ -174,6 +223,9 @@
          @media screen and (max-width: 768px) {
             #grid-health-overview .lab-test { flex-basis: calc(50% - 6px);}
              .trend-popup { min-width: 250px; }
+             /* Adjust grid gap for smaller screens if needed */
+             .lab-grid { gap: 10px; }
+             .lab-test { flex-basis: calc(50% - 5px); }
         }
         @media screen and (max-width: 600px) {
             body { padding-top: 40px; padding-left: 10px; padding-right: 10px; padding-bottom: 10px; }
@@ -181,15 +233,18 @@
             #displayed-date-btn { font-size: 1em; min-width: 100px; }
             .nav-arrow { font-size: 1.1em; }
             h2 { font-size: 1.4em; margin-top: 15px; margin-bottom: 15px;}
-            .category h3 { font-size: 1.0em; padding: 5px 10px; }
-            .lab-grid { flex-direction: column; gap: 0; }
+            .category h3 { font-size: 1.0em; padding: 6px 10px; } /* Adjusted padding */
+            .lab-grid {
+                flex-direction: column; gap: 0; padding: 10px 0; /* Adjust padding */
+                border-left: none; border-right: none; /* Remove side borders on mobile */
+            }
             .lab-test { flex-basis: 100% !important; margin-bottom: 10px; min-height: auto; border-radius: 5px; padding: 6px 8px; }
             .lab-test:hover { transform: none; box-shadow: var(--card-shadow); z-index: auto;}
             .lab-test.no-data-hover:hover { transform: none; box-shadow: var(--card-shadow); }
             .lab-test:last-child { margin-bottom: 0; }
             .lab-name { font-size: 0.85em; }
-            .lab-range, .lab-value-text { font-size: 0.7em; }
-            .lab-value-text { font-size: 0.9em; }
+            .lab-range { font-size: 0.7em; }
+            /* REMOVED .lab-value-text styling */
             .range-visualization { height: 28px; }
             .value-box { font-size: 0.7em; padding: 1px 4px;}
             .range-labels { font-size: 0.6em; bottom: -1px;}
@@ -202,7 +257,7 @@
              h2 { font-size: 1.3em; margin-top: 10px; margin-bottom: 10px;}
              .lab-test { padding: 5px 6px; }
              .lab-name { font-size: 0.8em;}
-             .lab-value-text { font-size: 0.85em;}
+             /* REMOVED .lab-value-text styling */
              #date-picker-popup { top: 30px; }
          }
     </style>
@@ -225,40 +280,59 @@
 
     <h2>Sora Lab Results</h2>
 
+    <!-- Updated Category Structure -->
     <div class="category">
-        <h3>Health Overview</h3>
-        <div class="lab-grid" id="grid-health-overview"></div>
+        <h3 class="collapsible-header">
+            Health Overview
+            <span class="toggle-arrow">▲</span>
+        </h3>
+        <div class="lab-grid collapsible-content" id="grid-health-overview"></div>
     </div>
 
     <div class="category">
-        <h3>Electrolytes & Metabolism</h3>
-        <div class="lab-grid" id="grid-electrolytes"></div>
+        <h3 class="collapsible-header">
+            Electrolytes & Metabolism
+            <span class="toggle-arrow">▲</span>
+        </h3>
+        <div class="lab-grid collapsible-content" id="grid-electrolytes"></div>
     </div>
 
     <div class="category">
-        <h3>Liver Function</h3>
-        <div class="lab-grid" id="grid-liver"></div>
+        <h3 class="collapsible-header">
+            Liver Function
+             <span class="toggle-arrow">▲</span>
+        </h3>
+        <div class="lab-grid collapsible-content" id="grid-liver"></div>
     </div>
 
     <div class="category">
-        <h3>Thyroid</h3>
-        <div class="lab-grid" id="grid-thyroid"></div>
+        <h3 class="collapsible-header">
+            Thyroid
+             <span class="toggle-arrow">▲</span>
+        </h3>
+        <div class="lab-grid collapsible-content" id="grid-thyroid"></div>
     </div>
 
     <div class="category">
-        <h3>CBC with Differential</h3>
-        <div class="lab-grid" id="grid-cbc"></div>
+        <h3 class="collapsible-header">
+            CBC with Differential
+             <span class="toggle-arrow">▲</span>
+        </h3>
+        <div class="lab-grid collapsible-content" id="grid-cbc"></div>
     </div>
 
     <script>
+        // --- healthData remains the same ---
         const healthData = [
              { date: "2020-01-01", BP: "113 / 59", Glucose: null, Weight: 160, A1c: 5, Cholesterol: 167, HDL: 39, Triglycerides: null, LDL: "106?", "Sodium, Ser/Plas": null, "Potassium, Ser/Plas": null, "Chloride, Ser/Plas": null, "CO2, Ser/Plas": null, "Anion Gap": null, "Glucose, Ser/Plas": null, "Glucose, Random": null, "Creatinine": null, "eGFR Refit Without Race (2021)": null, "BUN, Ser/Plas": null, "Calcium, Ser/Plas": null, "Protein, Total, Ser/Plas": null, "Albumin, Ser/Plas": null, "Globulin": null, "Total Bilirubin, Ser/Plas": null, "Alk P'TASE, Total, Ser/Plas": null, "AST (SGOT), Ser/Plas": null, "ALT (SGPT), Ser/Plas": null, "TSH": null, "WBC Count": null, "RBC Count": null, "Hemoglobin": null, "Hematocrit": null, "MCV": null, "MCH": null, "MCHC": null, "RDW": null, "Platelet count": null, "Neutrophil %": null, "Lymphocyte %": null, "Monocyte %": null, "Eosinophil %": null, "Basophil %": null, "Imm. Granulocyte, %": null, "Neutrophil, Absolute": null, "Lymphocyte, Absolute": null, "Monocyte, Absolute": null, "Eosinophil, Absolute": null, "Basophil, Absolute": null, "Imm. Granulocyte, Abs": null, "nRBC, Abs": null, "nRBC, %": null },
              { date: "2021-07-01", BP: "131 / 85", Glucose: null, Weight: 164, A1c: 5.1, Cholesterol: 194, HDL: 44, Triglycerides: 115, LDL: 127, "Sodium, Ser/Plas": null, "Potassium, Ser/Plas": null, "Chloride, Ser/Plas": null, "CO2, Ser/Plas": null, "Anion Gap": null, "Glucose, Ser/Plas": null, "Glucose, Random": null, "Creatinine": null, "eGFR Refit Without Race (2021)": null, "BUN, Ser/Plas": null, "Calcium, Ser/Plas": null, "Protein, Total, Ser/Plas": null, "Albumin, Ser/Plas": null, "Globulin": null, "Total Bilirubin, Ser/Plas": null, "Alk P'TASE, Total, Ser/Plas": null, "AST (SGOT), Ser/Plas": null, "ALT (SGPT), Ser/Plas": null, "TSH": null, "WBC Count": null, "RBC Count": null, "Hemoglobin": null, "Hematocrit": null, "MCV": null, "MCH": null, "MCHC": null, "RDW": null, "Platelet count": null, "Neutrophil %": null, "Lymphocyte %": null, "Monocyte %": null, "Eosinophil %": null, "Basophil %": null, "Imm. Granulocyte, %": null, "Neutrophil, Absolute": null, "Lymphocyte, Absolute": null, "Monocyte, Absolute": null, "Eosinophil, Absolute": null, "Basophil, Absolute": null, "Imm. Granulocyte, Abs": null, "nRBC, Abs": null, "nRBC, %": null },
              { date: "2023-04-01", BP: "145 / 91", Glucose: 90, Weight: 178, A1c: 5.4, Cholesterol: 237, HDL: 39, Triglycerides: 204, LDL: 162, "Sodium, Ser/Plas": null, "Potassium, Ser/Plas": null, "Chloride, Ser/Plas": null, "CO2, Ser/Plas": null, "Anion Gap": null, "Glucose, Ser/Plas": null, "Glucose, Random": null, "Creatinine": null, "eGFR Refit Without Race (2021)": null, "BUN, Ser/Plas": null, "Calcium, Ser/Plas": null, "Protein, Total, Ser/Plas": null, "Albumin, Ser/Plas": null, "Globulin": null, "Total Bilirubin, Ser/Plas": null, "Alk P'TASE, Total, Ser/Plas": null, "AST (SGOT), Ser/Plas": null, "ALT (SGPT), Ser/Plas": null, "TSH": null, "WBC Count": null, "RBC Count": null, "Hemoglobin": null, "Hematocrit": null, "MCV": null, "MCH": null, "MCHC": null, "RDW": null, "Platelet count": null, "Neutrophil %": null, "Lymphocyte %": null, "Monocyte %": null, "Eosinophil %": null, "Basophil %": null, "Imm. Granulocyte, %": null, "Neutrophil, Absolute": null, "Lymphocyte, Absolute": null, "Monocyte, Absolute": null, "Eosinophil, Absolute": null, "Basophil, Absolute": null, "Imm. Granulocyte, Abs": null, "nRBC, Abs": null, "nRBC, %": null },
              { date: "2023-08-17", BP: null, Glucose: 103, Weight: null, A1c: null, Cholesterol: null, HDL: null, Triglycerides: null, LDL: null, "Sodium, Ser/Plas": 138, "Potassium, Ser/Plas": 3.5, "Chloride, Ser/Plas": 99, "CO2, Ser/Plas": 20, "Anion Gap": 19, "Glucose, Ser/Plas": null, "Glucose, Random": 103, "Creatinine": 1.02, "eGFR Refit Without Race (2021)": ">60", "BUN, Ser/Plas": 10, "Calcium, Ser/Plas": 9.9, "Protein, Total, Ser/Plas": null, "Albumin, Ser/Plas": null, "Globulin": null, "Total Bilirubin, Ser/Plas": null, "Alk P'TASE, Total, Ser/Plas": null, "AST (SGOT), Ser/Plas": 18, "ALT (SGPT), Ser/Plas": 18, "TSH": null, "WBC Count": 5.9, "RBC Count": 5.92, "Hemoglobin": 16.6, "Hematocrit": 49.3, "MCV": 83, "MCH": null, "MCHC": null, "RDW": 12, "Platelet count": 260, "Neutrophil %": 43, "Lymphocyte %": 47, "Monocyte %": 8, "Eosinophil %": 2, "Basophil %": 0, "Imm. Granulocyte, %": 0, "Neutrophil, Absolute": 2.5, "Lymphocyte, Absolute": 2.8, "Monocyte, Absolute": 0.5, "Eosinophil, Absolute": 0.1, "Basophil, Absolute": 0, "Imm. Granulocyte, Abs": 0, "nRBC, Abs": 0.00, "nRBC, %": 0.0 },
              { date: "2023-08-28", BP: "106 / 62", Glucose: 80, Weight: 165, A1c: null, Cholesterol: 274, HDL: 42, Triglycerides: 74, LDL: 214, "Sodium, Ser/Plas": 141, "Potassium, Ser/Plas": 4.4, "Chloride, Ser/Plas": 105, "CO2, Ser/Plas": 26, "Anion Gap": null, "Glucose, Ser/Plas": null, "Glucose, Random": 80, "Creatinine": 1.05, "eGFR Refit Without Race (2021)": 97, "BUN, Ser/Plas": 13, "Calcium, Ser/Plas": 9.6, "Protein, Total, Ser/Plas": 7.2, "Albumin, Ser/Plas": 4.5, "Globulin": 2.7, "Total Bilirubin, Ser/Plas": 0.9, "Alk P'TASE, Total, Ser/Plas": 60, "AST (SGOT), Ser/Plas": 18, "ALT (SGPT), Ser/Plas": 18, "TSH": null, "WBC Count": 5.8, "RBC Count": 5.52, "Hemoglobin": 16.2, "Hematocrit": 47.8, "MCV": 86.6, "MCH": 29.3, "MCHC": 33.9, "RDW": 12.8, "Platelet count": 301, "Neutrophil %": 49.2, "Lymphocyte %": 44.3, "Monocyte %": 4.8, "Eosinophil %": 1.4, "Basophil %": 0.3, "Imm. Granulocyte, %": 0, "Neutrophil, Absolute": 2.854, "Lymphocyte, Absolute": 2.569, "Monocyte, Absolute": 0.278, "Eosinophil, Absolute": 0.081, "Basophil, Absolute": 0.017, "Imm. Granulocyte, Abs": null, "nRBC, Abs": null, "nRBC, %": null },
-             { date: "2025-04-08", BP: null, Glucose: 97, Weight: 165, A1c: null, Cholesterol: null, HDL: null, Triglycerides: null, LDL: null, "Sodium, Ser/Plas": 138, "Potassium, Ser/Plas": 4.5, "Chloride, Ser/Plas": 101, "CO2, Ser/Plas": 24, "Anion Gap": 13, "Glucose, Ser/Plas": 97, "Glucose, Random": null, "Creatinine": 1.01, "eGFR Refit Without Race (2021)": 101, "BUN, Ser/Plas": 15, "Calcium, Ser/Plas": 9.4, "Protein, Total, Ser/Plas": 7.8, "Albumin, Ser/Plas": 4.4, "Globulin": 3.4, "Total Bilirubin, Ser/Plas": 0.9, "Alk P'TASE, Total, Ser/Plas": 85, "AST (SGOT), Ser/Plas": 32, "ALT (SGPT), Ser/Plas": 34, "TSH": 2.39, "WBC Count": 6.0, "RBC Count": 5.76, "Hemoglobin": 16.6, "Hematocrit": 49.2, "MCV": 85.4, "MCH": 28.8, "MCHC": 33.7, "RDW": 11.7, "Platelet count": 291, "Neutrophil %": 56.3, "Lymphocyte %": 35.5, "Monocyte %": 6.0, "Eosinophil %": 1.8, "Basophil %": 0.2, "Imm. Granulocyte, %": 0.2, "Neutrophil, Absolute": 3.39, "Lymphocyte, Absolute": 2.14, "Monocyte, Absolute": 0.36, "Eosinophil, Absolute": 0.11, "Basophil, Absolute": 0.01, "Imm. Granulocyte, Abs": 0.01, "nRBC, Abs": 0.00, "nRBC, %": 0.0 }
+             { date: "2025-04-08", BP: "122 / 81", Glucose: 97, Weight: 172, A1c: null, Cholesterol: null, HDL: null, Triglycerides: null, LDL: null, "Sodium, Ser/Plas": 138, "Potassium, Ser/Plas": 4.5, "Chloride, Ser/Plas": 101, "CO2, Ser/Plas": 24, "Anion Gap": 13, "Glucose, Ser/Plas": 97, "Glucose, Random": null, "Creatinine": 1.01, "eGFR Refit Without Race (2021)": 101, "BUN, Ser/Plas": 15, "Calcium, Ser/Plas": 9.4, "Protein, Total, Ser/Plas": 7.8, "Albumin, Ser/Plas": 4.4, "Globulin": 3.4, "Total Bilirubin, Ser/Plas": 0.9, "Alk P'TASE, Total, Ser/Plas": 85, "AST (SGOT), Ser/Plas": 32, "ALT (SGPT), Ser/Plas": 34, "TSH": 2.39, "WBC Count": 6.0, "RBC Count": 5.76, "Hemoglobin": 16.6, "Hematocrit": 49.2, "MCV": 85.4, "MCH": 28.8, "MCHC": 33.7, "RDW": 11.7, "Platelet count": 291, "Neutrophil %": 56.3, "Lymphocyte %": 35.5, "Monocyte %": 6.0, "Eosinophil %": 1.8, "Basophil %": 0.2, "Imm. Granulocyte, %": 0.2, "Neutrophil, Absolute": 3.39, "Lymphocyte, Absolute": 2.14, "Monocyte, Absolute": 0.36, "Eosinophil, Absolute": 0.11, "Basophil, Absolute": 0.01, "Imm. Granulocyte, Abs": 0.01, "nRBC, Abs": 0.00, "nRBC, %": 0.0 }
         ];
+
+        // *** UPDATED labConfig SECTION ***
          const labConfig = {
              "BP": { category: "healthOverview", name: "Blood Pressure", rangeText: "<120 / <80", unit: "mmHg", low: 0, high: 119, visLow: 80, visHigh: 160, warningLow: 120, warningHigh: 139, badLow: 140 },
              "Weight": { category: "healthOverview", name: "Weight", rangeText: "140-175 lbs", unit: "lbs", low: 140, high: 175, visLow: 130, visHigh: 190 },
@@ -286,30 +360,32 @@
              "AST (SGOT), Ser/Plas": { category: "liver", name: "AST (SGOT)", rangeText: "10-40 IU/L", unit: "IU/L", low: 10, high: 40, visLow: 0, visHigh: 60 },
              "ALT (SGPT), Ser/Plas": { category: "liver", name: "ALT (SGPT)", rangeText: "9-46 IU/L", unit: "IU/L", low: 9, high: 46, visLow: 0, visHigh: 60 },
              "TSH": { category: "thyroid", name: "TSH", rangeText: "0.27-4.20 uIU/mL", unit: "uIU/mL", low: 0.27, high: 4.20, visLow: 0, visHigh: 5.5 },
-             "WBC Count": { category: "cbc", name: "WBC Count", rangeText: "3.7-11.1 K/uL", unit: "K/uL", low: 3.7, high: 11.1, visLow: 2, visHigh: 12 },
-             "RBC Count": { category: "cbc", name: "RBC Count", rangeText: "4.10-5.70 M/uL", unit: "M/uL", low: 4.10, high: 5.70, visLow: 3.8, visHigh: 6.2 },
-             "Hemoglobin": { category: "cbc", name: "Hemoglobin", rangeText: "13.0-17.0 g/dL", unit: "g/dL", low: 13.0, high: 17.0, visLow: 12, visHigh: 18 },
-             "Hematocrit": { category: "cbc", name: "Hematocrit", rangeText: "39-51 %", unit: "%", low: 39, high: 51, visLow: 34, visHigh: 58 },
-             "MCV": { category: "cbc", name: "MCV", rangeText: "80-100 fL", unit: "fL", low: 80, high: 100, visLow: 78, visHigh: 103 },
-             "MCH": { category: "cbc", name: "MCH", rangeText: null, unit: "pg" },
-             "MCHC": { category: "cbc", name: "MCHC", rangeText: null, unit: "g/dL" },
-             "RDW": { category: "cbc", name: "RDW", rangeText: "12.0-16.5 %", unit: "%", low: 12.0, high: 16.5, visLow: 10, visHigh: 18 },
-             "Platelet count": { category: "cbc", name: "Platelets", rangeText: "140-400 K/uL", unit: "K/uL", low: 140, high: 400, visLow: 50, visHigh: 450 },
-             "Neutrophil %": { category: "cbc", name: "Neutrophil %", rangeText: null, unit: "%" },
-             "Lymphocyte %": { category: "cbc", name: "Lymphocyte %", rangeText: null, unit: "%" },
-             "Monocyte %": { category: "cbc", name: "Monocyte %", rangeText: null, unit: "%" },
-             "Eosinophil %": { category: "cbc", name: "Eosinophil %", rangeText: null, unit: "%" },
-             "Basophil %": { category: "cbc", name: "Basophil %", rangeText: null, unit: "%" },
-             "Imm. Granulocyte, %": { category: "cbc", name: "Imm Gran %", rangeText: "0.0-0.1 %", unit: "%", low: 0, high: 0.1, visLow: 0, visHigh: 0.5 },
-             "Neutrophil, Absolute": { category: "cbc", name: "Abs Neutrophil", rangeText: "1.8-7.9 K/uL", unit: "K/uL", low: 1.8, high: 7.9, visLow: 0, visHigh: 9 },
-             "Lymphocyte, Absolute": { category: "cbc", name: "Abs Lymphocyte", rangeText: "0.9-3.2 K/uL", unit: "K/uL", low: 0.9, high: 3.2, visLow: 0, visHigh: 4 },
-             "Monocyte, Absolute": { category: "cbc", name: "Abs Monocyte", rangeText: "0.3-0.9 K/uL", unit: "K/uL", low: 0.3, high: 0.9, visLow: 0, visHigh: 1.2 },
-             "Eosinophil, Absolute": { category: "cbc", name: "Abs Eosinophil", rangeText: "0.0-0.4 K/uL", unit: "K/uL", low: 0.0, high: 0.4, visLow: 0, visHigh: 0.6 },
-             "Basophil, Absolute": { category: "cbc", name: "Abs Basophil", rangeText: "0.0-0.1 K/uL", unit: "K/uL", low: 0.0, high: 0.1, visLow: 0, visHigh: 0.2 },
-             "Imm. Granulocyte, Abs": { category: "cbc", name: "Abs Imm Gran", rangeText: "0.0-0.1 K/uL", unit: "K/uL", low: 0.0, high: 0.1, visLow: 0, visHigh: 0.2 },
-             "nRBC, Abs": { category: "cbc", name: "nRBC Abs", rangeText: null, unit: "/100 WBC" },
-             "nRBC, %": { category: "cbc", name: "nRBC %", rangeText: "<=0 %", unit: "%", low: 0, high: 0, visLow: 0, visHigh: 1 }
+             // --- CBC Section with Updated Ranges ---
+             "WBC Count": { category: "cbc", name: "WBC Count", rangeText: "4.0-11.0 K/uL", unit: "K/uL", low: 4.0, high: 11.0, visLow: 2, visHigh: 13 }, // Adjusted visHigh slightly
+             "RBC Count": { category: "cbc", name: "RBC Count", rangeText: "4.40-5.90 MIL/uL", unit: "MIL/uL", low: 4.40, high: 5.90, visLow: 4.0, visHigh: 6.5 }, // Adjusted unit and vis
+             "Hemoglobin": { category: "cbc", name: "Hemoglobin", rangeText: "13.5-17.7 g/dL", unit: "g/dL", low: 13.5, high: 17.7, visLow: 12, visHigh: 19 }, // Adjusted vis
+             "Hematocrit": { category: "cbc", name: "Hematocrit", rangeText: "40.0-52.0 %", unit: "%", low: 40.0, high: 52.0, visLow: 35, visHigh: 55 }, // Adjusted vis
+             "MCV": { category: "cbc", name: "MCV", rangeText: "82.0-98.0 fL", unit: "fL", low: 82.0, high: 98.0, visLow: 78, visHigh: 102 }, // Adjusted vis
+             "MCH": { category: "cbc", name: "MCH", rangeText: "27.0-34.0 pg", unit: "pg", low: 27.0, high: 34.0, visLow: 25, visHigh: 36 }, // Added range and vis
+             "MCHC": { category: "cbc", name: "MCHC", rangeText: "32.0-36.0 g/dL", unit: "g/dL", low: 32.0, high: 36.0, visLow: 30, visHigh: 38 }, // Added range and vis
+             "RDW": { category: "cbc", name: "RDW", rangeText: "11.5-14.5 %", unit: "%", low: 11.5, high: 14.5, visLow: 10, visHigh: 16 }, // Adjusted vis
+             "Platelet count": { category: "cbc", name: "Platelets", rangeText: "140-400 K/uL", unit: "K/uL", low: 140, high: 400, visLow: 50, visHigh: 450 }, // Kept original
+             "Neutrophil %": { category: "cbc", name: "Neutrophil %", rangeText: null, unit: "%" }, // No range provided
+             "Lymphocyte %": { category: "cbc", name: "Lymphocyte %", rangeText: null, unit: "%" }, // No range provided
+             "Monocyte %": { category: "cbc", name: "Monocyte %", rangeText: null, unit: "%" }, // No range provided
+             "Eosinophil %": { category: "cbc", name: "Eosinophil %", rangeText: null, unit: "%" }, // No range provided
+             "Basophil %": { category: "cbc", name: "Basophil %", rangeText: null, unit: "%" }, // No range provided
+             "Imm. Granulocyte, %": { category: "cbc", name: "Imm Gran %", rangeText: "0.0-0.7 %", unit: "%", low: 0.0, high: 0.7, visLow: 0, visHigh: 1.0 }, // Adjusted range and vis
+             "Neutrophil, Absolute": { category: "cbc", name: "Abs Neutrophil", rangeText: "1.70-6.70 K/uL", unit: "K/uL", low: 1.70, high: 6.70, visLow: 1, visHigh: 8 }, // Adjusted range and vis
+             "Lymphocyte, Absolute": { category: "cbc", name: "Abs Lymphocyte", rangeText: "1.00-3.00 K/uL", unit: "K/uL", low: 1.00, high: 3.00, visLow: 0.5, visHigh: 4 }, // Adjusted range and vis
+             "Monocyte, Absolute": { category: "cbc", name: "Abs Monocyte", rangeText: "0.30-0.95 K/uL", unit: "K/uL", low: 0.30, high: 0.95, visLow: 0, visHigh: 1.2 }, // Adjusted range and vis
+             "Eosinophil, Absolute": { category: "cbc", name: "Abs Eosinophil", rangeText: "0.05-0.55 K/uL", unit: "K/uL", low: 0.05, high: 0.55, visLow: 0, visHigh: 0.7 }, // Adjusted range and vis
+             "Basophil, Absolute": { category: "cbc", name: "Abs Basophil", rangeText: "0.00-0.25 K/uL", unit: "K/uL", low: 0.00, high: 0.25, visLow: 0, visHigh: 0.3 }, // Adjusted range and vis
+             "Imm. Granulocyte, Abs": { category: "cbc", name: "Abs Imm Gran", rangeText: "0.00-0.06 K/uL", unit: "K/uL", low: 0.00, high: 0.06, visLow: 0, visHigh: 0.1 }, // Adjusted range and vis
+             "nRBC, Abs": { category: "cbc", name: "nRBC Abs", rangeText: "<=0.00 K/uL", unit: "K/uL", low: 0.00, high: 0.00, visLow: 0, visHigh: 0.1 }, // Updated range/unit based on input, added vis
+             "nRBC, %": { category: "cbc", name: "nRBC %", rangeText: "<=0 %", unit: "%", low: 0, high: 0, visLow: 0, visHigh: 1 } // Kept original, matches input
          };
+        // *** END OF UPDATED labConfig SECTION ***
 
         let currentDateIndex = healthData.length - 1;
         let activeChart = null;
@@ -347,9 +423,9 @@
         }
 
          function getValueStatus(value, config) {
-             if (value == null || value === "No data" || isNaN(value) || !config) return { box: '', text: '' };
+             if (value == null || value === "No data" || isNaN(value) || !config) return { box: '', text: '' }; // text property no longer used here, kept for potential future use
              const { low, high, warningLow, warningHigh, badLow, badHigh } = config;
-             let boxStatus = ''; let textStatus = '';
+             let boxStatus = ''; // Only need box status now
 
              if ((badLow != null && value >= badLow) || (badHigh != null && value <= badHigh)) {
                  boxStatus = 'value-box-bad';
@@ -361,19 +437,19 @@
              else if ((low == null || value >= low) && (high == null || !isFinite(high) || value <= high)) {
                   boxStatus = 'value-box-good';
              }
-             else if (low != null || (high != null && isFinite(high))) {
+             else if (low != null || (high != null && isFinite(high))) { // If defined low/high exists and value is outside
                   boxStatus = 'value-box-bad';
+             } else { // Default to gray if no ranges match (shouldn't happen often with proper config)
+                  boxStatus = '';
              }
 
-             if (boxStatus === 'value-box-good') textStatus = 'value-good';
-             else if (boxStatus === 'value-box-warning') textStatus = 'value-warning';
-             else if (boxStatus === 'value-box-bad') textStatus = 'value-bad';
-
-             return { box: boxStatus, text: textStatus };
+             // Only return box status
+             return { box: boxStatus };
          }
 
 
         function calculateVisualization(value, config) {
+            // --- This function remains the same ---
             const { low, high, visLow, visHigh } = config;
             const totalVisRange = visHigh - visLow;
 
@@ -395,6 +471,11 @@
                  normLeftPercent = 0;
                  normWidthPercent = Math.max(0, (normEnd - visLow) / totalVisRange) * 90;
             }
+             // Handle case where low == high (e.g. nRBC) - give it a tiny width for visibility
+             if (low != null && high != null && low === high) {
+                 normWidthPercent = 0.5; // Small minimum width
+             }
+
 
             const clampedValue = Math.max(visLow, Math.min(value, visHigh));
             let valueLeftPercent = (((clampedValue - visLow) / totalVisRange) * 90) + 5;
@@ -425,6 +506,7 @@
         }
 
         function renderPageForDate(index) {
+            // --- Most of this function remains the same ---
             if (!healthData || index < 0 || index >= healthData.length) {
                 console.error("Invalid index for renderPageForDate:", index);
                 return;
@@ -446,20 +528,28 @@
             Object.keys(gridContainers).forEach(key => fragments[key] = document.createDocumentFragment());
 
             for (const testKey in labConfig) {
-                if (testKey === "Glucose, Random") continue; // Skip explicitly rendering the Random Glucose card
+                if (testKey === "Glucose, Random") continue; // Skip adding Random Glucose as its own card
 
                 const config = labConfig[testKey];
+                if (!config) {
+                     console.warn("Missing config for test key:", testKey);
+                     continue;
+                 }
+
                 const category = config.category;
                 const gridFragment = fragments[category];
                 if (!gridFragment) continue;
 
                 let currentValue = currentData[testKey] ?? null;
 
+                // Special handling for Glucose: Use Fasting if available, otherwise use Random
                 if (testKey === "Glucose, Ser/Plas") {
                     if (currentValue === null || currentValue === "") {
                         const randomValue = currentData["Glucose, Random"] ?? null;
                         if (randomValue !== null && randomValue !== "") {
                             currentValue = randomValue;
+                            // Optionally, you could change the displayed name or add an indicator here if needed
+                            // config.name = "Glucose (Random used)"; // Example, might be too intrusive
                         }
                     }
                 }
@@ -474,7 +564,7 @@
                 }
 
                 let valueAsNumber = NaN;
-                let status = { box: '', text: '' };
+                let status = { box: '' }; // Only need box status
                 let viz = null;
                 let rangeLabelHtml = '';
 
@@ -482,22 +572,33 @@
                     if (testKey === 'BP' && typeof displayValue === 'string' && displayValue.includes('/')) {
                         const parts = displayValue.split('/');
                         const sys = parseInt(parts[0], 10);
-                        const dia = parseInt(parts[1], 10);
-                        if (!isNaN(sys) && !isNaN(dia)) {
-                            if (sys < 120 && dia < 80) status.text = 'value-good';
-                            else if (sys >= 140 || dia >= 90) status.text = 'value-bad';
-                            else status.text = 'value-warning';
+                        // const dia = parseInt(parts[1], 10); // dia not needed for visualization based on sys
+                        if (!isNaN(sys)) {
                             valueAsNumber = sys;
-                            status.box = getValueStatus(valueAsNumber, config).box;
+                            status = getValueStatus(valueAsNumber, config); // Calculate status based on systolic
                             if (config.visLow != null && config.visHigh != null) {
                                 viz = calculateVisualization(valueAsNumber, config);
                             }
                         } else { valueAsNumber = null; }
                     } else {
+                        // Try to parse value, removing symbols except decimal point and negative sign
                         valueAsNumber = parseFloat(String(displayValue).replace(/[^\d?.-]/g, ''));
                         if (isNaN(valueAsNumber)) {
-                            valueAsNumber = null;
+                            // Handle cases like ">60" for eGFR
+                             if (typeof displayValue === 'string') {
+                                 if (displayValue.startsWith('>')) {
+                                     valueAsNumber = parseFloat(displayValue.substring(1));
+                                     // Treat as slightly above the threshold for viz? Or just use the threshold?
+                                     if (!isNaN(valueAsNumber) && config.low != null && valueAsNumber + 1 > config.low) valueAsNumber +=1; // Nudge slightly above for viz
+                                 } else if (displayValue.startsWith('<')) {
+                                     valueAsNumber = parseFloat(displayValue.substring(1));
+                                     // Treat as slightly below threshold?
+                                      if (!isNaN(valueAsNumber) && config.high != null && valueAsNumber - 1 < config.high) valueAsNumber -= 1; // Nudge slightly below
+                                 }
+                             }
+                             if (isNaN(valueAsNumber)) valueAsNumber = null; // Still couldn't parse
                         }
+
                         if (valueAsNumber !== null) {
                             status = getValueStatus(valueAsNumber, config);
                             if (config.visLow != null && config.visHigh != null) {
@@ -509,21 +610,33 @@
                     valueAsNumber = null;
                 }
 
-                if (viz && config.rangeText) {
+                 // Generate range labels based on visualization calculation
+                if (viz && config.rangeText && config.low != null && config.high != null) { // Ensure low/high exist
                     const normLeftNum = parseFloat(viz.normLeft);
                     const normWidthNum = parseFloat(viz.normWidth);
-                    const minLabelPos = Math.max(5, normLeftNum);
-                    const maxLabelPos = Math.min(95, normLeftNum + normWidthNum);
+                    const minLabelPos = Math.max(5, normLeftNum); // Clamp position within 5-95%
+                    const maxLabelPos = Math.min(95, normLeftNum + normWidthNum); // Clamp position
 
-                    if (config.low != null && isFinite(config.low) && config.high != null && isFinite(config.high)) {
-                        rangeLabelHtml = `<span class="min-label" style="left: ${minLabelPos}%;">${config.low}</span><span class="max-label" style="left: ${maxLabelPos}%;">${config.high}</span>`;
-                    } else if (config.low != null && isFinite(config.low)) {
+                    if (isFinite(config.low) && isFinite(config.high)) {
+                         // Only add labels if they don't overlap too much visually
+                         if (maxLabelPos - minLabelPos > 8 || (config.low === config.high) ) { // Arbitrary threshold: 8% apart
+                             rangeLabelHtml += `<span class="min-label" style="left: ${minLabelPos}%;">${config.low}</span>`;
+                             if (config.low !== config.high) { // Don't show max if it's same as min
+                                rangeLabelHtml += `<span class="max-label" style="left: ${maxLabelPos}%;">${config.high}</span>`;
+                             }
+                         } else { // If too close, maybe just show center or one end? Or range text?
+                             // Could put range text here, or just omit labels to avoid clutter
+                             // Example: Show center value or just omit
+                         }
+                    } else if (isFinite(config.low)) { // Range like >= low
                         rangeLabelHtml = `<span class="single-label" style="left: ${minLabelPos}%;">${config.low}</span>`;
-                    } else if (config.high != null && isFinite(config.high)) {
+                    } else if (isFinite(config.high)) { // Range like <= high
                         rangeLabelHtml = `<span class="single-label" style="left: ${maxLabelPos}%;">${config.high}</span>`;
                     }
                 }
 
+
+                // **** MODIFICATION HERE: Removed the lab-value-text div ****
                 card.innerHTML = `
                     <div class="trend-popup">
                         <div class="trend-popup-title"></div>
@@ -532,9 +645,9 @@
                     <div class="lab-info">
                         <div class="lab-name">${config.name || testKey}</div>
                         ${config.rangeText ? `<div class="lab-range">Range: ${config.rangeText}</div>` : ''}
-                        <div class="lab-value-text ${valueAsNumber !== null ? status.text : ''}">${displayValue}</div>
+                        <!-- Value text removed from here -->
                     </div>
-                    ${viz ? `
+                    ${(viz && valueAsNumber !== null) ? `
                     <div class="range-visualization">
                         <div class="range-track"></div>
                         <div class="range-normal" style="left: ${viz.normLeft}; width: ${viz.normWidth};"></div>
@@ -544,10 +657,11 @@
                         </div>
                         ${rangeLabelHtml ? `<div class="range-labels">${rangeLabelHtml}</div>` : ''}
                     </div>
-                    ` :
+                    ` : /* Case where value is non-numeric OR viz params missing */
                     `<div class="range-visualization">
                          <span class="no-viz-text">
-                             ${displayValue === "No data" ? 'No data' : '(Value not graphable)'}
+                             ${displayValue === "No data" ? 'No data' : displayValue + (config.unit ? ' ' + config.unit : '')}
+                             ${(valueAsNumber === null && displayValue !== "No data") ? ' (Not graphable)' : ''}
                          </span>
                      </div>`}
                 `;
@@ -556,6 +670,7 @@
                 itemsPerCategory[category] = (itemsPerCategory[category] || 0) + 1;
             }
 
+            // --- Placeholder logic remains the same ---
             Object.keys(gridContainers).forEach(categoryKey => {
                 const count = itemsPerCategory[categoryKey] || 0;
                 const currentGrid = gridContainers[categoryKey];
@@ -582,7 +697,8 @@
 
 
         function addHoverListeners() {
-            const isMobile = window.innerWidth <= 600;
+            // --- This function remains the same ---
+             const isMobile = window.innerWidth <= 600;
             document.querySelectorAll('.lab-test[data-test-key]').forEach(card => {
                  card.removeEventListener('mouseenter', handleMouseEnter);
                  card.removeEventListener('mouseleave', handleMouseLeave);
@@ -594,13 +710,17 @@
         }
 
         function handleMouseEnter(event) {
+            // --- This function remains the same ---
              const card = event.currentTarget;
-             const displayValueEl = card.querySelector('.lab-value-text');
-             if (displayValueEl && displayValueEl.textContent === 'No data') {
+             // Check if the value box exists as the primary check now
+             const valueBox = card.querySelector('.value-box');
+              const noVizText = card.querySelector('.no-viz-text');
+             if (!valueBox && noVizText?.textContent?.includes('No data') ) {
                  const existingPopup = card.querySelector('.trend-popup');
                  if (existingPopup) existingPopup.style.display = 'none';
                  return;
              }
+
 
              if (activeChart) { activeChart.destroy(); activeChart = null; }
 
@@ -614,7 +734,17 @@
 
              titleEl.textContent = `${config.name || testKey} Trend`;
              canvas.innerHTML = ''; // Clear previous canvas content if any
+              // Ensure canvas parent is clean if it was replaced previously
+             if (!canvas.parentElement.querySelector('canvas')) {
+                 canvas.parentElement.innerHTML = `<div class="trend-popup-title">${config.name || testKey}</div><canvas></canvas>`;
+                 // Need to re-select canvas and title after restoring structure
+                 titleEl = canvas.parentElement.querySelector('.trend-popup-title');
+                 canvas = canvas.parentElement.querySelector('canvas');
+                 if (!canvas || !titleEl) return; // Safety check
+                 titleEl.textContent = `${config.name || testKey} Trend`;
+             }
              const ctx = canvas.getContext('2d');
+
 
              const chartDataPoints = [];
              healthData.forEach(entry => {
@@ -623,7 +753,16 @@
 
                  const addPoint = (value, sourceKey) => {
                      if (value != null && value !== "" && value !== "No data") {
-                         const numericValue = parseFloat(String(value).replace(/[^\d.-]/g, ''));
+                          // Attempt to parse, handling potential '>' or '<'
+                         let numericValue = NaN;
+                         if (typeof value === 'string') {
+                              if(value.startsWith('>')) numericValue = parseFloat(value.substring(1));
+                              else if (value.startsWith('<')) numericValue = parseFloat(value.substring(1));
+                              else numericValue = parseFloat(String(value).replace(/[^\d.-]/g, ''));
+                         } else if (typeof value === 'number') {
+                              numericValue = value;
+                         }
+
                          if (!isNaN(numericValue)) {
                              chartDataPoints.push({ x: date, y: numericValue, source: sourceKey });
                          }
@@ -773,9 +912,10 @@
                  titleEl.textContent = ''; // Clear title if no chart
                  canvas.parentElement.innerHTML = `<div class="trend-popup-title">${config.name || testKey}</div><span style="font-size:0.8em; color: var(--dark-gray); display: block; text-align: center; padding: 10px;">Not enough data for trend.</span>`;
              }
-         }
+        }
 
         function handleMouseLeave(event) {
+             // --- This function remains the same ---
              if (activeChart) {
                  activeChart.destroy();
                  activeChart = null;
@@ -790,6 +930,7 @@
         }
 
          function populateDatePicker() {
+             // --- This function remains the same ---
              datePickerList.textContent = '';
              const fragment = document.createDocumentFragment();
              healthData.forEach((entry, index) => {
@@ -804,6 +945,7 @@
          }
 
          function toggleDatePicker(show = null) {
+             // --- This function remains the same ---
              const currentlyVisible = datePickerPopup.classList.contains('visible');
              const makeVisible = show !== null ? show : !currentlyVisible;
 
@@ -822,6 +964,7 @@
          }
 
         function handleArrowKeys(event) {
+            // --- This function remains the same ---
             if (event.metaKey || event.ctrlKey || event.altKey || event.target.matches('input, textarea') || datePickerPopup.classList.contains('visible')) {
                 return;
             }
@@ -839,6 +982,7 @@
             renderPageForDate(newIndex);
         }
 
+        // --- Date navigation and picker event listeners remain the same ---
         prevDateBtn.addEventListener('click', () => { renderPageForDate(currentDateIndex - 1); });
         nextDateBtn.addEventListener('click', () => { renderPageForDate(currentDateIndex + 1); });
         displayedDateBtn.addEventListener('click', (event) => { event.stopPropagation(); toggleDatePicker(); });
@@ -864,6 +1008,7 @@
         window.addEventListener('keydown', handleArrowKeys);
 
         document.addEventListener('DOMContentLoaded', () => {
+             // --- Data sorting remains the same ---
              healthData.sort((a, b) => {
                  const dateA = new Date(a.date + 'T00:00:00');
                  const dateB = new Date(b.date + 'T00:00:00');
@@ -874,9 +1019,74 @@
              currentDateIndex = healthData.length - 1;
              populateDatePicker();
              renderPageForDate(currentDateIndex);
+
+             // **** ADDED: Collapsible section logic ****
+             document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const categoryDiv = header.closest('.category');
+                    const contentDiv = categoryDiv.querySelector('.collapsible-content');
+                    const arrowSpan = header.querySelector('.toggle-arrow');
+
+                    categoryDiv.classList.toggle('collapsed');
+
+                    if (categoryDiv.classList.contains('collapsed')) {
+                        arrowSpan.textContent = '▼';
+                        contentDiv.style.maxHeight = '0'; // Collapse
+                        contentDiv.setAttribute('aria-hidden', 'true');
+                        header.setAttribute('aria-expanded', 'false');
+                    } else {
+                        arrowSpan.textContent = '▲';
+                        // Set max-height to scrollHeight for smooth expansion
+                        // Use a timeout to allow the display property to change before calculating scrollHeight
+                        contentDiv.style.maxHeight = contentDiv.scrollHeight + "px";
+                        contentDiv.setAttribute('aria-hidden', 'false');
+                        header.setAttribute('aria-expanded', 'true');
+
+                        // Optional: Reset max-height after transition to allow dynamic content changes
+                        // Use requestAnimationFrame to wait for the next render cycle after maxHeight is set
+                         requestAnimationFrame(() => {
+                             // And then use setTimeout to wait for CSS transition to finish
+                             setTimeout(() => {
+                                if (!categoryDiv.classList.contains('collapsed')) {
+                                    // Check again if it's still expanded before resetting
+                                    contentDiv.style.maxHeight = 'none'; // Or null - allows natural height
+                                }
+                             }, 300); // Match transition duration (0.3s in CSS)
+                         });
+                    }
+                });
+
+                // Initialize ARIA attributes
+                const contentDiv = header.nextElementSibling;
+                 if (contentDiv && contentDiv.classList.contains('collapsible-content')) {
+                    header.setAttribute('aria-expanded', 'true');
+                    header.setAttribute('aria-controls', contentDiv.id || `collapsible-content-${Math.random().toString(36).substring(2, 9)}`); // Ensure ID exists
+                    contentDiv.setAttribute('aria-hidden', 'false');
+                    if (!contentDiv.id) contentDiv.id = header.getAttribute('aria-controls'); // Set ID if it was generated
+                    // Ensure content starts expanded by setting initial max-height if needed
+                    if (!header.closest('.category').classList.contains('collapsed')) {
+                        // contentDiv.style.maxHeight = contentDiv.scrollHeight + "px"; // Calculate initial height
+                        // Setting it in CSS with a large value is often easier initially
+                    } else {
+                         // Start collapsed if the class is present initially
+                         contentDiv.style.maxHeight = '0';
+                         header.setAttribute('aria-expanded', 'false');
+                         contentDiv.setAttribute('aria-hidden', 'true');
+                         header.querySelector('.toggle-arrow').textContent = '▼';
+                    }
+                 }
+             });
+
+             // --- Resize listener remains the same ---
              window.addEventListener('resize', () => {
-                renderPageForDate(currentDateIndex); // Re-render to fix placeholders
-                addHoverListeners(); // Re-attach hover listeners if needed (e.g., mobile -> desktop)
+                // Re-calculate max-height for open sections on resize if not using CSS max-height: none
+                document.querySelectorAll('.category:not(.collapsed) .collapsible-content').forEach(content => {
+                     if (content.style.maxHeight !== 'none' && content.style.maxHeight !== '' && content.style.maxHeight !== null) {
+                        content.style.maxHeight = content.scrollHeight + "px";
+                     }
+                });
+                renderPageForDate(currentDateIndex); // Re-render for placeholders etc.
+                addHoverListeners();
              });
         });
     </script>
