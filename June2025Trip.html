@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Epic 2025 Adventure!</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Pacifico&display=swap');
+
+        :root {
+            --primary-color: #0077b6; /* Ocean Blue */
+            --secondary-color: #FFB703; /* Sunshine Yellow */
+            --accent-color: #FB8500; /* Vibrant Orange */
+            --bg-color: #edf6f9; /* Light Sky Blue */
+            --text-color: #333;
+            --card-bg: #ffffff;
+            --header-font: 'Pacifico', cursive;
+            --body-font: 'Poppins', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--body-font);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding-top: 80px; /* Space for fixed header */
+        }
+
+        .page-header {
+            background: linear-gradient(135deg, var(--primary-color), #0096c7);
+            color: white;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .page-header h1 {
+            font-family: var(--header-font);
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .trip-nav {
+            margin-top: 0.5rem;
+        }
+
+        .trip-nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        .trip-nav a:hover, .trip-nav a.active {
+            background-color: rgba(255,255,255,0.2);
+        }
+
+        main {
+            padding: 2rem 1rem;
+            max-width: 900px;
+            margin: 20px auto 0; /* Adjusted top margin for fixed header */
+        }
+
+        .trip-section {
+            margin-bottom: 3rem;
+            background-color: rgba(255,255,255,0.5);
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .trip-section > h2 {
+            font-family: var(--header-font);
+            color: var(--primary-color);
+            text-align: center;
+            font-size: 2.2rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .day-plan {
+            background-color: var(--card-bg);
+            margin-bottom: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border-left: 5px solid var(--secondary-color);
+        }
+
+        .day-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        .day-header:hover {
+            background-color: #005f8b;
+        }
+
+        .day-header .toggle-arrow {
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .day-header.active .toggle-arrow {
+            transform: rotate(180deg);
+        }
+
+        .day-content {
+            padding: 1.5rem;
+            display: none; /* Hidden by default */
+        }
+
+        .day-content.active {
+            display: block;
+        }
+
+        .day-content h4 {
+            color: var(--accent-color);
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+            border-bottom: 1px dashed #ddd;
+            padding-bottom: 0.25rem;
+        }
+        .day-content h4:first-child {
+            margin-top: 0;
+        }
+
+        .day-content ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .day-content li {
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .day-content li::before {
+            content: '🌴'; /* Default icon */
+            position: absolute;
+            left: 0;
+            font-size: 0.9rem;
+        }
+
+        .day-content li.drive::before { content: '🚗'; }
+        .day-content li.eat::before { content: '🍽️'; }
+        .day-content li.sleep::before { content: '😴'; }
+        .day-content li.activity::before { content: '✨'; }
+        .day-content li.mission::before { content: '🏛️'; }
+        .day-content li.hike::before { content: '🥾'; }
+        .day-content li.flight::before { content: '✈️'; }
+        .day-content li.park::before { content: '🏞️'; }
+        .day-content li.important::before { content: '📌'; color: red;}
+
+
+        .day-content a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .day-content a:hover {
+            text-decoration: underline;
+            color: var(--accent-color);
+        }
+
+        .food-list {
+            background-color: #f9f9f9;
+            padding: 0.8rem;
+            border-radius: 5px;
+            margin-top: 0.5rem;
+        }
+        .food-list h5 {
+            margin-bottom: 0.3rem;
+            color: #555;
+        }
+
+        .flight-info {
+            background-color: #e6f7ff;
+            border: 1px solid #91d5ff;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-top: 1rem;
+        }
+        .flight-info p { margin-bottom: 0.3rem; }
+        .flight-info strong { color: var(--primary-color); }
+
+        .note {
+            font-style: italic;
+            color: #555;
+            background-color: #fffbe6;
+            padding: 0.5rem;
+            border-left: 3px solid var(--secondary-color);
+            margin-top: 0.5rem;
+            border-radius: 3px;
+        }
+
+        .page-footer {
+            text-align: center;
+            padding: 2rem;
+            font-family: var(--header-font);
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        #scrollTopBtn {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 30px;
+            z-index: 99;
+            border: none;
+            outline: none;
+            background-color: var(--accent-color);
+            color: white;
+            cursor: pointer;
+            padding: 15px;
+            border-radius: 50%;
+            font-size: 18px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: background-color 0.3s;
+        }
+
+        #scrollTopBtn:hover {
+            background-color: #e07000;
+        }
+
+        @media (max-width: 768px) {
+            .page-header h1 {
+                font-size: 2rem;
+            }
+            .trip-section > h2 {
+                font-size: 1.8rem;
+            }
+            .day-header {
+                font-size: 1.2rem;
+            }
+            body {
+                padding-top: 100px; /* Adjust for potentially taller header on mobile */
+            }
+        }
+         @media (max-width: 480px) {
+            .page-header h1 {
+                font-size: 1.5rem;
+            }
+             .trip-nav a {
+                margin: 0 5px;
+                padding: 3px 6px;
+                font-size: 0.9rem;
+            }
+            body {
+                padding-top: 90px; /* Adjust for potentially taller header on mobile */
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="page-header">
+        <h1>My Epic 2025 Adventure!</h1>
+        <nav class="trip-nav">
+            <a href="#socal-trip">SoCal Trip</a>
+            <a href="#colorado-trip">Colorado Trip</a>
+        </nav>
+    </header>
+
+    <main>
+        <section id="socal-trip" class="trip-section">
+            <h2>SoCal Road Trip (June 5-9, 2025)</h2>
+
+            <!-- SoCal Day 1: June 5 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 5 (Thursday) <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                    <p><a href="https://www.google.com/maps/dir/Santa+Clara,+CA/Mission+Soledad,+36641+Fort+Romie+Rd,+Soledad,+CA+93960/Mission+San+Antonio+de+Padua,+1+Mission+Creek+Rd,+Fort+Hunter+Liggett,+CA+93928/Mission+San+Miguel+Arc%C3%A1ngel,+Mission+Street,+San+Miguel,+CA/Mission+San+Luis+Obispo+de+Tolosa+1772,+Palm+Street,+San+Luis+Obispo,+CA/Vagabond+Inn+San+Luis+Obispo,+Madonna+Road,+San+Luis+Obispo,+CA/Madonna+Inn,+Madonna+Road,+San+Luis+Obispo,+CA/@36.3124867,-122.6090281,452817m/data=!3m2!1e3!4b1!4m44!4m43!1m5!1m1!1s0x808fb7815c08c193:0xe475a47ca3c0bfc0!2m2!1d-121.9552356!2d37.3541079!1m5!1m1!1s0x80926f4cc2792709:0x6b0e42f9fd903e96!2m2!1d-121.3557723!2d36.4047873!1m5!1m1!1s0x8092eb460a8124f9:0x62433a31e0184806!2m2!1d-121.2503254!2d36.0153974!1m5!1m1!1s0x80eccd9a891926b9:0xdf8463ed42b37fc3!2m2!1d-120.6971465!2d35.7449624!1m5!1m1!1s0x80ecf1021848a1f7:0xbe04d2439ca05408!2m2!1d-120.6647577!2d35.2809641!1m5!1m1!1s0x80ecf0e7ef0cf293:0xd70062e829ee807c!2m2!1d-120.6769689!2d35.2640518!1m5!1m1!1s0x80ecf0e660039bc7:0x6f2837fd2edba5ec!2m2!1d-120.6746599!2d35.2674132!3e0?entry=ttu&g_ep=EgoyMDI1MDUwNi4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer">🗺️ View Day 1 Route Map</a></p>
+                    <h4>Morning/Afternoon (Full Day)</h4>
+                    <ul>
+                        <li class="drive">By 8:30 AM: Depart Santa Clara.</li>
+                        <li class="mission">Visit Mission Nuestra Señora de la Soledad.</li>
+                        <li class="mission">Visit Mission San Antonio de Padua (allow extra time for the drive to/from it, as it's more remote).</li>
+                        <li class="mission">Visit Mission San Miguel Arcángel.</li>
+                        <li class="mission">Visit Mission San Luis Obispo de Tolosa.</li>
+                    </ul>
+                    <h4>Late Afternoon/Evening</h4>
+                    <ul>
+                        <li class="sleep">Check into Vagabond Inn San Luis Obispo (210 Madonna Rd).</li>
+                        <li class="eat">Dinner/Visit: Head to the Madonna Inn (it's practically next door) for its unique ambiance and dinner.</li>
+                    </ul>
+                </div>
+            </article>
+
+            <!-- SoCal Day 2: June 6 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 6 (Friday) <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                    <h4>Morning</h4>
+                    <ul>
+                        <li class="drive">Head to Pismo Beach (~15-20 min from San Luis Obispo).</li>
+                        <li class="eat">Breakfast/Treats: Splash Cafe (famous for clam chowder) and Old West Cinnamon Rolls.</li>
+                    </ul>
+                    <h4>Late Morning/Early Afternoon</h4>
+                    <ul>
+                        <li class="drive">Drive to Solvang (~1 hour).</li>
+                        <li class="activity">Explore Solvang (Danish village, bakeries, shops).</li>
+                        <li class="activity">Visit OstrichLand USA (near Solvang).</li>
+                    </ul>
+                    <h4>Afternoon</h4>
+                    <ul>
+                        <li class="drive">Drive from Solvang to Irvine (Carina's house). Significant drive (2.5 - 4+ hours). Aim to leave Solvang by early-mid afternoon.</li>
+                    </ul>
+                    <h4>Evening</h4>
+                    <ul>
+                        <li class="sleep">Settle in at Carina's. <span class="note">(Note: 7 LEAVES CARDS)</span></li>
+                        <li class="eat">Dinner: Choose from OC food list!
+                            <div class="food-list">
+                                <h5>Katsu Focus:</h5>
+                                <p>Katsu Bar (Irvine) or Katsumura (Cerritos).</p>
+                                <h5>Other Greats:</h5>
+                                <p>Lola's by MFK, SUP / ROL.</p>
+                                <h5>Dessert:</h5>
+                                <p>Vintage 1979 (Garden Grove).</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </article>
+
+            <!-- SoCal Day 3: June 7 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 7 (Saturday) <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                    <h4>Morning/Lunch: OC Foodie Delights!</h4>
+                    <ul>
+                        <li class="eat">Breakfast/Brunch: Stacks Pancake House or King's Hawaiian Restaurant & Bakery.</li>
+                        <li class="eat">Quick Bite/Treats: Okayama Kobo Bakery (Anaheim).</li>
+                        <li class="eat">Big Lunch (if time/appetite): UMI Premium Sushi & Seafood Buffet.</li>
+                    </ul>
+                    <h4>Afternoon</h4>
+                    <ul>
+                        <li class="drive">Drive to San Diego (~1.5 - 2.5 hours, weekend traffic can be unpredictable).</li>
+                        <li class="mission">En Route Mission Stop: Visit Mission San Luis Rey de Francia (Oceanside).</li>
+                    </ul>
+                    <h4>Late Afternoon/Evening</h4>
+                    <ul>
+                        <li class="sleep">Check into your San Diego accommodation.</li>
+                        <li class="eat">Dinner and explore an area like the Gaslamp Quarter or Little Italy.</li>
+                    </ul>
+                </div>
+            </article>
+
+            <!-- SoCal Day 4: June 8 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 8 (Sunday) - San Diego Exploration! <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                    <p class="note">This is your main day in San Diego. You must prioritize, as your list is ambitious for one day!</p>
+                    <h4>Morning Option 1 (Coastal)</h4>
+                    <ul><li class="activity">La Jolla Cove and Caves. Look for seals/sea lions.</li></ul>
+                    <h4>Morning Option 2 (Iconic Park)</h4>
+                    <ul><li class="park">Start at Balboa Park. Choose 2-3 attractions: Museum of Us (formerly Man), Model Railroad Museum, Botanical Building & Lily Pond, walk to the Spreckels Organ Pavilion.</li></ul>
+                    <h4>Afternoon Option 1 (Maritime)</h4>
+                    <ul><li class="activity">USS Midway Museum (allow 2-3 hours).</li></ul>
+                    <h4>Afternoon Option 2 (Animals)</h4>
+                    <ul><li class="park">San Diego Zoo Safari Park (Escondido, ~45-60 min drive, can take 4-6+ hours).</li></ul>
+                    <h4>Late Afternoon/Hike (if time & energy)</h4>
+                    <ul>
+                        <li class="hike">Torrey Pines State Natural Reserve: Beautiful coastal bluff trails.</li>
+                        <li class="hike">Ho Chi Minh Trail (La Jolla): Research current conditions. Can be slippery/requires scrambling.</li>
+                    </ul>
+                    <h4>Evening</h4>
+                    <ul><li class="activity">Old Town State Historic Park for atmosphere, shops, and dinner (great Mexican food options).</li></ul>
+                    <h4>Mission Stop (if not done elsewhere)</h4>
+                    <ul><li class="mission">Mission Basilica San Diego de Alcalá (the first CA mission).</li></ul>
+                </div>
+            </article>
+
+            <!-- SoCal Day 5: June 9 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 9 (Monday) <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                    <h4>Morning</h4>
+                    <ul>
+                        <li class="eat">One last San Diego breakfast or a quick visit to something you missed.</li>
+                    </ul>
+                    <h4>Late Morning/Afternoon</h4>
+                    <ul>
+                        <li class="drive important">Drive back home to Santa Clara early. Remember, you’re flying to Colorado the next day at 6am!</li>
+                    </ul>
+                </div>
+            </article>
+        </section>
+
+        <section id="colorado-trip" class="trip-section">
+            <h2>Colorado Adventure (June 10-15, 2025)</h2>
+
+            <!-- Colorado Day 1: June 10 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 10 (Tuesday) <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                    <h4>✈️ Flight to Durango & Pagosa Arrival</h4>
+                    <div class="flight-info">
+                        <p><strong>Time:</strong> 6:00 AM - 11:19 AM</p>
+                        <p><strong>Route:</strong> San Jose (SJC) > Phoenix (PHX) > Durango (DRO)</p>
+                        <p><strong>Confirmation:</strong> FSQXOD (American Airlines)</p>
+                        <p><strong>Leg 1:</strong> #1694 SJC (Terminal A) > PHX (6:00 AM - 8:01 AM)</p>
+                        <p><strong>Leg 2:</strong> #6535 PHX (Terminal 4) > DRO (8:45 AM - 11:19 AM)</p>
+                    </div>
+                    <h4>Late Morning/Early Afternoon</h4>
+                    <ul>
+                        <li class="activity">Pick up rental car at DRO.</li>
+                        <li class="activity">Explore Durango: Grab lunch, walk historic Main Avenue, check out the Animas River trail.</li>
+                        <li class="drive">Drive to Pagosa Springs (~1 hour).</li>
+                    </ul>
+                    <h4>Afternoon/Evening</h4>
+                    <ul>
+                        <li class="sleep">Check into Club Wyndham Pagosa Springs.</li>
+                        <li class="activity">Unwind with a soak in the Hot Springs (e.g., The Springs Resort & Spa, Healing Waters Resort, or resort facilities).</li>
+                    </ul>
+                </div>
+            </article>
+
+            <!-- Colorado Day 2: June 11 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 11 (Wednesday) - Denver Detour! <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                    <h4>Morning</h4>
+                    <ul>
+                        <li class="activity">Enjoy a relaxed morning in Pagosa Springs. Maybe a short activity like visiting Treasure Falls (easy hike).</li>
+                        <li class="drive">Begin the drive to Denver. This is a long drive (~5-6 hours). Allow ample time.</li>
+                    </ul>
+                    <h4>Afternoon</h4>
+                    <ul><li class="sleep">Arrive in Denver, check into your pre-booked hotel.</li></ul>
+                    <h4>Evening</h4>
+                    <ul><li class="eat important">CASA BONITA at 8:30 PM! (Ensure reservations are confirmed!)</li></ul>
+                </div>
+            </article>
+
+            <!-- Colorado Day 3: June 12 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 12 (Thursday) - Return to Pagosa <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                    <h4>Morning</h4>
+                    <ul>
+                        <li class="activity">Perhaps a quick Denver sight if time allows (e.g., Larimer Square, Red Rocks Amphitheatre).</li>
+                        <li class="drive">Begin the drive back to Pagosa Springs (~5-6 hours).</li>
+                    </ul>
+                    <h4>Afternoon/Evening</h4>
+                    <ul>
+                        <li class="sleep">Arrive back at Club Wyndham Pagosa Springs.</li>
+                        <li class="activity">Relax, maybe another hot springs visit.</li>
+                    </ul>
+                </div>
+            </article>
+
+            <!-- Colorado Day 4: June 13 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 13 (Friday) - Mesa Verde & Four Corners <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                     <p><a href="https://www.google.com/maps/place/Grandma's+Frybread+Shack/@37.1745959,-108.6868368,223879m/data=!3m1!1e3!4m44!1m37!4m36!1m6!1m2!1s0x873ddb6e9b07b449:0x7b8616cc41f8157f!2sPagosa+Springs,+CO+81147!2m2!1d-107.0097617!2d37.26945!1m6!1m2!1s0x873961d9b4cc7713:0xc7b3e0a5f0524f03!2sMesa+Verde+National+Park,+CO!2m2!1d-108.4886935!2d37.1837823!1m6!1m2!1s0x873bd7158d6a46d3:0xdee57e72390f2dd0!2sUte+Mountain+Reservation,+Ute+Mountain,+CO!2m2!1d-108.688151!2d37.1874945!1m6!1m2!1s0x873a25d2c9c70acd:0xc9945bd27b66993a!2sFour+Corners+Monument,+New+Mexico+597,+Teec+Nos+Pos,+AZ!2m2!1d-109.045172!2d36.9989762!1m6!1m2!1s0x873a25d2b84e88fb:0xc8b3f5dd32e8c2f8!2sGrandma's+Frybread+Shack,+NM-597,+Teec+Nos+Pos,+AZ+86514!2m2!1d-109.0444649!2d36.9983156!3e0!3m5!1s0x873a25d2b84e88fb:0xc8b3f5dd32e8c2f8!8m2!3d36.9983214!4d-109.0444502!16s%2Fg%2F11gblnnbv6?entry=ttu&g_ep=EgoyMDI1MDUwNi4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer">🗺️ View Day 4 Route Map</a></p>
+                    <h4>Morning (Early Start)</h4>
+                    <ul>
+                        <li class="drive">Drive from Pagosa Springs to Mesa Verde National Park (~2-2.5 hours).</li>
+                        <li class="park important">Explore Mesa Verde: Book cliff dwelling tours (Cliff Palace, Balcony House, Long House) WELL in advance on recreation.gov. Drive Mesa Top Loop, visit Far View Sites, Spruce Tree House (if open).</li>
+                    </ul>
+                    <h4>Mid/Late Afternoon</h4>
+                    <ul>
+                        <li class="drive">Drive from Mesa Verde, passing through the Ute Mountain Ute Reservation, to Four Corners Monument (~1 hour from Mesa Verde's exit).</li>
+                        <li class="eat">Eat at Grandma's Frybread Shack.</li>
+                    </ul>
+                    <h4>Evening</h4>
+                    <ul><li class="drive">Drive back to Pagosa Springs (~2.5-3 hours from Four Corners).</li></ul>
+                </div>
+            </article>
+
+            <!-- Colorado Day 5: June 14 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 14 (Saturday) - Pagosa Fun Day <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                    <p class="note">This is your day to enjoy activities you didn't fit in yet or to relax.</p>
+                    <ul>
+                        <li class="activity">Hot Air Ballooning: (Book in advance! Very early morning start).</li>
+                        <li class="hike">Hike to Piedra Falls: (Check trail conditions, allow a few hours).</li>
+                        <li class="activity">More Hot Springs time!</li>
+                        <li class="activity">Explore Pagosa Springs town, local shops, or just enjoy the resort.</li>
+                    </ul>
+                </div>
+            </article>
+
+            <!-- Colorado Day 6: June 15 -->
+            <article class="day-plan">
+                <h3 class="day-header">June 15 (Sunday) - Heading Home <span class="toggle-arrow">▼</span></h3>
+                <div class="day-content">
+                    <h4>Morning</h4>
+                    <ul><li class="eat">Enjoy a final leisurely breakfast or a last dip in the hot springs.</li></ul>
+                    <h4>Afternoon</h4>
+                    <ul>
+                        <li class="activity">Pack up, check out.</li>
+                        <li class="drive">Drive from Pagosa Springs to Durango (DRO) airport (~1 hour). Allow time for rental car return.</li>
+                    </ul>
+                    <h4>✈️ Evening Flight Home</h4>
+                     <div class="flight-info">
+                        <p><strong>Time:</strong> 7:20 PM Departure (DRO)</p>
+                        <p><strong>Route:</strong> Durango (DRO) > Phoenix (PHX) > San Jose (SJC)</p>
+                        <p><strong>Leg 1:</strong> #6291 DRO > PHX (7:20 PM - 7:48 PM MST)</p>
+                        <p class="note">Note: Second leg (PHX > SJC) details not fully provided.</p>
+                    </div>
+                </div>
+            </article>
+
+        </section>
+    </main>
+
+    <footer class="page-footer">
+        Adventure Awaits!
+    </footer>
+
+    <button onclick="scrollToTop()" id="scrollTopBtn" title="Go to top">↑</button>
+
+    <script>
+        // JavaScript for collapsible day plans
+        const dayHeaders = document.querySelectorAll('.day-header');
+
+        dayHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                header.classList.toggle('active');
+                const content = header.nextElementSibling;
+                content.classList.toggle('active');
+                // Persist state (optional, using localStorage)
+                // if (content.classList.contains('active')) {
+                //     localStorage.setItem(header.parentElement.id, 'expanded');
+                // } else {
+                //     localStorage.removeItem(header.parentElement.id);
+                // }
+            });
+
+            // Optional: Check localStorage to restore state on page load
+            // if (localStorage.getItem(header.parentElement.id) === 'expanded') {
+            //     header.classList.add('active');
+            //     header.nextElementSibling.classList.add('active');
+            // }
+        });
+
+        // Scroll to top button functionality
+        const scrollTopBtn = document.getElementById("scrollTopBtn");
+
+        window.onscroll = function() {
+            if (document.body.scrollTop > 100 || document.documentElement.scrollTop > 100) {
+                scrollTopBtn.style.display = "block";
+            } else {
+                scrollTopBtn.style.display = "none";
+            }
+        };
+
+        function scrollToTop() {
+            document.body.scrollTop = 0; // For Safari
+            document.documentElement.scrollTop = 0; // For Chrome, Firefox, IE and Opera
+        }
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('.trip-nav a').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    // Calculate position considering the fixed header height
+                    const headerOffset = document.querySelector('.page-header').offsetHeight;
+                    const elementPosition = targetElement.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: "smooth"
+                    });
+                }
+            });
+        });
+
+    </script>
+
+</body>
+</html>
