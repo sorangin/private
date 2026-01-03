@@ -26,11 +26,12 @@
             user-select: none; -webkit-user-select: none;
         }
         
-        /* Shopping Layout */
+        /* Compact Header Safe Area */
+        header { padding-top: env(safe-area-inset-top); }
+
         .shopping-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; min-height: 40px; }
-        .section-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 14px; display: flex; align-items: center; cursor: pointer; padding: 0 4px; }
+        .section-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 0 4px; }
         
-        /* Category Colors & Tints */
         .color-food { color: #f59e0b; } 
         .color-household { color: #3b82f6; } 
         .color-misc { color: #a855f7; }
@@ -40,33 +41,17 @@
             border: 1px solid #2d2d30;
             border-radius: 16px;
             cursor: grab;
-            touch-action: none;
+            touch-action: pan-y;
             position: relative;
         }
         .item-card:active { cursor: grabbing; }
         .done { opacity: 0.25 !important; filter: grayscale(1); }
 
-        /* Tinted States for Shopping */
-        .card-food { 
-            border-color: rgba(245, 158, 11, 0.25); 
-            background-color: rgba(245, 158, 11, 0.05);
-            color: #fcd34d;
-        }
-        .card-household { 
-            border-color: rgba(59, 130, 246, 0.25); 
-            background-color: rgba(59, 130, 246, 0.05);
-            color: #93c5fd;
-        }
-        .card-misc { 
-            border-color: rgba(168, 85, 247, 0.25); 
-            background-color: rgba(168, 85, 247, 0.05);
-            color: #d8b4fe;
-        }
+        .card-food { border-color: rgba(245, 158, 11, 0.25); background-color: rgba(245, 158, 11, 0.05); color: #fcd34d; }
+        .card-household { border-color: rgba(59, 130, 246, 0.25); background-color: rgba(59, 130, 246, 0.05); color: #93c5fd; }
+        .card-misc { border-color: rgba(168, 85, 247, 0.25); background-color: rgba(168, 85, 247, 0.05); color: #d8b4fe; }
 
-        .editable-text { 
-            outline: none; word-break: break-word; cursor: text; 
-            white-space: pre-wrap; user-select: text; -webkit-user-select: text;
-        }
+        .editable-text { outline: none; word-break: break-word; cursor: text; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
         .strikethrough { text-decoration: line-through; opacity: 0.6; }
         
         .sortable-ghost { opacity: 0 !important; }
@@ -88,9 +73,9 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="pt-8">
+<body>
 
-    <header class="flex justify-between items-center px-6 py-4 flex-shrink-0">
+    <header class="flex justify-between items-center px-6 py-2 flex-shrink-0">
         <nav class="flex gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
             <button onclick="switchTab('tasks')" id="tab-tasks" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
             <button onclick="switchTab('shopping')" id="tab-shopping" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
@@ -98,16 +83,16 @@
         
         <div class="flex flex-col items-end">
             <div id="sync-status" class="sync-indicator status-offline">Offline</div>
-            <button onclick="promptSyncID()" class="text-[9px] text-zinc-500 hover:text-white mt-1">
+            <button onclick="promptSyncID()" class="text-[9px] text-zinc-500 hover:text-white mt-0.5">
                 Sync ID: <span id="display-id" class="underline">None</span>
             </button>
         </div>
     </header>
 
     <main id="scroll-area" class="flex-1 overflow-y-auto px-6 pb-32 no-scrollbar" onclick="handleBgClick(event)">
-        <div id="list-content"></div>
+        <div id="list-content" class="mt-4"></div>
 
-        <section id="archive-area" class="hidden mt-12 pt-8 border-t border-zinc-900">
+        <section id="archive-area" class="hidden mt-8 pt-8 border-t border-zinc-900">
             <div class="flex justify-between items-center mb-6">
                 <button onclick="toggleArchive()" class="flex items-center gap-2 group">
                     <svg class="chevron-rotate text-zinc-600 group-hover:text-zinc-400" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M19 9l-7 7-7-7"/></svg>
@@ -124,7 +109,7 @@
     <div id="fab-outer">
         <div id="fab-container">
             <input id="fab-input" type="text" placeholder="Add entry..." autocomplete="off">
-            <button onclick="btnFAB(event)" class="h-14 w-14 flex items-center justify-center">
+            <button onclick="btnFAB(event)" class="h-14 w-14 flex items-center justify-center rounded-full hover:bg-zinc-800 transition">
                 <svg id="fab-icon" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
             </button>
         </div>
@@ -190,7 +175,7 @@
             list.forEach(item => { if(!item.uid) item.uid = Math.random(); if(tab === 'shopping' && !item.cat) item.cat = 'misc'; });
 
             if (tab === 'tasks') {
-                main.className = "space-y-3";
+                main.className = "space-y-3 mt-4";
                 archArea.classList.toggle('is-collapsed', collapsedStates.archive);
                 archContent.classList.toggle('collapsed-content', collapsedStates.archive);
                 archArea.classList.remove('hidden');
@@ -202,7 +187,7 @@
                 document.getElementById('tab-tasks').className = 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg transition-all';
                 document.getElementById('tab-shopping').className = 'px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all';
             } else {
-                main.className = "space-y-8";
+                main.className = "space-y-8 mt-4";
                 archArea.classList.add('hidden');
                 renderShoppingSection(main, 'Food', 'food', 'color-food');
                 renderShoppingSection(main, 'Household', 'household', 'color-household');
@@ -310,7 +295,7 @@
         function setupInputLogic() {
             window.addEventListener('keydown', (e) => {
                 if (e.target.tagName === 'INPUT' || e.target.hasAttribute('contenteditable')) return;
-                if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) { expandInput(); document.getElementById('fab-input').focus(); }
+                if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) { expandInput(); }
             });
             document.getElementById('fab-input').onkeypress = (e) => {
                 if (e.key === 'Enter') { 
@@ -327,8 +312,18 @@
         function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if(id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
         function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
         function loadLocal() { const s = localStorage.getItem('todo_db'); if(s) db = JSON.parse(s); }
+        
         function btnFAB(e) { e.stopPropagation(); document.getElementById('fab-container').classList.contains('expanded') ? collapseInput() : expandInput(); }
-        function expandInput() { document.getElementById('fab-container').classList.add('expanded'); }
+        
+        function expandInput() { 
+            document.getElementById('fab-container').classList.add('expanded');
+            const input = document.getElementById('fab-input');
+            setTimeout(() => {
+                input.focus();
+                input.click(); 
+            }, 100);
+        }
+        
         function collapseInput() { document.getElementById('fab-container').classList.remove('expanded'); document.getElementById('fab-input').blur(); }
         function handleBgClick(e) { if (e.target.id === 'scroll-area') collapseInput(); }
         function updateStatus(on) { const el = document.getElementById('sync-status'); el.innerText = on?"Synced":"Syncing..."; el.className=`sync-indicator ${on?'status-online':'status-offline'}`; }
