@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0c0c0d">
     
-    <title>Realtime To-Do</title>
+    <title>To-Do List Realtime</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -16,19 +17,20 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
         :root { --bg: #0c0c0d; --surface: #161618; --accent: #3b82f6; --text-main: #e5e7eb; --keyboard-h: 0px; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; margin: 0; }
         
         .shopping-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-        .shopping-tile { min-height: 80px; display: flex; align-items: center; justify-content: center; padding: 12px; border-radius: 12px; background-color: #161618; border: 1px solid #2d2d30; position: relative; }
+        .shopping-tile { min-height: 80px; display: flex; align-items: center; justify-content: center; padding: 12px; border-radius: 12px; background-color: #161618; border: 1px solid #2d2d30; position: relative; transition: opacity 0.2s; cursor: grab; }
+        .shopping-tile:active { cursor: grabbing; }
         .shopping-tile.done { opacity: 0.25; }
 
-        .editable-text { outline: none; word-break: break-word; cursor: text; }
+        .editable-text { outline: none; word-break: break-word; cursor: text; white-space: pre-wrap; }
         .strikethrough { text-decoration: line-through; opacity: 0.4; }
         
         #fab-outer { position: fixed; right: 1.25rem; bottom: calc(1.5rem + var(--keyboard-h)); z-index: 100; pointer-events: none; transition: bottom 0.1s ease-out; }
-        #fab-container { pointer-events: auto; width: 56px; height: 56px; background: #1e1e20; border: 1px solid #2d2d30; border-radius: 28px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        #fab-container { pointer-events: auto; width: 56px; height: 56px; background: #1e1e20; border: 1px solid #2d2d30; border-radius: 28px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
         #fab-container.expanded { width: min(420px, calc(100vw - 40px)); border-radius: 16px; border-color: var(--accent); }
-        #fab-input { display: none; opacity: 0; width: 100%; background: transparent; color: white; padding: 0 20px; outline: none; }
+        #fab-input { display: none; opacity: 0; width: 100%; background: transparent; color: white; padding: 0 20px; outline: none; border: none; }
         #fab-container.expanded #fab-input { display: block; opacity: 1; }
 
         .collapsed #archive-content { display: none; }
@@ -38,11 +40,13 @@
         .sync-indicator { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
         .status-online { color: #22c55e; }
         .status-offline { color: #ef4444; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .sortable-ghost { opacity: 0.1; background: var(--accent) !important; }
     </style>
 </head>
-<body class="pt-safe">
+<body class="pt-8">
 
-    <header class="flex justify-between items-center px-6 py-4">
+    <header class="flex justify-between items-center px-6 py-4 flex-shrink-0">
         <nav class="flex gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
             <button onclick="switchTab('tasks')" id="tab-tasks" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
             <button onclick="switchTab('shopping')" id="tab-shopping" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
@@ -50,7 +54,9 @@
         
         <div class="flex flex-col items-end">
             <div id="sync-status" class="sync-indicator status-offline">Offline</div>
-            <button onclick="promptSyncID()" class="text-[9px] text-zinc-500 hover:text-white mt-1">Sync ID: <span id="display-id">None</span></button>
+            <button onclick="promptSyncID()" class="text-[9px] text-zinc-500 hover:text-white mt-1">
+                Sync ID: <span id="display-id" class="underline">None</span>
+            </button>
         </div>
     </header>
 
@@ -59,7 +65,7 @@
 
         <section id="archive-area" class="hidden mt-12 pt-8 border-t border-zinc-900">
             <div class="flex justify-between items-center mb-6">
-                <button onclick="toggleArchive()" class="flex items-center gap-2">
+                <button onclick="toggleArchive()" class="flex items-center gap-2 group">
                     <svg class="chevron-rotate text-zinc-600" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M19 9l-7 7-7-7"/></svg>
                     <p class="text-[9px] uppercase tracking-[0.5em] text-zinc-600 font-bold">Completed</p>
                 </button>
@@ -74,17 +80,16 @@
     <div id="fab-outer">
         <div id="fab-container">
             <input id="fab-input" type="text" placeholder="Add something...">
-            <button onclick="btnFAB(event)" class="h-14 w-14 flex items-center justify-center">
+            <button onclick="btnFAB(event)" class="h-14 w-14 flex items-center justify-center rounded-full hover:bg-zinc-800 transition">
                 <svg id="fab-icon" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
             </button>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURATION ---
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co";
         const SB_KEY = "sb_publishable_xSABmWC7hbSBMZULqe_IMw_M5XXDa4i";
-        const supabase =开supabase.createClient(SB_URL, SB_KEY);
+        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
         let db = { tasks: [], shopping: [] };
         let tab = 'tasks';
@@ -92,69 +97,60 @@
         let isRemoteUpdate = false;
 
         async function init() {
-            if (!syncID) promptSyncID();
-            else {
+            if (!syncID) {
+                setTimeout(() => promptSyncID(), 500);
+            } else {
                 document.getElementById('display-id').innerText = syncID;
                 loadLocal();
                 await pullFromCloud();
                 subscribeRealtime();
             }
             switchTab('tasks');
-            setupKeyboard();
+            setupGlobalInputs();
             initSortable();
         }
 
-        // --- CLOUD SYNC LOGIC ---
         async function pullFromCloud() {
             if (!syncID) return;
-            const { data, error } = await supabase.from('todos').select('content').eq('sync_id', syncID).single();
-            if (data) {
+            const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
+            if (data && data.content) {
                 db = data.content;
                 render();
                 updateStatus(true);
+            } else {
+                await pushToCloud();
             }
         }
 
         async function pushToCloud() {
             if (!syncID || isRemoteUpdate) return;
             updateStatus(false);
-            const { error } = await supabase.from('todos').upsert({ sync_id: syncID, content: db }, { onConflict: 'sync_id' });
+            const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: db }, { onConflict: 'sync_id' });
             if (!error) updateStatus(true);
         }
 
         function subscribeRealtime() {
-            supabase.channel('changes')
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, 
-                payload => {
-                    isRemoteUpdate = true;
-                    db = payload.new.content;
-                    render();
-                    isRemoteUpdate = false;
-                })
-                .subscribe();
+            supabaseClient.channel('any').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, payload => {
+                isRemoteUpdate = true;
+                db = payload.new.content;
+                render();
+                isRemoteUpdate = false;
+            }).subscribe();
         }
 
         function promptSyncID() {
-            const id = prompt("Enter a Sync ID (e.g. 'my-private-list') to connect devices:", syncID || "");
-            if (id) {
-                localStorage.setItem('todo_sync_id', id);
-                location.reload();
+            const id = window.prompt("Enter a Sync ID:", syncID || "");
+            if (id !== null && id.trim() !== "") {
+                localStorage.setItem('todo_sync_id', id.trim());
+                window.location.reload();
             }
         }
 
-        function updateStatus(online) {
-            const el = document.getElementById('sync-status');
-            el.innerText = online ? "Synced" : "Syncing...";
-            el.className = `sync-indicator ${online ? 'status-online' : 'status-offline'}`;
-        }
-
-        // --- APP LOGIC ---
         function render() {
             const main = document.getElementById('list-content');
             const archArea = document.getElementById('archive-area');
             const archContent = document.getElementById('archive-content');
             main.innerHTML = ''; archContent.innerHTML = '';
-            
             const list = db[tab] || [];
 
             if (tab === 'tasks') {
@@ -175,30 +171,54 @@
         function buildItem(parent, item) {
             const idx = db[tab].indexOf(item);
             const card = document.createElement('div');
+            card.setAttribute('data-id', idx);
             
+            let itemHTML = "";
             if (tab === 'shopping') {
                 card.className = `shopping-tile ${item.done ? 'done' : ''}`;
                 card.onclick = (e) => { if (!e.target.classList.contains('editable-text')) toggle(idx); };
-                card.innerHTML = `<span class="editable-text text-xs font-semibold" contenteditable="true" onblur="updateText(${idx}, this.innerText)">${item.text}</span>
-                                 <button onclick="event.stopPropagation(); remove(${idx})" class="absolute top-1 right-1 p-1 text-zinc-700">✕</button>`;
+                itemHTML = `<span class="editable-text text-xs font-semibold px-2" contenteditable="true" spellcheck="false">${item.text}</span>
+                            <button onclick="event.stopPropagation(); remove(${idx})" class="absolute top-1 right-1 p-1 text-zinc-700">✕</button>`;
             } else {
                 card.className = `flex items-center p-4 bg-[#161618] border border-zinc-800 rounded-2xl transition ${item.done ? 'opacity-30' : ''}`;
-                card.innerHTML = `
+                itemHTML = `
                     <div onclick="toggle(${idx})" class="w-5 h-5 rounded-lg border-2 flex-shrink-0 flex items-center justify-center cursor-pointer ${item.done ? 'bg-blue-600 border-blue-600' : 'border-zinc-700'}">
                         ${item.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
                     </div>
-                    <span class="ml-4 flex-1 editable-text text-[13.5px] font-medium ${item.done ? 'strikethrough' : ''}" contenteditable="true" onblur="updateText(${idx}, this.innerText)">${item.text}</span>
+                    <span class="ml-4 flex-1 editable-text text-[13.5px] font-medium ${item.done ? 'strikethrough' : ''}" contenteditable="true" spellcheck="false">${item.text}</span>
                     <button onclick="remove(${idx})" class="ml-2 text-zinc-800 hover:text-red-500">✕</button>`;
             }
+
+            card.innerHTML = itemHTML;
+            const textEl = card.querySelector('.editable-text');
+            
+            // New Feature: Enter to save, Shift+Enter for new line
+            textEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    textEl.blur(); // Triggers the onblur (save) logic
+                }
+            });
+
+            textEl.addEventListener('blur', () => {
+                updateText(idx, textEl.innerText);
+            });
+
             parent.appendChild(card);
+        }
+
+        function updateText(idx, val) { 
+            if (db[tab][idx].text === val) return; 
+            db[tab][idx].text = val; 
+            saveLocal(); 
+            pushToCloud(); 
         }
 
         function toggle(idx) { db[tab][idx].done = !db[tab][idx].done; render(); pushToCloud(); }
         function remove(idx) { db[tab].splice(idx, 1); render(); pushToCloud(); }
-        function updateText(idx, val) { db[tab][idx].text = val; saveLocal(); pushToCloud(); }
-        function wipeCompleted() { if(confirm("Clear completed?")) { db[tab] = db[tab].filter(i => !i.done); render(); pushToCloud(); }}
+        function wipeCompleted() { if(confirm("Clear all?")) { db[tab] = db[tab].filter(i => !i.done); render(); pushToCloud(); }}
         function toggleArchive() { document.getElementById('archive-area').classList.toggle('collapsed'); }
-        
+
         function switchTab(t) {
             tab = t;
             document.getElementById('tab-tasks').className = tab === 'tasks' ? 'px-5 py-2 rounded-lg text-[10px] font-black bg-blue-600 text-white' : 'px-5 py-2 rounded-lg text-[10px] font-black text-zinc-600';
@@ -206,17 +226,23 @@
             render();
         }
 
-        // --- UTILS ---
-        function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
-        function loadLocal() { const saved = localStorage.getItem('todo_db'); if (saved) db = JSON.parse(saved); }
-        
-        function btnFAB(e) { e.stopPropagation(); const c = document.getElementById('fab-container'); c.classList.contains('expanded') ? collapseInput() : expandInput(); }
-        function expandInput() { document.getElementById('fab-container').classList.add('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M18 6L6 18M6 6l12 12"/>'; setTimeout(() => document.getElementById('fab-input').focus(), 150); }
-        function collapseInput() { document.getElementById('fab-container').classList.remove('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M12 5v14M5 12h14"/>'; document.getElementById('fab-input').blur(); }
-        function handleBgClick(e) { if (e.target.id === 'scroll-area') collapseInput(); }
-        
-        function setupKeyboard() {
-            document.getElementById('fab-input').onkeypress = (e) => { if (e.key === 'Enter') { const v = e.target.value.trim(); if(v){ db[tab].unshift({text:v, done:false}); render(); pushToCloud(); } e.target.value = ''; collapseInput(); }};
+        function setupGlobalInputs() {
+            window.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.hasAttribute('contenteditable')) return;
+                if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                    expandInput();
+                    document.getElementById('fab-input').focus();
+                }
+            });
+
+            document.getElementById('fab-input').onkeypress = (e) => { 
+                if (e.key === 'Enter') { 
+                    const v = e.target.value.trim(); 
+                    if(v){ db[tab].unshift({text:v, done:false}); render(); pushToCloud(); } 
+                    e.target.value = ''; collapseInput(); 
+                }
+            };
+            
             if (window.visualViewport) window.visualViewport.onresize = () => {
                 const h = window.innerHeight - window.visualViewport.height;
                 document.documentElement.style.setProperty('--keyboard-h', (h > 0 ? h : 0) + 'px');
@@ -224,15 +250,26 @@
         }
 
         function initSortable() {
-            const opt = { animation: 200, ghostClass: 'opacity-20', onEnd: () => { 
-                // Simple re-mapping of current DOM state to db
-                const items = Array.from(document.querySelectorAll('#list-content > div, #archive-content > div'));
-                // Note: Complex reordering with filtered lists usually requires ID mapping
-                // For this simple JSONB sync, we save the current view state
+            const reorder = () => {
+                const items = Array.from(document.querySelectorAll('#list-content [data-id], #archive-content [data-id]'));
+                // Map the DOM order back to the database array for the current tab
+                const newOrder = items.map(el => db[tab][parseInt(el.getAttribute('data-id'))]);
+                db[tab] = newOrder;
+                saveLocal();
                 pushToCloud();
-            }};
-            Sortable.create(document.getElementById('list-content'), opt);
+                render(); // Re-render to refresh the data-id attributes
+            };
+            Sortable.create(document.getElementById('list-content'), { animation: 200, ghostClass: 'sortable-ghost', filter: '.editable-text, button', onEnd: reorder });
+            Sortable.create(document.getElementById('archive-content'), { animation: 200, ghostClass: 'sortable-ghost', filter: '.editable-text, button', onEnd: reorder });
         }
+
+        function btnFAB(e) { e.stopPropagation(); document.getElementById('fab-container').classList.contains('expanded') ? collapseInput() : expandInput(); }
+        function expandInput() { document.getElementById('fab-container').classList.add('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M18 6L6 18M6 6l12 12"/>'; }
+        function collapseInput() { document.getElementById('fab-container').classList.remove('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M12 5v14M5 12h14"/>'; document.getElementById('fab-input').blur(); }
+        function handleBgClick(e) { if (e.target.id === 'scroll-area') collapseInput(); }
+        function updateStatus(online) { const el = document.getElementById('sync-status'); el.innerText = online ? "Synced" : "Syncing..."; el.className = `sync-indicator ${online ? 'status-online' : 'status-offline'}`; }
+        function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
+        function loadLocal() { const saved = localStorage.getItem('todo_db'); if (saved) db = JSON.parse(saved); }
 
         init();
     </script>
