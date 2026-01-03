@@ -8,13 +8,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Voice Rec">
-
-    <!-- Embedded Manifest for Single-File PWA -->
-    <!-- Updated ID to be extremely unique to force new install prompt -->
-    <link rel="manifest"
-        href='data:application/manifest+json,%7B%22id%22%3A%22voice-recorder-unique-v3-fixed%22%2C%22name%22%3A%22Voice%20Recorder%20Pro%20V3%22%2C%22short_name%22%3A%22Voice%20Rec%22%2C%22start_url%22%3A%22.%3Fv%3Dv3%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f1014%22%2C%22theme_color%22%3A%22%2310b981%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F25%2F25682.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D'>
-
-    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/25/25682.png">
+    <!-- Icon placeholder, will be replaced by JS -->
+    <link rel="icon" type="image/svg+xml" href="">
 
     <title>Voice Recorder</title>
     <style>
@@ -320,10 +315,9 @@
             font-variant-numeric: tabular-nums;
         }
 
-        /* Bulk Action Bar - CHANGED TO FIXED POSITION */
+        /* Bulk Action Bar - FIXED POSITION */
         .bulk-actions {
             position: fixed;
-            /* Changed from absolute to fixed */
             bottom: 2rem;
             left: 50%;
             transform: translateX(-50%) translateY(150%);
@@ -337,7 +331,6 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
             transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             z-index: 200;
-            /* Increased z-index above everything else */
             white-space: nowrap;
         }
 
@@ -447,6 +440,45 @@
     </div>
 
     <script>
+        // --- PWA Helper (Matches user's successful pattern) ---
+        // 1. Generate Icon Blob (Green Mic on Dark Background)
+        const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="background:#0f1014"><rect width="24" height="24" fill="#0f1014"/><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="#0ea800"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="#0ea800"/></svg>`;
+        const iconBlob = new Blob([iconSVG], { type: 'image/svg+xml' });
+        const iconURL = URL.createObjectURL(iconBlob);
+
+        // Update favicon dynamically
+        document.querySelector('link[rel="icon"]').href = iconURL;
+
+        // 2. Dynamic Manifest based on Current Location
+        const manifest = {
+            "id": window.location.pathname, // Unique key based on file path
+            "name": "Voice Recorder",
+            "short_name": "VoiceRec",
+            "start_url": window.location.href, // Resumes exactly where it was
+            "scope": window.location.href,     // Restricts scope to this file
+            "display": "standalone",
+            "background_color": "#0f1014",
+            "theme_color": "#0ea800",
+            "icons": [
+                { "src": iconURL, "sizes": "512x512", "type": "image/svg+xml" },
+                { "src": iconURL, "sizes": "192x192", "type": "image/svg+xml" }
+            ]
+        };
+
+        const linkManifest = document.createElement('link');
+        linkManifest.setAttribute('rel', 'manifest');
+        linkManifest.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' })));
+        document.head.appendChild(linkManifest);
+
+        // 3. Fake Service Worker (Required for "Add to Homescreen" heuristics)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register(
+                URL.createObjectURL(new Blob(['self.addEventListener("fetch", (e) => {});'], { type: "text/javascript" })),
+                { scope: window.location.href }
+            ).catch(err => console.log('SW Error:', err));
+        }
+
+        // --- App Logic ---
         let mediaRecorder;
         let audioChunks = [];
         let startTime;
@@ -499,7 +531,7 @@
         }
 
         async function saveRecordingToDB(recording) {
-            const { audio, url, ...dataToSave } = recording;
+            const { audio, url, ...dataToSave } = recording; // Strip non-clonable
 
             return new Promise((resolve, reject) => {
                 const transaction = db.transaction(['recordings'], 'readwrite');
