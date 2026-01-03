@@ -3,23 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0c0c0d">
+    
     <title>To Do List</title>
     
-    <!-- App Icon -->
-    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjEyMCIgZmlsbD0iIzBjMGMwZCIvPjxwYXRoIGQ9Ik0zODAgMTU0SDEzMmMtMTEgMC0yMCA5LTIwIDIwdjE3NmMwIDExIDkgMjAgMjAgMjBoMjQ4YzExIDAgMjAtOSAyMC0yMFYxNzRjMC0xMS05LTIwLTIwLTIwem0tMTIwIDUwaDEwMHYyMEgyNjB2LTIwem0wIDYwaDEwMHYyMEgyNjB2LTIwem0wIDYwaDEwMHYyMEgyNjB2LTIwem0tODAtMTIwaDQwdjQwaC00MHYtNDB6bTAgNjBoNDB2NDBoLTQwdi00MHptMCA2MGg0MHY0MGgtNDB2LTQwek0xODAgMTk0bDIwIDIwIDQwLTQwIiBzdHJva2U9IiMzYjgyZjYiIHN0cm9rZS13aWR0aD0iMjQiIGZpbGw9Im5vbmUiLz48L3N2Zz4=">
-    
+    <!-- SortableJS for Reordering -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
         
         :root {
             --bg: #0c0c0d;
             --surface: #161618;
             --accent: #3b82f6;
             --text-main: #e5e7eb;
-            --keyboard-offset: 0px;
+            --keyboard-h: 0px;
         }
 
         body {
@@ -27,279 +31,297 @@
             background-color: var(--bg);
             color: var(--text-main);
             -webkit-tap-highlight-color: transparent;
-            overflow-x: hidden;
-            min-height: 100vh;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         .shopping-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 12px;
         }
 
         .shopping-tile {
-            height: 90px;
+            min-height: 80px;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 12px;
             border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: 1px solid #333336; 
+            cursor: grab;
+            border: 1px solid #2d2d30;
+            background-color: #161618;
+            transition: opacity 0.2s ease, transform 0.1s ease;
             position: relative;
-            background-color: #1a1a1c;
             user-select: none;
         }
 
-        .shopping-tile.done {
-            background-color: #111113;
-            border-color: #27272a;
-            opacity: 0.25;
-        }
+        .shopping-tile.done { opacity: 0.25; background-color: #0c0c0d; border-color: #1f1f22; }
+        .shopping-tile:active { cursor: grabbing; }
 
-        /* Strict Text Hitbox */
+        /* Editing Hitbox */
         .editable-text {
             display: inline-block;
             outline: none;
-            padding: 2px 6px;
-            user-select: text;
-            cursor: text;
+            padding: 2px 4px;
             word-break: break-word;
-            transition: background 0.2s;
+            cursor: text;
         }
 
         .editable-text:focus {
-            background: rgba(59, 130, 246, 0.15);
+            background: rgba(59, 130, 246, 0.1);
             border-radius: 4px;
-            user-select: auto;
         }
 
-        /* FAB Logic with Keyboard Offset */
+        /* Reordering Visuals */
+        .sortable-ghost { opacity: 0.2; transform: scale(0.95); background: #3b82f6 !important; }
+        .sortable-chosen { border-color: #3b82f6 !important; }
+
+        /* FAB Keyboard-aware */
         #fab-outer {
             position: fixed;
-            right: 1.5rem;
-            bottom: calc(2rem + var(--keyboard-offset));
-            transition: bottom 0.1s ease-out;
+            right: 1.25rem;
+            bottom: calc(1.5rem + var(--keyboard-h));
             z-index: 100;
+            transition: bottom 0.1s ease-out;
+            pointer-events: none;
         }
 
         #fab-container {
+            pointer-events: auto;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             width: 56px;
             height: 56px;
-            background-color: #1a1a1c;
-            border: 1px solid #27272a;
+            background-color: #1e1e20;
+            border: 1px solid #2d2d30;
             border-radius: 28px;
             display: flex;
             align-items: center;
             justify-content: flex-end;
             overflow: hidden;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
         }
 
-        #fab-container.expanded {
-            width: min(400px, calc(100vw - 48px));
-            border-radius: 16px;
-            border-color: var(--accent);
-        }
-
-        #fab-input {
-            display: none;
-            opacity: 0;
-            width: 100%;
-        }
-
-        #fab-container.expanded #fab-input {
-            display: block;
-            opacity: 1;
-        }
+        #fab-container.expanded { width: min(420px, calc(100vw - 40px)); border-radius: 16px; border-color: var(--accent); }
+        #fab-input { display: none; opacity: 0; width: 100%; }
+        #fab-container.expanded #fab-input { display: block; opacity: 1; }
 
         .strikethrough { text-decoration: line-through; opacity: 0.4; }
+        .safe-area-top { padding-top: env(safe-area-inset-top); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="pb-40">
+<body class="safe-area-top">
 
-    <div class="max-w-4xl mx-auto px-4 pt-6">
-        <!-- Header -->
-        <header class="flex justify-between items-center mb-10">
-            <nav class="flex gap-1 bg-zinc-900/60 p-1 rounded-xl border border-white/5">
-                <button onclick="switchTab('tasks')" id="tab-tasks" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">Tasks</button>
-                <button onclick="switchTab('shopping')" id="tab-shopping" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">Shopping</button>
-            </nav>
+    <header class="flex justify-between items-center px-6 py-4 flex-shrink-0">
+        <nav class="flex gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
+            <button onclick="switchTab('tasks')" id="tab-tasks" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">Tasks</button>
+            <button onclick="switchTab('shopping')" id="tab-shopping" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">Shopping</button>
+        </nav>
 
-            <div class="relative" id="sync-container">
-                <button onclick="toggleSync(event)" class="p-2 text-zinc-700 hover:text-blue-500 transition">
-                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
-                </button>
-                
-                <div id="sync-panel" class="hidden absolute right-0 mt-2 w-72 p-5 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl z-[110]">
-                    <input id="sync-code" type="text" placeholder="Sync Key" class="w-full bg-black border border-zinc-800 p-3 rounded-xl text-sm mb-4 outline-none focus:border-blue-500 text-white">
-                    <div class="flex gap-2">
-                        <button onclick="uploadData()" class="flex-1 py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl">Push</button>
-                        <button onclick="downloadData()" class="flex-1 py-3 border border-zinc-700 text-[10px] font-black uppercase tracking-widest rounded-xl">Pull</button>
-                    </div>
+        <div class="relative" id="sync-wrapper">
+            <button onclick="toggleSync(event)" class="p-2 text-zinc-600 hover:text-blue-500 transition">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+            </button>
+            
+            <div id="sync-menu" class="hidden absolute right-0 mt-3 w-72 p-6 rounded-2xl bg-[#161618] border border-zinc-800 shadow-2xl z-[110]">
+                <input id="sync-key" type="text" placeholder="Secret Key" class="w-full bg-black border border-zinc-800 p-3 rounded-xl text-sm mb-4 outline-none focus:border-blue-500 text-white">
+                <div class="flex gap-2">
+                    <button onclick="pushCloud()" class="flex-1 py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl">Push</button>
+                    <button onclick="pullCloud()" class="flex-1 py-3 border border-zinc-700 text-[10px] font-black uppercase tracking-widest rounded-xl">Pull</button>
                 </div>
             </div>
-        </header>
+        </div>
+    </header>
 
-        <div id="list-container"></div>
+    <main id="scroll-area" class="flex-1 overflow-y-auto px-6 no-scrollbar pb-32" onclick="handleBgClick(event)">
+        <div id="list-content"></div>
 
-        <div id="archive-section" class="hidden mt-12 pt-8 border-t border-zinc-900/50">
-            <div class="flex justify-between items-center mb-6 px-1">
-                <p class="text-[9px] uppercase tracking-[0.5em] text-zinc-600 font-black">Completed</p>
-                <button onclick="clearCompleted()" class="text-zinc-800 hover:text-red-500 transition-colors">
+        <section id="archive-area" class="hidden mt-12 pt-8 border-t border-zinc-900">
+            <div class="flex justify-between items-center mb-6">
+                <p class="text-[9px] uppercase tracking-[0.5em] text-zinc-600 font-bold">Completed</p>
+                <button onclick="wipeCompleted()" class="text-zinc-800 hover:text-red-500 transition-colors">
                     <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
             </div>
-            <div id="archive-list" class="space-y-2"></div>
-        </div>
-    </div>
+            <div id="archive-content" class="space-y-2"></div>
+        </section>
+    </main>
 
-    <!-- FAB -->
     <div id="fab-outer">
         <div id="fab-container" class="shadow-2xl">
-            <input id="fab-input" type="text" placeholder="Type to add..." class="bg-transparent text-white px-6 outline-none placeholder-zinc-600 text-sm font-medium">
-            <button onclick="toggleFAB(event)" class="h-14 w-14 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-zinc-800 transition">
+            <input id="fab-input" type="text" placeholder="Add entry..." class="bg-transparent text-white px-6 outline-none placeholder-zinc-600 text-sm font-medium">
+            <button onclick="btnFAB(event)" class="h-14 w-14 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-zinc-800 transition">
                 <svg id="fab-icon" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
             </button>
         </div>
     </div>
 
     <script>
-        let currentTab = 'tasks';
-        let store = { tasks: [], shopping: [] };
+        let tab = 'tasks';
+        let db = { tasks: [], shopping: [] };
+        let sortableMain, sortableArch;
 
         function init() {
-            const saved = localStorage.getItem('sync_pro_final_v13');
-            if (saved) store = JSON.parse(saved);
+            const saved = localStorage.getItem('syncpro_v15');
+            if (saved) db = JSON.parse(saved);
             switchTab('tasks');
             
-            // Global Type-to-Add
             window.addEventListener('keydown', (e) => {
                 if (e.target.tagName === 'INPUT' || e.target.hasAttribute('contenteditable')) return;
-                if (e.key.length > 1 || e.ctrlKey || e.metaKey || e.altKey) return;
-                expandFAB();
-                document.getElementById('fab-input').focus();
+                if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                    expandInput();
+                    document.getElementById('fab-input').focus();
+                }
             });
 
-            // Click Outside Logic
-            document.addEventListener('click', (e) => {
-                const syncPanel = document.getElementById('sync-panel');
-                const syncContainer = document.getElementById('sync-container');
-                const fabContainer = document.getElementById('fab-container');
-                
-                if (!syncContainer.contains(e.target)) syncPanel.classList.add('hidden');
-                if (!fabContainer.contains(e.target) && fabContainer.classList.contains('expanded')) collapseFAB();
-            });
-
-            // Keyboard Viewport Handling
             if (window.visualViewport) {
                 window.visualViewport.addEventListener('resize', () => {
-                    const offset = window.innerHeight - window.visualViewport.height;
-                    document.documentElement.style.setProperty('--keyboard-offset', (offset > 0 ? offset : 0) + 'px');
-                    if (offset > 0) {
-                        window.scrollTo(0, 0); // Prevent browser from shifting view
-                    }
+                    const h = window.innerHeight - window.visualViewport.height;
+                    document.documentElement.style.setProperty('--keyboard-h', (h > 0 ? h : 0) + 'px');
                 });
             }
 
             document.getElementById('fab-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') { addItem(); collapseFAB(); }
+                if (e.key === 'Enter') { submitItem(); collapseInput(); }
             });
+
+            initSortable();
         }
 
-        function switchTab(tab) {
-            currentTab = tab;
-            const btnT = document.getElementById('tab-tasks');
-            const btnS = document.getElementById('tab-shopping');
-            btnT.className = tab === 'tasks' ? 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase bg-blue-600 text-white' : 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase text-zinc-600';
-            btnS.className = tab === 'shopping' ? 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase bg-blue-600 text-white' : 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase text-zinc-600';
+        function initSortable() {
+            const options = {
+                animation: 200,
+                delay: 250, // "Hold" requirement for reordering
+                delayOnTouchOnly: true,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                filter: '.editable-text, button', // Prevent drag on text edit or delete btn
+                onEnd: (evt) => {
+                    const listKey = evt.from.id === 'archive-content' ? 'archived' : 'active';
+                    reorderData(evt.oldIndex, evt.newIndex, listKey);
+                }
+            };
+            sortableMain = Sortable.create(document.getElementById('list-content'), options);
+            sortableArch = Sortable.create(document.getElementById('archive-content'), options);
+        }
+
+        function reorderData(oldIdx, newIdx, type) {
+            // Get current view's list
+            let list = db[tab];
+            let active = list.filter(i => !i.done);
+            let completed = list.filter(i => i.done);
+
+            if (tab === 'tasks') {
+                const targetList = (type === 'active') ? active : completed;
+                const [movedItem] = targetList.splice(oldIdx, 1);
+                targetList.splice(newIdx, 0, movedItem);
+                db[tab] = [...active, ...completed];
+            } else {
+                const [movedItem] = list.splice(oldIdx, 1);
+                list.splice(newIdx, 0, movedItem);
+            }
+            localStorage.setItem('syncpro_v15', JSON.stringify(db));
+        }
+
+        function handleBgClick(e) {
+            if (e.target.id === 'scroll-area' || e.target.id === 'list-content') {
+                document.getElementById('sync-menu').classList.add('hidden');
+                collapseInput();
+            }
+        }
+
+        function switchTab(t) {
+            tab = t;
+            document.getElementById('tab-tasks').className = tab === 'tasks' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-600';
+            document.getElementById('tab-shopping').className = tab === 'shopping' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-600';
             render();
         }
 
         function render() {
-            const container = document.getElementById('list-container');
-            const archSection = document.getElementById('archive-section');
-            const archList = document.getElementById('archive-list');
-            container.innerHTML = ''; archList.innerHTML = '';
-            const list = store[currentTab];
+            const main = document.getElementById('list-content');
+            const archArea = document.getElementById('archive-area');
+            const archContent = document.getElementById('archive-content');
+            main.innerHTML = ''; archContent.innerHTML = '';
+            
+            const list = db[tab];
 
-            if (currentTab === 'tasks') {
-                container.className = "flex flex-col gap-2";
-                archSection.classList.remove('hidden');
-                list.filter(i => !i.done).forEach(item => createItem(container, item));
-                list.filter(i => i.done).forEach(item => createItem(archList, item));
-                if (list.filter(i => i.done).length === 0) archSection.classList.add('hidden');
+            if (tab === 'tasks') {
+                main.className = "space-y-2";
+                archArea.classList.remove('hidden');
+                list.filter(i => !i.done).forEach(item => buildItem(main, item));
+                list.filter(i => i.done).forEach(item => buildItem(archContent, item));
+                if (list.filter(i => i.done).length === 0) archArea.classList.add('hidden');
             } else {
-                container.className = "shopping-grid";
-                archSection.classList.add('hidden');
-                list.forEach(item => createItem(container, item));
+                main.className = "shopping-grid";
+                archArea.classList.add('hidden');
+                list.forEach(item => buildItem(main, item));
             }
-            localStorage.setItem('sync_pro_final_v13', JSON.stringify(store));
+            localStorage.setItem('syncpro_v15', JSON.stringify(db));
         }
 
-        function createItem(parent, item) {
-            const idx = store[currentTab].indexOf(item);
-            const el = document.createElement('div');
+        function buildItem(parent, item) {
+            const idx = db[tab].indexOf(item);
+            const card = document.createElement('div');
+            card.setAttribute('data-id', idx);
             
-            if (currentTab === 'shopping') {
-                el.className = `shopping-tile ${item.done ? 'done' : ''}`;
-                el.onclick = (e) => { 
-                    // Only toggle if we didn't click the text itself
-                    if (!e.target.classList.contains('editable-text')) toggleItem(idx); 
-                };
-                
-                el.innerHTML = `
+            if (tab === 'shopping') {
+                card.className = `shopping-tile ${item.done ? 'done' : ''}`;
+                card.onclick = (e) => { if (!e.target.classList.contains('editable-text')) toggle(idx); };
+                card.innerHTML = `
                     <div class="w-full text-center pointer-events-none">
                         <span class="editable-text text-xs font-semibold pointer-events-auto" 
-                              contenteditable="true" 
-                              spellcheck="false" 
+                              contenteditable="true" spellcheck="false" 
                               onclick="event.stopPropagation()">${item.text}</span>
                     </div>
-                    <button onclick="event.stopPropagation(); deleteItem(${idx})" class="absolute top-1 right-1 p-1 text-zinc-700 hover:text-red-500">
+                    <button onclick="event.stopPropagation(); remove(${idx})" class="absolute top-1 right-1 p-1 text-zinc-700">
                         <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                `;
+                    </button>`;
             } else {
-                el.className = `flex items-center p-4 bg-zinc-900 border border-zinc-800 rounded-2xl transition ${item.done ? 'opacity-30' : ''}`;
-                el.innerHTML = `
-                    <div onclick="toggleItem(${idx})" class="w-5 h-5 rounded-lg border-2 flex-shrink-0 flex items-center justify-center cursor-pointer transition ${item.done ? 'bg-blue-600 border-blue-600' : 'border-zinc-700'}">
+                card.className = `flex items-center p-4 bg-[#161618] border border-zinc-800 rounded-2xl transition ${item.done ? 'opacity-30' : ''}`;
+                card.innerHTML = `
+                    <div onclick="toggle(${idx})" class="w-5 h-5 rounded-lg border-2 flex-shrink-0 flex items-center justify-center cursor-pointer transition ${item.done ? 'bg-blue-600 border-blue-600' : 'border-zinc-700'}">
                         ${item.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
                     </div>
-                    <div class="ml-4 flex-1">
-                        <span class="editable-text text-[13.5px] font-medium ${item.done ? 'strikethrough' : ''}" 
-                              contenteditable="true" 
-                              spellcheck="false"
+                    <div class="ml-4 flex-1 pointer-events-none">
+                        <span class="editable-text text-[13.5px] font-medium pointer-events-auto ${item.done ? 'strikethrough' : ''}" 
+                              contenteditable="true" spellcheck="false"
                               onclick="event.stopPropagation()">${item.text}</span>
                     </div>
-                    <button onclick="deleteItem(${idx})" class="ml-2 text-zinc-800 hover:text-red-500 p-1">
+                    <button onclick="remove(${idx})" class="ml-2 text-zinc-800 hover:text-red-500 p-1">
                         <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                `;
+                    </button>`;
             }
 
-            const textPart = el.querySelector('.editable-text');
-            textPart.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); textPart.blur(); }
-                e.stopPropagation(); 
-            });
-            textPart.addEventListener('blur', () => updateText(idx, textPart.innerText));
-            parent.appendChild(el);
+            const txt = card.querySelector('.editable-text');
+            txt.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); });
+            txt.addEventListener('blur', () => { if (db[tab][idx]) { db[tab][idx].text = txt.innerText; localStorage.setItem('syncpro_v15', JSON.stringify(db)); } });
+            parent.appendChild(card);
         }
 
-        function toggleSync(e) { e.stopPropagation(); document.getElementById('sync-panel').classList.toggle('hidden'); }
-        function toggleFAB(e) { e.stopPropagation(); const c = document.getElementById('fab-container'); c.classList.contains('expanded') ? collapseFAB() : expandFAB(); }
-        function expandFAB() { const c = document.getElementById('fab-container'); c.classList.add('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M18 6L6 18M6 6l12 12"/>'; setTimeout(() => document.getElementById('fab-input').focus(), 150); }
-        function collapseFAB() { const c = document.getElementById('fab-container'); c.classList.remove('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M12 5v14M5 12h14"/>'; document.getElementById('fab-input').blur(); }
+        function toggleSync(e) { e.stopPropagation(); document.getElementById('sync-menu').classList.toggle('hidden'); }
+        function btnFAB(e) { e.stopPropagation(); const c = document.getElementById('fab-container'); c.classList.contains('expanded') ? collapseInput() : expandInput(); }
+        function expandInput() { const c = document.getElementById('fab-container'); c.classList.add('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M18 6L6 18M6 6l12 12"/>'; setTimeout(() => document.getElementById('fab-input').focus(), 150); }
+        function collapseInput() { const c = document.getElementById('fab-container'); c.classList.remove('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M12 5v14M5 12h14"/>'; document.getElementById('fab-input').blur(); }
         
-        function addItem() { const i = document.getElementById('fab-input'); if (!i.value.trim()) return; store[currentTab].unshift({ text: i.value.trim(), done: false }); i.value = ''; render(); }
-        function updateText(idx, text) { if (store[currentTab][idx]) { store[currentTab][idx].text = text; localStorage.setItem('sync_pro_final_v13', JSON.stringify(store)); } }
-        function toggleItem(idx) { store[currentTab][idx].done = !store[currentTab][idx].done; render(); }
-        function deleteItem(idx) { store[currentTab].splice(idx, 1); render(); }
-        function clearCompleted() { if (confirm("Clear all completed?")) { store[currentTab] = store[currentTab].filter(i => !i.done); render(); } }
+        function submitItem() { const i = document.getElementById('fab-input'); if (!i.value.trim()) return; db[tab].unshift({ text: i.value.trim(), done: false }); i.value = ''; render(); }
+        function toggle(idx) { db[tab][idx].done = !db[tab][idx].done; render(); }
+        function remove(idx) { db[tab].splice(idx, 1); render(); }
+        function wipeCompleted() { if (confirm("Clear all?")) { db[tab] = db[tab].filter(i => !i.done); render(); } }
 
-        async function uploadData() { const k = document.getElementById('sync-code').value.trim(); if (!k) return alert("Key needed"); await fetch(`https://kvdb.io/pro_zen_v13/${k}`, { method: 'POST', body: JSON.stringify(store) }); alert("Data Pushed"); }
-        async function downloadData() { const k = document.getElementById('sync-code').value.trim(); const res = await fetch(`https://kvdb.io/pro_zen_v13/${k}`); if (res.ok) { store = await res.json(); render(); alert("Data Synced"); } }
+        async function pushCloud() {
+            const k = document.getElementById('sync-key').value.trim();
+            if (!k) return alert("Key required");
+            await fetch(`https://kvdb.io/pro_v15/${k}`, { method: 'POST', body: JSON.stringify(db) });
+            alert("Pushed.");
+        }
+        async function pullCloud() {
+            const k = document.getElementById('sync-key').value.trim();
+            const res = await fetch(`https://kvdb.io/pro_v15/${k}`);
+            if (res.ok) { db = await res.json(); render(); alert("Synced."); }
+        }
 
         init();
     </script>
