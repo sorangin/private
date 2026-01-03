@@ -26,10 +26,8 @@
             user-select: none; -webkit-user-select: none;
         }
         
-        /* Layouts */
         .shopping-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
         
-        /* Box Styles */
         .item-card {
             background-color: #161618;
             border: 1px solid #2d2d30;
@@ -41,18 +39,15 @@
         .item-card:active { cursor: grabbing; }
         .done { opacity: 0.25 !important; }
 
-        /* Text Editing */
         .editable-text { 
             outline: none; word-break: break-word; cursor: text; 
             white-space: pre-wrap; user-select: text; -webkit-user-select: text;
         }
         .strikethrough { text-decoration: line-through; opacity: 0.4; }
         
-        /* DRAG LOGIC: Placeholder is 100% blank */
         .sortable-ghost { opacity: 0 !important; }
         .sortable-drag { opacity: 1 !important; transform: scale(1.02); z-index: 1000; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
 
-        /* FAB & UI */
         #fab-outer { position: fixed; right: 1.25rem; bottom: calc(1.5rem + var(--keyboard-h)); z-index: 100; pointer-events: none; transition: bottom 0.1s ease-out; }
         #fab-container { pointer-events: auto; width: 56px; height: 56px; background: #1e1e20; border: 1px solid #2d2d30; border-radius: 28px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
         #fab-container.expanded { width: min(420px, calc(100vw - 40px)); border-radius: 16px; border-color: var(--accent); }
@@ -112,29 +107,11 @@
     </div>
 
     <script>
-        // --- PWA HELPER ---
-        const manifest = {
-            "name": "Sora's List",
-            "short_name": "SoraList",
-            "start_url": ".",
-            "display": "standalone",
-            "background_color": "#0c0c0d",
-            "theme_color": "#0c0c0d",
-            "icons": [{
-                "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMGMwYzBkIi8+PHBhdGggZD0iTTE1MCAyNTZsNzAgNzAgMTQwLTE0MCIgc3Ryb2tlPSIjM2I4MmY2IiBzdHJva2Utd2lkdGg9IjQwIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=",
-                "sizes": "512x512",
-                "type": "image/png"
-            }]
-        };
-        const stringManifest = JSON.stringify(manifest);
-        const blob = new Blob([stringManifest], {type: 'application/json'});
-        const manifestURL = URL.createObjectURL(blob);
-        const linkManifest = document.createElement('link');
-        linkManifest.setAttribute('rel', 'manifest');
-        linkManifest.setAttribute('href', manifestURL);
-        document.head.appendChild(linkManifest);
+        // PWA Helper
+        const manifest = { "name": "Sora's List", "short_name": "SoraList", "start_url": ".", "display": "standalone", "background_color": "#0c0c0d", "theme_color": "#0c0c0d", "icons": [{"src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMGMwYzBkIi8+PHBhdGggZD0iTTE1MCAyNTZsNzAgNzAgMTQwLTE0MCIgc3Ryb2tlPSIjM2I4MmY2IiBzdHJva2Utd2lkdGg9IjQwIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=", "sizes": "512x512", "type": "image/png"}] };
+        const linkManifest = document.createElement('link'); linkManifest.setAttribute('rel', 'manifest'); linkManifest.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))); document.head.appendChild(linkManifest);
 
-        // --- CONFIGURATION ---
+        // Supabase Config
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co";
         const SB_KEY = "sb_publishable_xSABmWC7hbSBMZULqe_IMw_M5XXDa4i";
         const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
@@ -159,8 +136,11 @@
         async function pullFromCloud() {
             if (!syncID) return;
             const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
-            if (data?.content) { db = data.content; render(); updateStatus(true); }
-            else { await pushToCloud(); }
+            if (data?.content) { 
+                db = data.content; 
+                render(); 
+                updateStatus(true); 
+            } else { await pushToCloud(); }
         }
 
         async function pushToCloud() {
@@ -171,11 +151,19 @@
         }
 
         function subscribeRealtime() {
-            supabaseClient.channel('changes').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, payload => {
-                isRemoteUpdate = true;
-                db = payload.new.content; render();
-                isRemoteUpdate = false;
-            }).subscribe();
+            // Updated channel logic to be more resilient
+            supabaseClient.channel('sora-sync')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, payload => {
+                    if (payload.new && payload.new.content) {
+                        isRemoteUpdate = true;
+                        db = payload.new.content; 
+                        render();
+                        setTimeout(() => { isRemoteUpdate = false; }, 200);
+                    }
+                })
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') console.log("Realtime Joined.");
+                });
         }
 
         function render() {
@@ -264,8 +252,8 @@
 
         function switchTab(t) {
             tab = t;
-            document.getElementById('tab-tasks').className = tab === 'tasks' ? 'px-6 py-2.5 rounded-xl text-[10px] font-black bg-blue-600 text-white' : 'px-6 py-2.5 rounded-xl text-[10px] font-black text-zinc-600';
-            document.getElementById('tab-shopping').className = tab === 'shopping' ? 'px-6 py-2.5 rounded-xl text-[10px] font-black bg-blue-600 text-white' : 'px-6 py-2.5 rounded-xl text-[10px] font-black text-zinc-600';
+            document.getElementById('tab-tasks').className = tab === 'tasks' ? 'px-6 py-2.5 rounded-xl text-[10px] font-black bg-blue-600 text-white shadow-lg' : 'px-6 py-2.5 rounded-xl text-[10px] font-black text-zinc-600';
+            document.getElementById('tab-shopping').className = tab === 'shopping' ? 'px-6 py-2.5 rounded-xl text-[10px] font-black bg-blue-600 text-white shadow-lg' : 'px-6 py-2.5 rounded-xl text-[10px] font-black text-zinc-600';
             render();
         }
 
