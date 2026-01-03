@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,7 +17,8 @@
             --text-secondary: #888888;
             --accent: #007aff;
             --accent-dim: rgba(0, 122, 255, 0.15);
-            --danger: #ff3b30; /* Red color for finished state */
+            --danger: #ff3b30;
+            /* Red color for finished state */
         }
 
         body {
@@ -140,228 +142,238 @@
         }
     </style>
 </head>
+
 <body>
 
-<div class="container" id="app-container">
-    <div class="timer-header">
-        <h1 id="timer-display" 
-            contenteditable="true" 
-            spellcheck="false"
-            inputmode="numeric">20:00</h1>
-        <div id="end-time-display"></div>
-    </div>
-
-    <div class="timer-selection">
-        <div class="button-group">
-            <button class="preset-btn" onclick="setTimer(20, this)">20m</button>
-            <button class="preset-btn" onclick="setTimer(30, this)">30m</button>
+    <div class="container" id="app-container">
+        <div class="timer-header">
+            <h1 id="timer-display" contenteditable="true" spellcheck="false" inputmode="numeric">20:00</h1>
+            <div id="end-time-display"></div>
         </div>
 
-        <div class="button-group">
-            <button class="preset-btn" onclick="setTimer(5, this)">5m</button>
-            <button class="preset-btn" onclick="setTimer(10, this)">10m</button>
+        <div class="timer-selection">
+            <div class="button-group">
+                <button class="preset-btn" onclick="setTimer(20, this)">20m</button>
+                <button class="preset-btn" onclick="setTimer(30, this)">30m</button>
+            </div>
+
+            <div class="button-group">
+                <button class="preset-btn" onclick="setTimer(5, this)">5m</button>
+                <button class="preset-btn" onclick="setTimer(10, this)">10m</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="toggle-btn" class="control-btn" onclick="toggleTimer()">
+                <svg id="play-icon" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                </svg>
+                <svg id="pause-icon" viewBox="0 0 24 24" style="display:none;">
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                </svg>
+            </button>
         </div>
     </div>
 
-    <div class="controls">
-        <button id="toggle-btn" class="control-btn" onclick="toggleTimer()">
-            <svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            <svg id="pause-icon" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-        </button>
-    </div>
-</div>
+    <script>
+        // --- PWA Helper ---
+        // Generate an icon
+        const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="background:#0a0a0a"><rect width="24" height="24" fill="#0a0a0a"/><circle cx="12" cy="12" r="9" fill="none" stroke="#007aff" stroke-width="2"/><path d="M12 6v6h4" fill="none" stroke="#007aff" stroke-width="2" stroke-linecap="round"/></svg>`;
+        const iconBlob = new Blob([iconSVG], { type: 'image/svg+xml' });
+        const iconURL = URL.createObjectURL(iconBlob);
 
-<script>
-    // --- PWA Helper ---
-    const manifest = {
-        "name": "Minimal Timer",
-        "short_name": "Timer",
-        "start_url": ".",
-        "display": "standalone",
-        "background_color": "#0a0a0a",
-        "theme_color": "#0a0a0a",
-        "icons": [{
-            "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMGEwYTBhIi8+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIxNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwN2FmZiIgc3Ryb2tlLXdpZHRoPSIxNiIvPjxwYXRoIGQ9Ik0yNTYgMTYwdjEwMGg2MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDA3YWZmIiBzdHJva2Utd2lkdGg9IjE2Ii8+PC9zdmc+",
-            "sizes": "512x512",
-            "type": "image/png"
-        }]
-    };
-    const stringManifest = JSON.stringify(manifest);
-    const blob = new Blob([stringManifest], {type: 'application/json'});
-    const manifestURL = URL.createObjectURL(blob);
-    const linkManifest = document.createElement('link');
-    linkManifest.setAttribute('rel', 'manifest');
-    linkManifest.setAttribute('href', manifestURL);
-    document.head.appendChild(linkManifest);
-
-    // --- Timer Logic ---
-    let timeLeft = 1200; 
-    let timerId = null;
-    let isRunning = false;
-    let isEditing = false;
-    let audioCtx = null;
-
-    const display = document.getElementById('timer-display');
-    const endTimeDisplay = document.getElementById('end-time-display');
-    const toggleBtn = document.getElementById('toggle-btn');
-    const playIcon = document.getElementById('play-icon');
-    const pauseIcon = document.getElementById('pause-icon');
-    const appContainer = document.getElementById('app-container');
-
-    // This wakes up the audio engine on user tap so it can play during silent mode
-    function initAudio() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-    }
-
-    display.addEventListener('focus', () => {
-        isEditing = true;
-        stopTimer();
-    });
-
-    display.addEventListener('blur', () => {
-        isEditing = false;
-        parseInput();
-    });
-
-    display.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            display.blur();
-        }
-    });
-
-    function parseInput() {
-        const text = display.textContent.trim();
-        let totalSeconds = 0;
-        if (text.includes(':')) {
-            const parts = text.split(':');
-            const mins = parseInt(parts[0]) || 0;
-            const secs = parseInt(parts[1]) || 0;
-            totalSeconds = (mins * 60) + secs;
-        } else {
-            const mins = parseInt(text) || 0;
-            totalSeconds = mins * 60;
-        }
-        if (totalSeconds > 0) {
-            timeLeft = totalSeconds;
-            appContainer.classList.remove('finished');
-            updateDisplay();
-            startTimer(); 
-        } else {
-            updateDisplay();
-        }
-    }
-
-    function updateDisplay() {
-        if (isEditing) return;
-        const mins = Math.floor(Math.abs(timeLeft) / 60);
-        const secs = Math.abs(timeLeft) % 60;
-        const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        display.textContent = timeStr;
-        document.title = isRunning ? `${timeStr} • Timer` : 'Timer';
-        updateEndTime();
-    }
-
-    function updateEndTime() {
-        if (timeLeft <= 0) {
-            endTimeDisplay.textContent = isRunning ? "Time's up" : "";
-            return;
-        }
-        const now = new Date();
-        const end = new Date(now.getTime() + timeLeft * 1000);
-        endTimeDisplay.textContent = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    function setTimer(mins, btnElement) {
-        initAudio(); // Wake up sound
-        stopTimer();
-        appContainer.classList.remove('finished');
-        timeLeft = Math.floor(mins * 60);
-        document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
-        if (btnElement) btnElement.classList.add('active');
-        updateDisplay();
-        startTimer(); 
-    }
-
-    function toggleTimer() {
-        initAudio(); // Wake up sound
-        if (isRunning) stopTimer();
-        else startTimer();
-    }
-
-    function startTimer() {
-        if (timeLeft <= 0) return;
-        clearInterval(timerId);
-        isRunning = true;
-        appContainer.classList.remove('finished');
-        appContainer.classList.add('running');
-        playIcon.style.display = 'none';
-        pauseIcon.style.display = 'block';
-        toggleBtn.style.backgroundColor = 'var(--accent)';
-        timerId = setInterval(() => {
-            if (!isEditing) {
-                timeLeft--;
-                updateDisplay();
-                if (timeLeft <= 0) complete();
-            }
-        }, 1000);
-        updateEndTime();
-    }
-
-    function stopTimer() {
-        isRunning = false;
-        clearInterval(timerId);
-        appContainer.classList.remove('running');
-        playIcon.style.display = 'block';
-        pauseIcon.style.display = 'none';
-        toggleBtn.style.backgroundColor = 'var(--text-primary)';
-        updateDisplay();
-    }
-
-    function complete() {
-        timeLeft = 0;
-        stopTimer();
-        appContainer.classList.add('finished');
-        
-        // Vibrate (works on Android even on silent)
-        if ("vibrate" in navigator) {
-            navigator.vibrate([500, 200, 500, 200, 500]);
-        }
-        
-        playAlarm();
-        // No alert() popup here anymore
-    }
-
-    function playAlarm() {
-        initAudio();
-        const playPing = (freq, startTime, duration) => {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, startTime);
-            gain.gain.setValueAtTime(0, startTime);
-            gain.gain.linearRampToValueAtTime(0.2, startTime + 0.1); 
-            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start(startTime);
-            osc.stop(startTime + duration);
+        const manifest = {
+            "name": "Minimal Timer",
+            "short_name": "Timer",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#0a0a0a",
+            "theme_color": "#0a0a0a",
+            "icons": [
+                { "src": iconURL, "sizes": "512x512", "type": "image/svg+xml" },
+                { "src": iconURL, "sizes": "192x192", "type": "image/svg+xml" }
+            ]
         };
-        const now = audioCtx.currentTime;
-        // YOUR ORIGINAL MUSIC:
-        const notes = [349.23, 440.00, 523.25, 659.25]; 
-        notes.forEach((freq, i) => {
-            playPing(freq, now + (i * 0.5), 3);
-            playPing(freq, now + 2 + (i * 0.5), 3);
-        });
-    }
+        const linkManifest = document.createElement('link');
+        linkManifest.setAttribute('rel', 'manifest');
+        linkManifest.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' })));
+        document.head.appendChild(linkManifest);
 
-    updateDisplay();
-</script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register(
+                URL.createObjectURL(new Blob(['self.addEventListener("fetch", (e) => {});'], { type: "text/javascript" }))
+            ).catch(err => console.log('SW Error:', err));
+        }
+
+        // --- Timer Logic ---
+        let timeLeft = 1200;
+        let timerId = null;
+        let isRunning = false;
+        let isEditing = false;
+        let audioCtx = null;
+
+        const display = document.getElementById('timer-display');
+        const endTimeDisplay = document.getElementById('end-time-display');
+        const toggleBtn = document.getElementById('toggle-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const appContainer = document.getElementById('app-container');
+
+        // This wakes up the audio engine on user tap so it can play during silent mode
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        display.addEventListener('focus', () => {
+            isEditing = true;
+            stopTimer();
+        });
+
+        display.addEventListener('blur', () => {
+            isEditing = false;
+            parseInput();
+        });
+
+        display.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                display.blur();
+            }
+        });
+
+        function parseInput() {
+            const text = display.textContent.trim();
+            let totalSeconds = 0;
+            if (text.includes(':')) {
+                const parts = text.split(':');
+                const mins = parseInt(parts[0]) || 0;
+                const secs = parseInt(parts[1]) || 0;
+                totalSeconds = (mins * 60) + secs;
+            } else {
+                const mins = parseInt(text) || 0;
+                totalSeconds = mins * 60;
+            }
+            if (totalSeconds > 0) {
+                timeLeft = totalSeconds;
+                appContainer.classList.remove('finished');
+                updateDisplay();
+                startTimer();
+            } else {
+                updateDisplay();
+            }
+        }
+
+        function updateDisplay() {
+            if (isEditing) return;
+            const mins = Math.floor(Math.abs(timeLeft) / 60);
+            const secs = Math.abs(timeLeft) % 60;
+            const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            display.textContent = timeStr;
+            document.title = isRunning ? `${timeStr} • Timer` : 'Timer';
+            updateEndTime();
+        }
+
+        function updateEndTime() {
+            if (timeLeft <= 0) {
+                endTimeDisplay.textContent = isRunning ? "Time's up" : "";
+                return;
+            }
+            const now = new Date();
+            const end = new Date(now.getTime() + timeLeft * 1000);
+            endTimeDisplay.textContent = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function setTimer(mins, btnElement) {
+            initAudio(); // Wake up sound
+            stopTimer();
+            appContainer.classList.remove('finished');
+            timeLeft = Math.floor(mins * 60);
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            if (btnElement) btnElement.classList.add('active');
+            updateDisplay();
+            startTimer();
+        }
+
+        function toggleTimer() {
+            initAudio(); // Wake up sound
+            if (isRunning) stopTimer();
+            else startTimer();
+        }
+
+        function startTimer() {
+            if (timeLeft <= 0) return;
+            clearInterval(timerId);
+            isRunning = true;
+            appContainer.classList.remove('finished');
+            appContainer.classList.add('running');
+            playIcon.style.display = 'none';
+            pauseIcon.style.display = 'block';
+            toggleBtn.style.backgroundColor = 'var(--accent)';
+            timerId = setInterval(() => {
+                if (!isEditing) {
+                    timeLeft--;
+                    updateDisplay();
+                    if (timeLeft <= 0) complete();
+                }
+            }, 1000);
+            updateEndTime();
+        }
+
+        function stopTimer() {
+            isRunning = false;
+            clearInterval(timerId);
+            appContainer.classList.remove('running');
+            playIcon.style.display = 'block';
+            pauseIcon.style.display = 'none';
+            toggleBtn.style.backgroundColor = 'var(--text-primary)';
+            updateDisplay();
+        }
+
+        function complete() {
+            timeLeft = 0;
+            stopTimer();
+            appContainer.classList.add('finished');
+
+            // Vibrate (works on Android even on silent)
+            if ("vibrate" in navigator) {
+                navigator.vibrate([500, 200, 500, 200, 500]);
+            }
+
+            playAlarm();
+            // No alert() popup here anymore
+        }
+
+        function playAlarm() {
+            initAudio();
+            const playPing = (freq, startTime, duration) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, startTime);
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(0.2, startTime + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            };
+            const now = audioCtx.currentTime;
+            // YOUR ORIGINAL MUSIC:
+            const notes = [349.23, 440.00, 523.25, 659.25];
+            notes.forEach((freq, i) => {
+                playPing(freq, now + (i * 0.5), 3);
+                playPing(freq, now + 2 + (i * 0.5), 3);
+            });
+        }
+
+        updateDisplay();
+    </script>
 </body>
+
 </html>
