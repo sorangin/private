@@ -160,6 +160,28 @@
     </div>
 
     <script>
+        // --- PWA Helper (Add this to your To-Do List Script) ---
+const manifest = {
+    "name": "Pro Task List",
+    "short_name": "Tasks",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0c0c0d",
+    "theme_color": "#0c0c0d",
+    "icons": [{
+        "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMGMwYzBkIi8+PHBhdGggZD0iTTE1MCAyNTZsNzAgNzAgMTQwLTE0MCIgc3Ryb2tlPSIjM2I4MmY2IiBzdHJva2Utd2lkdGg9IjQwIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=",
+        "sizes": "512x512",
+        "type": "image/png"
+    }]
+};
+const stringManifest = JSON.stringify(manifest);
+const blob = new Blob([stringManifest], {type: 'application/json'});
+const manifestURL = URL.createObjectURL(blob);
+const linkManifest = document.createElement('link');
+linkManifest.setAttribute('rel', 'manifest');
+linkManifest.setAttribute('href', manifestURL);
+document.head.appendChild(linkManifest);
+
         let tab = 'tasks';
         let db = { tasks: [], shopping: [] };
         let sortableMain, sortableArch;
