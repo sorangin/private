@@ -1,194 +1,191 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0c0c0d">
-<title>Sora's List</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-:root { --bg: #0c0c0d; --surface: #161618; --accent: #3b82f6; --text-main: #e5e7eb; --keyboard-h: 0px; }
-body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; margin: 0; user-select: none; -webkit-user-select: none; }
-header { padding-top: env(safe-area-inset-top); }
-.shopping-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; min-height: 40px; }
-.section-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 14px; display: flex; align-items: center; cursor: pointer; padding: 0 4px; }
-.color-food { color: #f59e0b; }
-.color-household { color: #3b82f6; }
-.color-misc { color: #a855f7; }
-.item-card { background-color: #161618; border: 1px solid #2d2d30; border-radius: 16px; cursor: grab; touch-action: pan-y; position: relative; }
-.item-card:active { cursor: grabbing; }
-.done { opacity: 0.25 !important; filter: grayscale(1); }
-.card-food { border-color: rgba(245, 158, 11, 0.25); background-color: rgba(245, 158, 11, 0.05); color: #fcd34d; }
-.card-household { border-color: rgba(59, 130, 246, 0.25); background-color: rgba(59, 130, 246, 0.05); color: #93c5fd; }
-.card-misc { border-color: rgba(168, 85, 247, 0.25); background-color: rgba(168, 85, 247, 0.05); color: #d8b4fe; }
-.editable-text { outline: none; word-break: break-word; cursor: text; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
-.strikethrough { text-decoration: line-through; opacity: 0.6; }
-.sortable-ghost { opacity: 0 !important; }
-.sortable-drag { opacity: 1 !important; transform: scale(1.02); z-index: 1000; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
-#fab-outer { position: fixed; right: 1.25rem; bottom: calc(1.5rem + var(--keyboard-h)); z-index: 100; pointer-events: none; transition: bottom 0.1s ease-out; }
-#fab-container { pointer-events: auto; width: 56px; height: 56px; background: #1e1e20; border: 1px solid #2d2d30; border-radius: 28px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
-#fab-container.expanded { width: min(420px, calc(100vw - 40px)); border-radius: 16px; border-color: var(--accent); }
-#fab-input { display: none; opacity: 0; width: 100%; background: transparent; color: white; padding: 0 20px; outline: none; border: none; font-size: 16px; }
-#fab-container.expanded #fab-input { display: block; opacity: 1; }
-.collapsed-content { display: none !important; }
-.chevron { transition: transform 0.2s; font-size: 8px; margin-right: 6px; display: inline-block; }
-.is-collapsed .chevron { transform: rotate(-90deg); }
-.sync-indicator { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-.status-online { color: #22c55e; }
-.status-offline { color: #ef4444; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0c0c0d">
+    <title>To Do List</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        :root { --bg: #0c0c0d; --surface: #161618; --accent: #3b82f6; --text-main: #e5e7eb; --keyboard-h: 0px; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; margin: 0; user-select: none; -webkit-user-select: none; }
+        header { padding-top: env(safe-area-inset-top); }
+        .shopping-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; min-height: 30px; }
+        .section-header { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; display: flex; align-items: center; cursor: pointer; padding: 0 4px; }
+        .color-food { color: #f59e0b; } .color-household { color: #3b82f6; } .color-misc { color: #a855f7; }
+        .item-card { background-color: #161618; border: 1px solid #2d2d30; border-radius: 12px; cursor: grab; touch-action: pan-y; position: relative; }
+        .item-card:active { cursor: grabbing; }
+        .done { opacity: 0.25 !important; filter: grayscale(1); }
+        .card-food { border-color: rgba(245, 158, 11, 0.2); background-color: rgba(245, 158, 11, 0.04); color: #fcd34d; }
+        .card-household { border-color: rgba(59, 130, 246, 0.2); background-color: rgba(59, 130, 246, 0.04); color: #93c5fd; }
+        .card-misc { border-color: rgba(168, 85, 247, 0.2); background-color: rgba(168, 85, 247, 0.04); color: #d8b4fe; }
+        .editable-text { outline: none; word-break: break-word; cursor: text; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
+        .strikethrough { text-decoration: line-through; opacity: 0.6; }
+        .sortable-ghost { opacity: 0 !important; }
+        .sortable-drag { opacity: 1 !important; transform: scale(1.02); z-index: 1000; box-shadow: 0 15px 20px -5px rgba(0,0,0,0.5); }
+        #fab-outer { position: fixed; right: 1rem; bottom: calc(1rem + var(--keyboard-h)); z-index: 100; pointer-events: none; transition: bottom 0.1s; }
+        #fab-container { pointer-events: auto; width: 50px; height: 50px; background: #1e1e20; border: 1px solid #2d2d30; border-radius: 25px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        #fab-container.expanded { width: min(400px, calc(100vw - 32px)); border-radius: 12px; border-color: var(--accent); }
+        #fab-input { display: none; opacity: 0; width: 100%; background: transparent; color: white; padding: 0 16px; outline: none; border: none; font-size: 16px; }
+        #fab-container.expanded #fab-input { display: block; opacity: 1; }
+        .collapsed-content { display: none !important; }
+        .chevron { transition: transform 0.2s; font-size: 7px; margin-right: 4px; display: inline-block; }
+        .is-collapsed .chevron { transform: rotate(-90deg); }
+        .sync-indicator { font-size: 7px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+        .status-online { color: #22c55e; } .status-offline { color: #ef4444; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
 </head>
 <body>
-<header class="flex justify-between items-center px-6 py-2 flex-shrink-0">
-<nav class="flex gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
-<button onclick="switchTab('tasks')" id="tab-tasks" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
-<button onclick="switchTab('shopping')" id="tab-shopping" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
-</nav>
-<div class="flex flex-col items-end">
-<div id="sync-status" class="sync-indicator status-offline">Offline</div>
-<button onclick="promptSyncID()" class="text-[9px] text-zinc-500 hover:text-white mt-0.5">Sync ID: <span id="display-id" class="underline">None</span></button>
-</div>
-</header>
-<main id="scroll-area" class="flex-1 overflow-y-auto px-6 pb-32 no-scrollbar" onclick="handleBgClick(event)">
-<div id="list-content"></div>
-<section id="archive-area" class="hidden mt-8 pt-8 border-t border-zinc-900">
-<div class="flex justify-between items-center mb-6">
-<button onclick="toggleArchive()" class="flex items-center gap-2 group"><svg class="chevron-rotate text-zinc-600 group-hover:text-zinc-400" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M19 9l-7 7-7-7"/></svg><p class="text-[9px] uppercase tracking-[0.5em] text-zinc-600 font-bold group-hover:text-zinc-400">Completed</p></button>
-<button onclick="wipeCompleted()" class="text-zinc-800 hover:text-red-500 transition-colors"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-</div>
-<div id="archive-content" class="space-y-2"></div>
-</section>
-</main>
-<div id="fab-outer">
-<div id="fab-container">
-<input id="fab-input" type="text" placeholder="Add entry..." autocomplete="off">
-<button onclick="btnFAB(event)" class="h-14 w-14 flex items-center justify-center rounded-full hover:bg-zinc-800 transition"><svg id="fab-icon" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg></button>
-</div>
-</div>
-<script>
-const manifest = { "name": "Sora's List", "short_name": "SoraList", "start_url": ".", "scope": ".", "display": "standalone", "background_color": "#0c0c0d", "theme_color": "#0c0c0d", "icons": [{"src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMGMwYzBkIi8+PHBhdGggZD0iTTE1MCAyNTZsNzAgNzAgMTQwLTE0MCIgc3Ryb2tlPSIjM2I4MmY2IiBzdHJva2Utd2lkdGg9IjQwIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=", "sizes": "512x512", "type": "image/png"}] };
-const linkManifest = document.createElement('link'); linkManifest.setAttribute('rel', 'manifest'); linkManifest.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))); document.head.appendChild(linkManifest);
-if ('serviceWorker' in navigator) { const sw = 'self.addEventListener("fetch", () => {});'; navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], {type: "text/javascript"}))); }
-const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
-let db = { tasks: [], shopping: [] }, collapsedStates = { archive: false, food: false, household: false, misc: false }, tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
-async function init() {
-if (syncID) { document.getElementById('display-id').innerText = syncID; loadLocal(); await pullFromCloud(); subscribeRealtime(); }
-else { setTimeout(promptSyncID, 500); }
-switchTab('tasks'); setupInputLogic(); window.addEventListener('focus', pullFromCloud);
-}
-async function pullFromCloud() {
-if (!syncID) return;
-const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
-if (data?.content) { db = data.content; render(); updateStatus(true); } else { await pushToCloud(); }
-}
-async function pushToCloud() {
-if (!syncID || isRemoteUpdate) return;
-updateStatus(false);
-const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: db }, { onConflict: 'sync_id' });
-if (!error) updateStatus(true);
-}
-function subscribeRealtime() {
-supabaseClient.channel('changes').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, payload => {
-if (isRemoteUpdate) return;
-isRemoteUpdate = true; db = payload.new.content; render(); isRemoteUpdate = false;
-}).subscribe();
-}
-function render() {
-const main = document.getElementById('list-content'), archContent = document.getElementById('archive-content'), archArea = document.getElementById('archive-area');
-main.innerHTML = ''; archContent.innerHTML = '';
-const list = db[tab] || [];
-list.forEach(item => { if(!item.uid) item.uid = Math.random(); if(tab === 'shopping' && !item.cat) item.cat = 'misc'; });
-if (tab === 'tasks') {
-main.className = "space-y-3 mt-4"; archArea.classList.toggle('is-collapsed', collapsedStates.archive); archContent.classList.toggle('collapsed-content', collapsedStates.archive); archArea.classList.remove('hidden');
-list.filter(i => !i.done).forEach(item => buildItem(main, item));
-const done = list.filter(i => i.done); done.forEach(item => buildItem(archContent, item));
-if (done.length === 0) archArea.classList.add('hidden');
-document.getElementById('tab-tasks').className = 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg transition-all';
-document.getElementById('tab-shopping').className = 'px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all';
-} else {
-main.className = "space-y-8 mt-4"; archArea.classList.add('hidden');
-renderSection(main, 'Food', 'food', 'color-food'); renderSection(main, 'Household', 'household', 'color-household'); renderSection(main, 'Misc', 'misc', 'color-misc');
-document.getElementById('tab-shopping').className = 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg transition-all';
-document.getElementById('tab-tasks').className = 'px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all';
-}
-saveLocal(); initSortable();
-}
-function renderSection(parent, label, key, color) {
-const items = db.shopping.filter(i => i.cat === key), t = items.length, r = items.filter(i => !i.done).length;
-const container = document.createElement('div');
-container.innerHTML = `<div class="section-header ${color} ${collapsedStates[key] ? 'is-collapsed' : ''}" onclick="toggleCat('${key}')"><span><span class="chevron">▼</span>${label} <span class="ml-1 opacity-60">(${r}/${t})</span></span></div><div id="cat-${key}" data-cat="${key}" class="shopping-grid ${collapsedStates[key] ? 'collapsed-content' : ''}"></div>`;
-parent.appendChild(container); const grid = container.querySelector('.shopping-grid'); items.forEach(item => buildItem(grid, item));
-}
-function buildItem(parent, item) {
-const card = document.createElement('div'), catClass = tab === 'shopping' ? `card-${item.cat}` : '';
-card.className = `item-card ${catClass} ${item.done ? 'done' : ''} ${tab === 'tasks' ? 'flex items-center p-5' : 'flex flex-col items-center justify-center p-4 h-28 text-center'}`;
-card.setAttribute('data-uid', item.uid);
-if (tab === 'tasks') {
-card.innerHTML = `<div class="chk w-6 h-6 rounded-lg border-2 flex-shrink-0 flex items-center justify-center cursor-pointer transition ${item.done ? 'bg-blue-600 border-blue-600' : 'border-zinc-700'}">${item.done ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</div><span class="ml-4 flex-1 editable-text text-[15px] font-medium ${item.done ? 'strikethrough' : ''}" contenteditable="true" spellcheck="false">${item.text}</span><button class="del ml-4 text-zinc-800 hover:text-red-500">✕</button>`;
-} else {
-card.innerHTML = `<span class="editable-text text-xs font-bold px-2 ${item.done ? 'strikethrough' : ''}" contenteditable="true" spellcheck="false">${item.text}</span><button class="del absolute top-2 right-2 text-zinc-700 text-[10px] opacity-40 hover:opacity-100">✕</button>`;
-}
-let sX, sY; card.onmousedown = (e) => { sX = e.pageX; sY = e.pageY; };
-card.onmouseup = (e) => {
-if (Math.abs(e.pageX - sX) < 5 && Math.abs(e.pageY - sY) < 5) {
-const idx = db[tab].findIndex(i => i.uid == item.uid);
-if (e.target.closest('.chk')) toggle(idx); else if (e.target.closest('.del')) remove(idx); else if (tab === 'shopping' && !e.target.classList.contains('editable-text')) toggle(idx);
-}
-};
-const txt = card.querySelector('.editable-text');
-if (txt) {
-txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
-txt.onblur = () => { const idx = db[tab].findIndex(i => i.uid == item.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; saveLocal(); pushToCloud(); } };
-}
-parent.appendChild(card);
-}
-function initSortable() {
-const dragDelay = ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 300 : 0;
-const config = { animation: 250, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag', delay: dragDelay, delayOnTouchOnly: true, filter: '.editable-text, button, .chk', preventOnFilter: false, onEnd: () => {
-const els = Array.from(document.querySelectorAll('.item-card')), list = db[tab];
-db[tab] = els.map(el => {
-const item = list.find(i => i.uid == el.getAttribute('data-uid')), newCat = el.parentElement.getAttribute('data-cat');
-if (tab === 'tasks') { item.done = el.closest('#archive-area') !== null; }
-if (tab === 'shopping' && newCat) item.cat = newCat; return item;
-}).filter(n => n); saveLocal(); pushToCloud(); render();
-}};
-if (tab === 'tasks') { Sortable.create(document.getElementById('list-content'), {...config, group: 't'}); Sortable.create(document.getElementById('archive-content'), {...config, group: 't'}); }
-else { ['food', 'household', 'misc'].forEach(k => { const el = document.getElementById('cat-'+k); if(el) Sortable.create(el, {...config, group: 's'}); }); }
-}
-function switchTab(t) { tab = t; render(); }
-function toggleCat(key) { collapsedStates[key] = !collapsedStates[key]; render(); }
-function toggleArchive() { collapsedStates.archive = !collapsedStates.archive; render(); }
-function setupInputLogic() {
-window.addEventListener('keydown', (e) => {
-if (e.target.tagName === 'INPUT' || e.target.hasAttribute('contenteditable') || e.ctrlKey || e.metaKey || e.key.length !== 1) return;
-expandInput(); document.getElementById('fab-input').value = e.key;
-});
-document.getElementById('fab-input').onkeypress = (e) => {
-if (e.key === 'Enter') {
-const v = e.target.value.trim(); if(v) { db[tab].unshift({text:v, done:false, uid: Math.random(), cat: 'misc'}); render(); pushToCloud(); }
-e.target.value = ''; collapseInput();
-}
-};
-}
-function toggle(idx) { if(idx > -1) { db[tab][idx].done = !db[tab][idx].done; render(); pushToCloud(); } }
-function remove(idx) { if(idx > -1) { db[tab].splice(idx, 1); render(); pushToCloud(); } }
-function wipeCompleted() { if(confirm("Clear?")) { db[tab] = db[tab].filter(i => !i.done); render(); pushToCloud(); } }
-function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if(id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
-function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
-function loadLocal() { const s = localStorage.getItem('todo_db'); if(s) db = JSON.parse(s); }
-function btnFAB(e) { e.stopPropagation(); document.getElementById('fab-container').classList.contains('expanded') ? collapseInput() : expandInput(); }
-function expandInput() { document.getElementById('fab-container').classList.add('expanded'); const i = document.getElementById('fab-input'); setTimeout(() => { i.focus(); i.click(); }, 100); }
-function collapseInput() { document.getElementById('fab-container').classList.remove('expanded'); document.getElementById('fab-input').blur(); }
-function handleBgClick(e) { if (e.target.id === 'scroll-area') collapseInput(); }
-function updateStatus(on) { const el = document.getElementById('sync-status'); el.innerText = on?"Synced":"Syncing..."; el.className=`sync-indicator ${on?'status-online':'status-offline'}`; }
-init();
-</script>
+    <header class="flex justify-between items-center px-5 py-1.5 flex-shrink-0">
+        <nav class="flex gap-1 bg-zinc-900/80 p-1 rounded-lg border border-white/5">
+            <button onclick="switchTab('tasks')" id="tab-tasks" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase transition-all">Tasks</button>
+            <button onclick="switchTab('shopping')" id="tab-shopping" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase transition-all">Shopping</button>
+        </nav>
+        <div class="flex flex-col items-end">
+            <div id="sync-status" class="sync-indicator status-offline">Offline</div>
+            <button onclick="promptSyncID()" class="text-[8px] text-zinc-500 hover:text-white">Sync ID: <span id="display-id" class="underline">None</span></button>
+        </div>
+    </header>
+    <main id="scroll-area" class="flex-1 overflow-y-auto px-5 pb-24 no-scrollbar" onclick="handleBgClick(event)">
+        <div id="list-content"></div>
+        <section id="archive-area" class="hidden mt-6 pt-4 border-t border-zinc-900">
+            <div class="flex justify-between items-center mb-4">
+                <button onclick="toggleArchive()" class="flex items-center gap-2 group text-zinc-600 hover:text-zinc-400"><svg class="chevron-rotate" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M19 9l-7 7-7-7"/></svg><p class="text-[8px] uppercase tracking-widest font-bold">Completed</p></button>
+                <button onclick="wipeCompleted()" class="text-zinc-800 hover:text-red-500"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+            </div>
+            <div id="archive-content" class="space-y-1"></div>
+        </section>
+    </main>
+    <div id="fab-outer">
+        <div id="fab-container">
+            <input id="fab-input" type="text" placeholder="Add..." autocomplete="off">
+            <button onclick="btnFAB(event)" class="h-12 w-12 flex items-center justify-center rounded-full hover:bg-zinc-800 transition"><svg id="fab-icon" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg></button>
+        </div>
+    </div>
+    <script>
+        const manifest = { "name": "Sora's List", "short_name": "Sora", "start_url": ".", "display": "standalone", "background_color": "#0c0c0d", "theme_color": "#0c0c0d", "icons": [{"src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMGMwYzBkIi8+PHBhdGggZD0iTTE1MCAyNTZsNzAgNzAgMTQwLTE0MCIgc3Ryb2tlPSIjM2I4MmY2IiBzdHJva2Utd2lkdGg9IjQwIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=", "sizes": "512x512", "type": "image/png"}] };
+        const linkManifest = document.createElement('link'); linkManifest.setAttribute('rel', 'manifest'); linkManifest.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))); document.head.appendChild(linkManifest);
+        if ('serviceWorker' in navigator) { const sw = 'self.addEventListener("fetch", (e) => e.respondWith(fetch(e.request)));'; navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], {type: "text/javascript"}))); }
+        const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+        let db = { tasks: [], shopping: [] }, collapsedStates = { archive: false, food: false, household: false, misc: false }, tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
+        async function init() {
+            if (syncID) { document.getElementById('display-id').innerText = syncID; loadLocal(); await pullFromCloud(); subscribeRealtime(); }
+            else { setTimeout(promptSyncID, 500); }
+            switchTab('tasks'); setupInputLogic(); window.addEventListener('focus', pullFromCloud);
+        }
+        async function pullFromCloud() {
+            if (!syncID) return;
+            const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
+            if (data?.content) { db = data.content; render(); updateStatus(true); } else { await pushToCloud(); }
+        }
+        async function pushToCloud() {
+            if (!syncID || isRemoteUpdate) return;
+            updateStatus(false);
+            const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: db }, { onConflict: 'sync_id' });
+            if (!error) updateStatus(true);
+        }
+        function subscribeRealtime() {
+            supabaseClient.channel('changes').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, payload => {
+                if (isRemoteUpdate) return;
+                isRemoteUpdate = true; db = payload.new.content; render(); isRemoteUpdate = false;
+            }).subscribe();
+        }
+        function render() {
+            const main = document.getElementById('list-content'), archContent = document.getElementById('archive-content'), archArea = document.getElementById('archive-area');
+            main.innerHTML = ''; archContent.innerHTML = '';
+            const list = db[tab] || [];
+            list.forEach(item => { if(!item.uid) item.uid = Math.random(); if(tab === 'shopping' && !item.cat) item.cat = 'misc'; });
+            if (tab === 'tasks') {
+                main.className = "space-y-1.5 mt-2"; archArea.classList.toggle('is-collapsed', collapsedStates.archive); archContent.classList.toggle('collapsed-content', collapsedStates.archive); archArea.classList.remove('hidden');
+                list.filter(i => !i.done).forEach(item => buildItem(main, item));
+                const done = list.filter(i => i.done); done.forEach(item => buildItem(archContent, item));
+                if (done.length === 0) archArea.classList.add('hidden');
+                document.getElementById('tab-tasks').className = 'px-4 py-1.5 rounded-md text-[9px] font-black uppercase bg-blue-600 text-white shadow-md transition-all';
+                document.getElementById('tab-shopping').className = 'px-4 py-1.5 rounded-md text-[9px] font-black uppercase text-zinc-500 transition-all';
+            } else {
+                main.className = "space-y-6 mt-2"; archArea.classList.add('hidden');
+                renderSection(main, 'Food', 'food', 'color-food'); renderSection(main, 'Household', 'household', 'color-household'); renderSection(main, 'Misc', 'misc', 'color-misc');
+                document.getElementById('tab-shopping').className = 'px-4 py-1.5 rounded-md text-[9px] font-black uppercase bg-blue-600 text-white shadow-md transition-all';
+                document.getElementById('tab-tasks').className = 'px-4 py-1.5 rounded-md text-[9px] font-black uppercase text-zinc-500 transition-all';
+            }
+            saveLocal(); initSortable();
+        }
+        function renderSection(parent, label, key, color) {
+            const items = db.shopping.filter(i => i.cat === key), t = items.length, r = items.filter(i => !i.done).length;
+            const container = document.createElement('div');
+            container.innerHTML = `<div class="section-header ${color} ${collapsedStates[key] ? 'is-collapsed' : ''}" onclick="toggleCat('${key}')"><span><span class="chevron">▼</span>${label} <span class="ml-1 opacity-50">(${r}/${t})</span></span></div><div id="cat-${key}" data-cat="${key}" class="shopping-grid ${collapsedStates[key] ? 'collapsed-content' : ''}"></div>`;
+            parent.appendChild(container); const grid = container.querySelector('.shopping-grid'); items.forEach(item => buildItem(grid, item));
+        }
+        function buildItem(parent, item) {
+            const card = document.createElement('div'), isShop = tab === 'shopping';
+            card.className = `item-card ${isShop ? `card-${item.cat}` : ''} ${item.done ? 'done' : ''} ${!isShop ? 'flex items-center p-2.5' : 'flex flex-col items-center justify-center p-3 h-24 text-center'}`;
+            card.setAttribute('data-uid', item.uid);
+            if (!isShop) {
+                card.innerHTML = `<div class="chk w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition ${item.done ? 'bg-blue-600 border-blue-600' : 'border-zinc-700'}">${item.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</div><span class="ml-3 flex-1 editable-text text-[13px] font-medium ${item.done ? 'strikethrough' : ''}" contenteditable="true" spellcheck="false">${item.text}</span>`;
+            } else {
+                card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${item.done ? 'strikethrough' : ''}" contenteditable="true" spellcheck="false">${item.text}</span><button class="del absolute top-1.5 right-1.5 text-zinc-700 text-[10px] opacity-40 hover:opacity-100">✕</button>`;
+            }
+            let sX, sY; card.onmousedown = (e) => { sX = e.pageX; sY = e.pageY; };
+            card.onmouseup = (e) => {
+                if (Math.abs(e.pageX - sX) < 6 && Math.abs(e.pageY - sY) < 6) {
+                    const idx = db[tab].findIndex(i => i.uid == item.uid);
+                    if (e.target.closest('.chk')) toggle(idx); else if (e.target.closest('.del')) remove(idx); else if (isShop && !e.target.classList.contains('editable-text')) toggle(idx);
+                }
+            };
+            const txt = card.querySelector('.editable-text');
+            if (txt) {
+                txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
+                txt.onblur = () => { const idx = db[tab].findIndex(i => i.uid == item.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; saveLocal(); pushToCloud(); } };
+            }
+            parent.appendChild(card);
+        }
+        function initSortable() {
+            const dragDelay = ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 300 : 0;
+            const config = { animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag', delay: dragDelay, delayOnTouchOnly: true, filter: '.editable-text, button, .chk', preventOnFilter: false, group: tab === 'tasks' ? 't' : 's', onEnd: (evt) => {
+                const els = Array.from(document.querySelectorAll('.item-card')), list = db[tab];
+                db[tab] = els.map(el => {
+                    const item = list.find(i => i.uid == el.getAttribute('data-uid')), newCat = el.parentElement.getAttribute('data-cat');
+                    if (tab === 'tasks') { item.done = el.closest('#archive-area') !== null; }
+                    if (tab === 'shopping' && newCat) item.cat = newCat; return item;
+                }).filter(n => n); saveLocal(); pushToCloud(); render();
+            }};
+            if (tab === 'tasks') { Sortable.create(document.getElementById('list-content'), config); Sortable.create(document.getElementById('archive-content'), config); }
+            else { ['food', 'household', 'misc'].forEach(k => { const el = document.getElementById('cat-'+k); if(el) Sortable.create(el, config); }); }
+        }
+        function switchTab(t) { tab = t; render(); }
+        function toggleCat(key) { collapsedStates[key] = !collapsedStates[key]; render(); }
+        function toggleArchive() { collapsedStates.archive = !collapsedStates.archive; render(); }
+        function setupInputLogic() {
+            window.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.hasAttribute('contenteditable') || e.ctrlKey || e.metaKey || e.key.length !== 1) return;
+                expandInput(); document.getElementById('fab-input').value = e.key;
+            });
+            document.getElementById('fab-input').onkeypress = (e) => {
+                if (e.key === 'Enter') { 
+                    const v = e.target.value.trim(); if(v) { db[tab].unshift({text:v, done:false, uid: Math.random(), cat: 'misc'}); render(); pushToCloud(); }
+                    e.target.value = ''; collapseInput();
+                }
+            };
+        }
+        function toggle(idx) { if(idx > -1) { db[tab][idx].done = !db[tab][idx].done; render(); pushToCloud(); } }
+        function remove(idx) { if(idx > -1) { db[tab].splice(idx, 1); render(); pushToCloud(); } }
+        function wipeCompleted() { if(confirm("Clear?")) { db[tab] = db[tab].filter(i => !i.done); render(); pushToCloud(); } }
+        function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if(id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
+        function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
+        function loadLocal() { const s = localStorage.getItem('todo_db'); if(s) db = JSON.parse(s); }
+        function btnFAB(e) { e.stopPropagation(); document.getElementById('fab-container').classList.contains('expanded') ? collapseInput() : expandInput(); }
+        function expandInput() { document.getElementById('fab-container').classList.add('expanded'); const i = document.getElementById('fab-input'); setTimeout(() => { i.focus(); i.click(); }, 100); }
+        function collapseInput() { document.getElementById('fab-container').classList.remove('expanded'); document.getElementById('fab-input').blur(); }
+        function handleBgClick(e) { if (e.target.id === 'scroll-area') collapseInput(); }
+        function updateStatus(on) { const el = document.getElementById('sync-status'); el.innerText = on?"Synced":"Syncing..."; el.className=`sync-indicator ${on?'status-online':'status-offline'}`; }
+        init();
+    </script>
 </body>
 </html>
