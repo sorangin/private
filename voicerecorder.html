@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#10b981">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Voice Rec">
+
+    <!-- Embedded Manifest for Single-File PWA -->
+    <link rel="manifest"
+        href='data:application/manifest+json,%7B%22name%22%3A%22Voice%20Recorder%20Pro%22%2C%22short_name%22%3A%22Voice%20Rec%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f1014%22%2C%22theme_color%22%3A%22%2310b981%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F25%2F25682.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D'>
+
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/25/25682.png">
+
+    <title>Voice Recorder</title>
+    <style>
+        :root {
+            --bg-color: #0f1014;
+            --card-bg: #1a1c23;
+            /* Green Accent Colors */
+            --primary-color: #0ea800;
+            /* User custom green */
+            --primary-hover: #03730c;
+            /* User custom dark green */
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --border: #2e333d;
+            --track-bg: #2d3139;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .recorder-container {
+            width: 100%;
+            max-width: 400px;
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header p {
+            color: var(--text-dim);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Visualizer Area */
+        .visualizer-container {
+            height: 120px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: 80px;
+        }
+
+        .timer {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 2rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        /* Controls - Modified to remove container constraints for FAB */
+        .controls {
+            display: none;
+            /* Button is now fixed positioned */
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            color: var(--text-main);
+        }
+
+        #recordBtn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        #recordBtn:hover {
+            transform: scale(1.05);
+            background: var(--primary-hover);
+        }
+
+        #recordBtn.recording {
+            background: var(--danger);
+            animation: pulse 1.5s infinite;
+        }
+
+        #recordBtn svg {
+            width: 32px;
+            height: 32px;
+            fill: currentColor;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 15px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        /* Recordings List */
+        .recordings-list {
+            max-height: 380px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+            position: relative;
+        }
+
+        .recording-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            cursor: pointer;
+        }
+
+        .recording-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .recording-item.selected {
+            background: rgba(16, 185, 129, 0.1);
+            /* Green tint */
+            border-color: var(--primary-color);
+        }
+
+        .recording-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .timestamp {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            color: var(--text-dim);
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        .icon-btn.delete:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .icon-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        /* Custom Audio Player */
+        .custom-player {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .play-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .play-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        .progress-container {
+            flex-grow: 1;
+            height: 12px;
+            background: var(--track-bg);
+            border-radius: 6px;
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--primary-color);
+            border-radius: 6px;
+            width: 0%;
+            transition: width 0.05s linear;
+        }
+
+        .duration-text {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            min-width: 35px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Bulk Action Bar */
+        .bulk-actions {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 0.75rem 1.0rem;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 1.0rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+            z-index: 20;
+            white-space: nowrap;
+        }
+
+        .bulk-actions.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .bulk-btn {
+            color: var(--text-dim);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.65rem;
+            min-width: 30px;
+        }
+
+        .bulk-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        .bulk-btn:hover {
+            color: var(--primary-color);
+        }
+
+        .bulk-btn.delete:hover {
+            color: var(--danger);
+        }
+
+        #selectAllBtn {
+            min-width: 50px;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="recorder-container">
+        <div class="header">
+            <!-- Title removed -->
+            <p id="status">Ready to capture</p>
+        </div>
+
+        <div class="visualizer-container">
+            <canvas id="visualizer"></canvas>
+        </div>
+
+        <div class="timer" id="timer">00:00</div>
+
+        <div class="recordings-list" id="recordingsList">
+            <!-- Recordings will appear here -->
+        </div>
+    </div>
+
+    <button id="recordBtn" title="Start Recording">
+        <svg id="micIcon" viewBox="0 0 24 24">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+            <path
+                d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+        </svg>
+    </button>
+
+    <div class="bulk-actions" id="bulkActions">
+        <button class="bulk-btn" id="selectAllBtn">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M14 5h8v2h-8zm0 5.5h8v2h-8zm0 5.5h8v2h-8zM2 11.5C2 15.08 4.92 18 8.5 18H9v2l3-3-3-3v2h-.5C6.02 16 4 13.98 4 11.5S6.02 7 8.5 7H12V5H8.5C4.92 5 2 7.92 2 11.5z" />
+            </svg>
+            Select All
+        </button>
+        <div style="width: 1px; background: var(--border); height: 24px;"></div>
+        <button class="bulk-btn" id="bulkDownload">
+            <svg viewBox="0 0 24 24">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+            </svg>
+            Download
+        </button>
+        <button class="bulk-btn" id="bulkShare">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" />
+            </svg>
+            Share
+        </button>
+        <button class="bulk-btn delete" id="bulkDelete">
+            <svg viewBox="0 0 24 24">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+            </svg>
+            Delete
+        </button>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let startTime;
+        let timerInterval;
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let animationId;
+        let globalStream;
+        const recordings = [];
+        let db;
+
+        const recordBtn = document.getElementById('recordBtn');
+        const timerDisplay = document.getElementById('timer');
+        const statusText = document.getElementById('status');
+        const recordingsList = document.getElementById('recordingsList');
+        const canvas = document.getElementById('visualizer');
+        const canvasCtx = canvas.getContext('2d');
+        const bulkActions = document.getElementById('bulkActions');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+
+        recordBtn.addEventListener('click', toggleRecording);
+        document.getElementById('bulkDownload').addEventListener('click', handleBulkDownload);
+        document.getElementById('bulkDelete').addEventListener('click', handleBulkDelete);
+        document.getElementById('bulkShare').addEventListener('click', handleBulkShare);
+        selectAllBtn.addEventListener('click', toggleSelectAll);
+
+        // --- IndexedDB Logic ---
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('VoiceRecorderDB', 1);
+
+                request.onerror = (event) => {
+                    console.error("DB Error", event);
+                    reject('DB Error');
+                };
+
+                request.onupgradeneeded = (event) => {
+                    db = event.target.result;
+                    if (!db.objectStoreNames.contains('recordings')) {
+                        db.createObjectStore('recordings', { keyPath: 'id' });
+                    }
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+            });
+        }
+
+        async function saveRecordingToDB(recording) {
+            // Need to strip the Audio object before saving as it's not cloneable
+            const { audio, url, ...dataToSave } = recording;
+            // We don't save the URL either as it expires. We rebuild it from Blob on load.
+
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['recordings'], 'readwrite');
+                const store = transaction.objectStore('recordings');
+                const request = store.add(dataToSave);
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function deleteRecordingFromDB(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['recordings'], 'readwrite');
+                const store = transaction.objectStore('recordings');
+                const request = store.delete(id);
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function loadRecordingsFromDB() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['recordings'], 'readonly');
+                const store = transaction.objectStore('recordings');
+                const request = store.getAll();
+
+                request.onsuccess = (event) => {
+                    const savedRecordings = event.target.result;
+                    // Sort by newest first (assuming id is timestamp)
+                    savedRecordings.sort((a, b) => b.id - a.id);
+
+                    savedRecordings.forEach(recData => {
+                        // Recreate runtime objects
+                        const audioUrl = URL.createObjectURL(recData.blob);
+                        const audioObj = new Audio(audioUrl);
+                        const fullRecording = { ...recData, url: audioUrl, audio: audioObj };
+
+                        recordings.push(fullRecording);
+                        renderRecordingItem(fullRecording);
+
+                        // Setup listeners
+                        audioObj.addEventListener('timeupdate', () => updateProgressUI(fullRecording.id));
+                        audioObj.addEventListener('ended', () => resetPlayerUI(fullRecording.id));
+                        audioObj.addEventListener('loadedmetadata', () => {
+                            const el = document.getElementById(`time-${fullRecording.id}`);
+                            if (el) el.innerText = formatTime(audioObj.duration);
+                        });
+                    });
+                    resolve();
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // Initialize App
+        initDB().then(() => {
+            loadRecordingsFromDB();
+        });
+
+        async function initAudio() {
+            if (!globalStream) {
+                try {
+                    globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    setupVisualizer(globalStream);
+                } catch (err) {
+                    console.error("Error accessing microphone:", err);
+                    alert("Could not access microphone. Please check permissions.");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        async function toggleRecording() {
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                const ready = await initAudio();
+                if (ready) startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        async function startRecording() {
+            audioChunks = [];
+            mediaRecorder = new MediaRecorder(globalStream);
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = saveRecording;
+
+            mediaRecorder.start();
+
+            recordBtn.classList.add('recording');
+            recordBtn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+            statusText.innerText = "Recording...";
+
+            startTime = Date.now();
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            recordBtn.classList.remove('recording');
+            recordBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>';
+            statusText.innerText = "Recording saved";
+            clearInterval(timerInterval);
+        }
+
+        function updateTimer() {
+            const now = Date.now();
+            const diff = new Date(now - startTime);
+            const mins = diff.getUTCMinutes().toString().padStart(2, '0');
+            const secs = diff.getUTCSeconds().toString().padStart(2, '0');
+            timerDisplay.innerText = `${mins}:${secs}`;
+        }
+
+        function setupVisualizer(stream) {
+            if (audioContext) return;
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaStreamSource(stream);
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+            draw();
+        }
+
+        function draw() {
+            animationId = requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+            canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+            const barWidth = (canvas.width / dataArray.length) * 2.5;
+            let barHeight;
+            let x = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                barHeight = dataArray[i] / 2;
+                canvasCtx.fillStyle = `rgba(14, 168, 0, ${barHeight / 100 + 0.3})`; // Adjusted to match user theme
+                canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                x += barWidth + 1;
+            }
+        }
+
+        function saveRecording() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+
+            const now = new Date();
+            const pad = (n) => n.toString().padStart(2, '0');
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+            const filename = `recording_${dateStr}_${timeStr}.wav`;
+
+            const year = now.getFullYear();
+            const month = pad(now.getMonth() + 1);
+            const day = pad(now.getDate());
+            let hours = now.getHours();
+            const minutes = pad(now.getMinutes());
+            const seconds = pad(now.getSeconds());
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const displayTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds} ${ampm}`;
+
+            const id = Date.now().toString();
+            const audioObj = new Audio(audioUrl);
+            const recording = { id, url: audioUrl, filename, blob: audioBlob, audio: audioObj, displayTime };
+            recordings.push(recording);
+
+            // Save to DB
+            saveRecordingToDB(recording).catch(err => console.error("Failed to save to DB", err));
+
+            renderRecordingItem(recording);
+            timerDisplay.innerText = "00:00";
+
+            audioObj.addEventListener('timeupdate', () => updateProgressUI(id));
+            audioObj.addEventListener('ended', () => resetPlayerUI(id));
+            audioObj.addEventListener('loadedmetadata', () => {
+                document.getElementById(`time-${id}`).innerText = formatTime(audioObj.duration);
+            });
+        }
+
+        function renderRecordingItem(rec) {
+            const recordingItem = document.createElement('div');
+            recordingItem.className = 'recording-item';
+            recordingItem.dataset.id = rec.id;
+            recordingItem.onclick = (e) => toggleSelection(e, rec.id);
+
+            recordingItem.innerHTML = `
+                <div class="recording-header">
+                    <span class="timestamp">${rec.displayTime}</span>
+                    <div class="header-actions">
+                         <button class="icon-btn" onclick="downloadRecording(event, '${rec.id}')" title="Download">
+                            <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                        </button>
+                        <button class="icon-btn" onclick="shareRecording(event, '${rec.id}')" title="Share">
+                            <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+                        </button>
+                        <button class="icon-btn delete" onclick="deleteRecording(event, '${rec.id}')" title="Delete">
+                            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="custom-player">
+                    <button class="play-btn" onclick="togglePlay(event, '${rec.id}')">
+                        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    <div class="progress-container" onclick="seek(event, '${rec.id}')">
+                        <div class="progress-bar" id="progress-${rec.id}"></div>
+                    </div>
+                    <span class="duration-text" id="time-${rec.id}">00:00</span>
+                </div>
+            `;
+            // Add NEW recordings to top, but if loading bulk (oldest to newest sorted) we might need to handle order.
+            // But since I sort logic in loadRecordings, prepend works if I loop correctly. 
+            // Better: Prepend always puts new at top. 
+            recordingsList.prepend(recordingItem);
+        }
+
+        function togglePlay(e, id) {
+            e.stopPropagation();
+            const rec = getRecording(id);
+            if (!rec) return;
+
+            recordings.forEach(r => {
+                if (r.id !== id && !r.audio.paused) {
+                    r.audio.pause();
+                    resetPlayerUI(r.id);
+                }
+            });
+
+            const btn = e.currentTarget;
+            if (rec.audio.paused) {
+                rec.audio.play();
+                btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+            } else {
+                rec.audio.pause();
+                btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+            }
+        }
+
+        function updateProgressUI(id) {
+            const rec = getRecording(id);
+            if (!rec) return;
+            const progress = (rec.audio.currentTime / rec.audio.duration) * 100;
+            document.getElementById(`progress-${id}`).style.width = `${progress}%`;
+            document.getElementById(`time-${id}`).innerText = formatTime(rec.audio.currentTime);
+        }
+
+        function resetPlayerUI(id) {
+            const btn = document.querySelector(`.recording-item[data-id="${id}"] .play-btn`);
+            if (btn) btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+            document.getElementById(`progress-${id}`).style.width = '0%';
+        }
+
+        function seek(e, id) {
+            e.stopPropagation();
+            const rec = getRecording(id);
+            if (!rec) return;
+
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const width = rect.width;
+            const pct = x / width;
+
+            rec.audio.currentTime = pct * rec.audio.duration;
+            updateProgressUI(id);
+        }
+
+        function toggleSelection(e, id) {
+            const item = e.currentTarget;
+            item.classList.toggle('selected');
+            updateBulkActions();
+        }
+
+        function updateBulkActions() {
+            const selectedCount = document.querySelectorAll('.recording-item.selected').length;
+            const allCount = document.querySelectorAll('.recording-item').length;
+
+            if (selectedCount > 0) {
+                bulkActions.classList.add('visible');
+                const btnContent = selectAllBtn.querySelector('svg').outerHTML + (selectedCount === allCount ? ' Deselect All' : ' Select All');
+                selectAllBtn.innerHTML = btnContent;
+            } else {
+                bulkActions.classList.remove('visible');
+            }
+        }
+
+        function toggleSelectAll() {
+            const allItems = document.querySelectorAll('.recording-item');
+            const selectedItems = document.querySelectorAll('.recording-item.selected');
+
+            if (selectedItems.length === allItems.length) {
+                allItems.forEach(item => item.classList.remove('selected'));
+            } else {
+                allItems.forEach(item => item.classList.add('selected'));
+            }
+            updateBulkActions();
+        }
+
+        function getRecording(id) {
+            return recordings.find(r => r.id === id);
+        }
+
+        function downloadRecording(e, id) {
+            e.stopPropagation();
+            const rec = getRecording(id);
+            const a = document.createElement('a');
+            a.href = rec.url;
+            a.download = rec.filename;
+            a.click();
+        }
+
+        async function shareRecording(e, id) {
+            e.stopPropagation();
+            const rec = getRecording(id);
+            if (navigator.share) {
+                try {
+                    const file = new File([rec.blob], rec.filename, { type: 'audio/wav' });
+                    await navigator.share({ files: [file], title: 'Voice Recording' });
+                } catch (err) { console.log('Share failed:', err); }
+            } else {
+                alert('Sharing not supported.');
+            }
+        }
+
+        function deleteRecording(e, id) {
+            e.stopPropagation();
+            if (!confirm('Delete recording?')) return;
+
+            const index = recordings.findIndex(r => r.id === id);
+            if (index > -1) recordings.splice(index, 1);
+
+            deleteRecordingFromDB(id); // Delete from DB
+
+            const el = document.querySelector(`.recording-item[data-id="${id}"]`);
+            if (el) el.remove();
+
+            updateBulkActions();
+        }
+
+        function getSelectedIds() {
+            return Array.from(document.querySelectorAll('.recording-item.selected'))
+                .map(el => el.dataset.id);
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.recording-item.selected').forEach(el => el.classList.remove('selected'));
+            updateBulkActions();
+        }
+
+        function handleBulkDownload() {
+            const ids = getSelectedIds();
+            ids.forEach(id => {
+                const rec = getRecording(id);
+                const a = document.createElement('a');
+                a.href = rec.url;
+                a.download = rec.filename;
+                a.click();
+            });
+            clearSelection();
+        }
+
+        function handleBulkDelete() {
+            const ids = getSelectedIds();
+            if (!ids.length) return;
+            if (!confirm(`Delete ${ids.length} items?`)) return;
+
+            ids.forEach(id => {
+                const index = recordings.findIndex(r => r.id === id);
+                if (index > -1) recordings.splice(index, 1);
+
+                deleteRecordingFromDB(id); // Delete from DB
+
+                document.querySelector(`.recording-item[data-id="${id}"]`).remove();
+            });
+            clearSelection();
+        }
+
+        function handleBulkShare() {
+            const ids = getSelectedIds();
+            if (!ids.length) return;
+
+            if (navigator.share) {
+                const files = ids.map(id => {
+                    const rec = getRecording(id);
+                    return new File([rec.blob], rec.filename, { type: 'audio/wav' });
+                });
+                navigator.share({ files, title: 'Voice Recordings' }).catch(e => console.log(e));
+            } else { alert('Bulk share not supported'); }
+            clearSelection();
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "00:00";
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+    </script>
+</body>
+
+</html>
