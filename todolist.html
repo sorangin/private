@@ -328,7 +328,7 @@
             "name": "To Do List",
             "short_name": "ToDo",
             "start_url": "todolist.html",
-            "scope": ".",
+            "scope": "./todolist.html",
             "display": "standalone",
             "background_color": "#0c0c0d",
             "theme_color": "#0c0c0d",
@@ -344,7 +344,8 @@
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register(
-                URL.createObjectURL(new Blob(['self.addEventListener("fetch", (e) => {});'], { type: "text/javascript" }))
+                URL.createObjectURL(new Blob(['self.addEventListener("fetch", (e) => {});'], { type: "text/javascript" })),
+                { scope: './todolist.html' }
             ).catch(err => console.log('SW Error:', err));
         }
 
