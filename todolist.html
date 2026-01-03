@@ -51,7 +51,7 @@
         .status-online { color: #22c55e; } .status-offline { color: #ef4444; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
 
-        .chk-box { width: 18px; height: 18px; border-radius: 5px; border: 2px solid #3f3f46; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+        .chk-box { width: 20px; height: 20px; border-radius: 6px; border: 2px solid #3f3f46; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
         .chk-box.checked { background-color: #3b82f6; border-color: #3b82f6; }
     </style>
 </head>
@@ -63,7 +63,7 @@
         </nav>
         <div class="flex flex-col items-end">
             <div id="sync-status" class="sync-indicator status-offline">Offline</div>
-            <button onclick="promptSyncID()" class="text-[8px] text-zinc-500 hover:text-white">Sync ID: <span id="display-id" class="underline">None</span></button>
+            <button onclick="promptSyncID()" class="text-[8px] text-zinc-500 hover:text-white mt-0.5">Sync ID: <span id="display-id" class="underline">None</span></button>
         </div>
     </header>
 
@@ -100,9 +100,11 @@
     <script>
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
         let db = { tasks: [], shopping: [] }, collapsedStates = { archive: false, food: false, household: false, misc: false }, tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
-        let isDragging = false, startX = 0, startY = 0;
+        let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false;
 
         async function init() {
+            const manifest = { "name": "To Do List", "short_name": "ToDo", "start_url": ".", "display": "standalone", "background_color": "#0c0c0d", "theme_color": "#0c0c0d" };
+            const link = document.createElement('link'); link.rel = 'manifest'; link.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'})); document.head.appendChild(link);
             if (syncID) { document.getElementById('display-id').innerText = syncID; loadLocal(); await pullFromCloud(); subscribeRealtime(); } else { setTimeout(promptSyncID, 500); }
             switchTab('tasks'); setupInputLogic(); window.addEventListener('focus', pullFromCloud); setupSwipe();
         }
@@ -125,6 +127,28 @@
                 if (isRemoteUpdate || isDragging) return;
                 isRemoteUpdate = true; db = payload.new.content; render(); isRemoteUpdate = false;
             }).subscribe();
+        }
+
+        function setupSwipe() {
+            const vp = document.getElementById('viewport'), slider = document.getElementById('view-slider');
+            vp.addEventListener('touchstart', e => { if(isDragging) return; panStartX = e.touches[0].clientX; panStartY = e.touches[0].clientY; isPanning = false; slider.style.transition = 'none'; }, {passive:true});
+            vp.addEventListener('touchmove', e => {
+                if(isDragging) return;
+                let diffX = e.touches[0].clientX - panStartX;
+                let diffY = e.touches[0].clientY - panStartY;
+                if (!isPanning && Math.abs(diffX) > 20 && Math.abs(diffX) > Math.abs(diffY)) { isPanning = true; }
+                if (isPanning) { let base = tab === 'tasks' ? 0 : -window.innerWidth; slider.style.transform = `translateX(${base + diffX}px)`; }
+            }, {passive:true});
+            vp.addEventListener('touchend', e => {
+                if(isDragging) return;
+                slider.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+                if (isPanning) {
+                    let diffX = e.changedTouches[0].clientX - panStartX;
+                    if (Math.abs(diffX) > 100) { if (diffX > 0) switchTab('tasks'); else switchTab('shopping'); } 
+                    else switchTab(tab);
+                }
+                isPanning = false;
+            }, {passive:true});
         }
 
         function render() {
@@ -159,7 +183,8 @@
 
         function buildItem(parent, item) {
             const card = document.createElement('div'), isShop = tab === 'shopping';
-            card.className = `item-card ${isShop ? `card-${item.cat}` : ''} ${item.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3.5' : 'flex flex-col items-center justify-center p-4 h-28 text-center'}`;
+            const catClass = isShop ? `card-${item.cat}` : '';
+            card.className = `item-card ${catClass} ${item.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-4 h-28 text-center'}`;
             card.setAttribute('data-uid', item.uid);
             
             if (!isShop) {
@@ -168,55 +193,63 @@
                 card.innerHTML = `<span class="editable-text text-xs font-bold px-2 mb-2 ${item.done ? 'strikethrough' : ''}">${item.text}</span><button class="del absolute top-2 right-2 text-zinc-700 text-[10px] opacity-40">✕</button>`;
             }
 
-            // Unified Interaction Logic
-            let moved = false;
-            card.addEventListener('touchstart', e => { moved = false; startX = e.touches[0].pageX; startY = e.touches[0].pageY; }, {passive:true});
-            card.addEventListener('touchmove', e => { if (Math.abs(e.touches[0].pageX - startX) > 5 || Math.abs(e.touches[0].pageY - startY) > 5) moved = true; }, {passive:true});
+            let moved = false, sX = 0, sY = 0;
+            card.addEventListener('touchstart', e => { moved = false; sX = e.touches[0].pageX; sY = e.touches[0].pageY; }, {passive:true});
+            card.addEventListener('touchmove', e => { if (Math.abs(e.touches[0].pageX - sX) > 5 || Math.abs(e.touches[0].pageY - sY) > 5) moved = true; }, {passive:true});
             
             card.onclick = (e) => {
                 if (moved) return;
                 const idx = db[tab].findIndex(i => i.uid == item.uid);
                 const txt = card.querySelector('.editable-text');
-                
-                if (e.target === txt) { 
-                    txt.contentEditable = true; txt.focus(); 
-                } else if (e.target.closest('.del')) {
-                    remove(idx);
-                } else if (e.target.closest('.chk-box') || (isShop && !e.target.classList.contains('editable-text'))) {
-                    toggle(idx);
-                }
+                if (e.target === txt) { txt.contentEditable = true; txt.focus(); } 
+                else if (e.target.closest('.del')) remove(idx);
+                else if (e.target.closest('.chk-box') || (isShop && !e.target.classList.contains('editable-text'))) toggle(idx);
             };
 
             const txt = card.querySelector('.editable-text');
             txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
             txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(i => i.uid == item.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; saveLocal(); pushToCloud(); } };
-            
             parent.appendChild(card);
         }
 
         function initSortable() {
-            const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-            const config = { animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag', delay: isTouch ? 350 : 0, delayOnTouchOnly: true, filter: '.editable-text, button', preventOnFilter: false, onStart: () => isDragging = true, onEnd: (evt) => {
-                isDragging = false;
-                const els = Array.from(document.querySelectorAll('.item-card'));
-                const list = [...db[tab]];
-                db[tab] = els.map(el => {
-                    const item = list.find(i => String(i.uid) === el.getAttribute('data-uid')), newCat = el.parentElement.getAttribute('data-cat');
-                    if (tab === 'tasks') item.done = el.closest('#archive-area') !== null;
-                    if (tab === 'shopping' && newCat) item.cat = newCat; return item;
-                }).filter(n => n);
-                saveLocal(); pushToCloud(); setTimeout(render, 50);
-            }};
-            if (tab === 'tasks') { Sortable.create(document.getElementById('list-content'), config); Sortable.create(document.getElementById('archive-content'), config); }
-            else { ['food', 'household', 'misc'].forEach(k => { const el = document.getElementById('cat-'+k); if(el) Sortable.create(el, {...config, group: 'shop'}); }); }
-        }
+            const isTouch = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+            const config = { 
+                animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag', 
+                delay: isTouch ? 350 : 0, delayOnTouchOnly: true, 
+                filter: '.editable-text, button', preventOnFilter: false, 
+                onStart: () => { isDragging = true; },
+                onEnd: (evt) => {
+                    isDragging = false;
+                    const list = [...db[tab]];
+                    // Correct reorder logic: Look only at elements in current pane
+                    const pane = tab === 'tasks' ? '#tasks-pane' : '#shopping-pane';
+                    const els = Array.from(document.querySelectorAll(`${pane} .item-card`));
+                    
+                    db[tab] = els.map(el => {
+                        const item = list.find(i => String(i.uid) === el.getAttribute('data-uid'));
+                        if (tab === 'tasks') item.done = el.closest('#archive-area') !== null;
+                        if (tab === 'shopping') {
+                            const newCat = el.parentElement.getAttribute('data-cat');
+                            if (newCat) item.cat = newCat;
+                        }
+                        return item;
+                    }).filter(n => n);
+                    
+                    saveLocal(); pushToCloud();
+                    setTimeout(render, 50); // Refresh to lock IDs
+                }
+            };
 
-        function setupSwipe() {
-            const vp = document.getElementById('viewport'), slider = document.getElementById('view-slider');
-            let sX = 0;
-            vp.addEventListener('touchstart', e => { if(isDragging) return; sX = e.touches[0].clientX; slider.style.transition = 'none'; }, {passive:true});
-            vp.addEventListener('touchmove', e => { if(isDragging) return; let diff = e.touches[0].clientX - sX; let base = tab === 'tasks' ? 0 : -window.innerWidth; slider.style.transform = `translateX(${base + diff}px)`; }, {passive:true});
-            vp.addEventListener('touchend', e => { if(isDragging) return; slider.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'; let diff = e.changedTouches[0].clientX - sX; if (Math.abs(diff) > 100) { if (diff > 0) switchTab('tasks'); else switchTab('shopping'); } else switchTab(tab); }, {passive:true});
+            if (tab === 'tasks') {
+                Sortable.create(document.getElementById('list-content'), {...config, group: 'tasks'});
+                Sortable.create(document.getElementById('archive-content'), {...config, group: 'tasks'});
+            } else {
+                ['food', 'household', 'misc'].forEach(k => {
+                    const el = document.getElementById('cat-'+k);
+                    if(el) Sortable.create(el, {...config, group: 'shop'});
+                });
+            }
         }
 
         function switchTab(t) {
@@ -228,11 +261,6 @@
             render();
         }
 
-        function toggle(idx) { if(idx > -1) { db[tab][idx].done = !db[tab][idx].done; if(db[tab][idx].done) db[tab][idx].doneAt = Date.now(); render(); pushToCloud(); } }
-        function remove(idx) { if(idx > -1) { db[tab].splice(idx, 1); render(); pushToCloud(); } }
-        function wipeCompleted() { if(confirm("Clear all completed?")) { db[tab] = db[tab].filter(i => !i.done); render(); pushToCloud(); } }
-        function toggleCat(key) { collapsedStates[key] = !collapsedStates[key]; render(); }
-        function toggleArchive() { collapsedStates.archive = !collapsedStates.archive; render(); }
         function setupInputLogic() {
             window.onkeydown = (e) => {
                 if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true' || e.ctrlKey || e.metaKey) return;
@@ -241,6 +269,12 @@
             };
             document.getElementById('fab-input').onkeypress = (e) => { if (e.key === 'Enter') { const v = e.target.value.trim(); if(v) { db[tab].unshift({text:v, done:false, uid: Math.random(), cat: 'misc'}); render(); pushToCloud(); } e.target.value = ''; collapseInput(); } };
         }
+
+        function toggle(idx) { if(idx > -1) { db[tab][idx].done = !db[tab][idx].done; if(db[tab][idx].done) db[tab][idx].doneAt = Date.now(); render(); pushToCloud(); } }
+        function remove(idx) { if(idx > -1) { db[tab].splice(idx, 1); render(); pushToCloud(); } }
+        function wipeCompleted() { if(confirm("Clear completed items?")) { db[tab] = db[tab].filter(i => !i.done); render(); pushToCloud(); } }
+        function toggleCat(key) { collapsedStates[key] = !collapsedStates[key]; render(); }
+        function toggleArchive() { collapsedStates.archive = !collapsedStates.archive; render(); }
         function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if(id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
         function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
         function loadLocal() { const s = localStorage.getItem('todo_db'); if(s) db = JSON.parse(s); }
