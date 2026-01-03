@@ -183,9 +183,11 @@
         const iconURL = URL.createObjectURL(iconBlob);
 
         const manifest = {
+            "id": "timer.html",
             "name": "Minimal Timer",
             "short_name": "Timer",
-            "start_url": ".",
+            "start_url": "timer.html",
+            "scope": ".",
             "display": "standalone",
             "background_color": "#0a0a0a",
             "theme_color": "#0a0a0a",
