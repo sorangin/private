@@ -16,6 +16,7 @@
             --text-secondary: #888888;
             --accent: #007aff;
             --accent-dim: rgba(0, 122, 255, 0.15);
+            --danger: #ff3b30; /* Red color for finished state */
         }
 
         body {
@@ -128,8 +129,14 @@
             transform: scale(0.92);
         }
 
+        /* State Changes */
         .running #timer-display {
             color: var(--accent);
+        }
+
+        /* Red text when finished */
+        .finished #timer-display {
+            color: var(--danger);
         }
     </style>
 </head>
@@ -165,7 +172,7 @@
 </div>
 
 <script>
-    // --- PWA Helper: Self-generating Manifest ---
+    // --- PWA Helper ---
     const manifest = {
         "name": "Minimal Timer",
         "short_name": "Timer",
@@ -192,6 +199,7 @@
     let timerId = null;
     let isRunning = false;
     let isEditing = false;
+    let audioCtx = null;
 
     const display = document.getElementById('timer-display');
     const endTimeDisplay = document.getElementById('end-time-display');
@@ -199,6 +207,16 @@
     const playIcon = document.getElementById('play-icon');
     const pauseIcon = document.getElementById('pause-icon');
     const appContainer = document.getElementById('app-container');
+
+    // This wakes up the audio engine on user tap so it can play during silent mode
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
 
     display.addEventListener('focus', () => {
         isEditing = true;
@@ -231,6 +249,7 @@
         }
         if (totalSeconds > 0) {
             timeLeft = totalSeconds;
+            appContainer.classList.remove('finished');
             updateDisplay();
             startTimer(); 
         } else {
@@ -259,7 +278,9 @@
     }
 
     function setTimer(mins, btnElement) {
+        initAudio(); // Wake up sound
         stopTimer();
+        appContainer.classList.remove('finished');
         timeLeft = Math.floor(mins * 60);
         document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
         if (btnElement) btnElement.classList.add('active');
@@ -268,6 +289,7 @@
     }
 
     function toggleTimer() {
+        initAudio(); // Wake up sound
         if (isRunning) stopTimer();
         else startTimer();
     }
@@ -276,6 +298,7 @@
         if (timeLeft <= 0) return;
         clearInterval(timerId);
         isRunning = true;
+        appContainer.classList.remove('finished');
         appContainer.classList.add('running');
         playIcon.style.display = 'none';
         pauseIcon.style.display = 'block';
@@ -301,27 +324,36 @@
     }
 
     function complete() {
+        timeLeft = 0;
         stopTimer();
+        appContainer.classList.add('finished');
+        
+        // Vibrate (works on Android even on silent)
+        if ("vibrate" in navigator) {
+            navigator.vibrate([500, 200, 500, 200, 500]);
+        }
+        
         playAlarm();
-        setTimeout(() => alert("Time is up!"), 100);
+        // No alert() popup here anymore
     }
 
     function playAlarm() {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        initAudio();
         const playPing = (freq, startTime, duration) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
             osc.type = 'sine';
             osc.frequency.setValueAtTime(freq, startTime);
             gain.gain.setValueAtTime(0, startTime);
             gain.gain.linearRampToValueAtTime(0.2, startTime + 0.1); 
             gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.connect(audioCtx.destination);
             osc.start(startTime);
             osc.stop(startTime + duration);
         };
-        const now = ctx.currentTime;
+        const now = audioCtx.currentTime;
+        // YOUR ORIGINAL MUSIC:
         const notes = [349.23, 440.00, 523.25, 659.25]; 
         notes.forEach((freq, i) => {
             playPing(freq, now + (i * 0.5), 3);
