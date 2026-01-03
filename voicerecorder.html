@@ -3,15 +3,16 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#10b981">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Voice Rec">
 
     <!-- Embedded Manifest for Single-File PWA -->
+    <!-- Added 'id' and usage of 'start_url' with query param to try and differentiate this instance -->
     <link rel="manifest"
-        href='data:application/manifest+json,%7B%22name%22%3A%22Voice%20Recorder%20Pro%22%2C%22short_name%22%3A%22Voice%20Rec%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f1014%22%2C%22theme_color%22%3A%22%2310b981%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F25%2F25682.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D'>
+        href='data:application/manifest+json,%7B%22id%22%3A%22voice-recorder-v2%22%2C%22name%22%3A%22Voice%20Recorder%20Pro%22%2C%22short_name%22%3A%22Voice%20Rec%22%2C%22start_url%22%3A%22.%3Fv%3D2%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f1014%22%2C%22theme_color%22%3A%22%2310b981%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F25%2F25682.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D'>
 
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/25/25682.png">
 
@@ -61,6 +62,36 @@
             position: relative;
         }
 
+        /* Mobile Optimization */
+        @media (max-width: 600px) {
+            body {
+                padding: 0;
+                align-items: flex-start;
+            }
+
+            .recorder-container {
+                max-width: 100%;
+                width: 100%;
+                min-height: 100vh;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+                padding: 1.5rem;
+            }
+
+            /* Make FAB slightly higher on mobile to avoid bottom bars */
+            #recordBtn {
+                bottom: 80px;
+                right: 20px;
+            }
+
+            /* Make bulk actions float higher too */
+            .bulk-actions {
+                bottom: 80px;
+                width: 90%;
+            }
+        }
+
         .header {
             text-align: center;
             margin-bottom: 2rem;
@@ -100,10 +131,9 @@
             color: var(--primary-color);
         }
 
-        /* Controls - Modified to remove container constraints for FAB */
+        /* Controls */
         .controls {
             display: none;
-            /* Button is now fixed positioned */
         }
 
         button {
@@ -165,11 +195,14 @@
 
         /* Recordings List */
         .recordings-list {
-            max-height: 380px;
+            max-height: 50vh;
+            /* Dynamic height */
             overflow-y: auto;
             border-top: 1px solid var(--border);
             padding-top: 1rem;
             position: relative;
+            padding-bottom: 100px;
+            /* Space for FAB */
         }
 
         .recording-item {
@@ -464,9 +497,7 @@
         }
 
         async function saveRecordingToDB(recording) {
-            // Need to strip the Audio object before saving as it's not cloneable
             const { audio, url, ...dataToSave } = recording;
-            // We don't save the URL either as it expires. We rebuild it from Blob on load.
 
             return new Promise((resolve, reject) => {
                 const transaction = db.transaction(['recordings'], 'readwrite');
@@ -497,11 +528,9 @@
 
                 request.onsuccess = (event) => {
                     const savedRecordings = event.target.result;
-                    // Sort by newest first (assuming id is timestamp)
                     savedRecordings.sort((a, b) => b.id - a.id);
 
                     savedRecordings.forEach(recData => {
-                        // Recreate runtime objects
                         const audioUrl = URL.createObjectURL(recData.blob);
                         const audioObj = new Audio(audioUrl);
                         const fullRecording = { ...recData, url: audioUrl, audio: audioObj };
@@ -509,7 +538,6 @@
                         recordings.push(fullRecording);
                         renderRecordingItem(fullRecording);
 
-                        // Setup listeners
                         audioObj.addEventListener('timeupdate', () => updateProgressUI(fullRecording.id));
                         audioObj.addEventListener('ended', () => resetPlayerUI(fullRecording.id));
                         audioObj.addEventListener('loadedmetadata', () => {
@@ -609,7 +637,7 @@
             let x = 0;
             for (let i = 0; i < dataArray.length; i++) {
                 barHeight = dataArray[i] / 2;
-                canvasCtx.fillStyle = `rgba(14, 168, 0, ${barHeight / 100 + 0.3})`; // Adjusted to match user theme
+                canvasCtx.fillStyle = `rgba(14, 168, 0, ${barHeight / 100 + 0.3})`;
                 canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
                 x += barWidth + 1;
             }
@@ -641,7 +669,6 @@
             const recording = { id, url: audioUrl, filename, blob: audioBlob, audio: audioObj, displayTime };
             recordings.push(recording);
 
-            // Save to DB
             saveRecordingToDB(recording).catch(err => console.error("Failed to save to DB", err));
 
             renderRecordingItem(recording);
@@ -686,9 +713,6 @@
                     <span class="duration-text" id="time-${rec.id}">00:00</span>
                 </div>
             `;
-            // Add NEW recordings to top, but if loading bulk (oldest to newest sorted) we might need to handle order.
-            // But since I sort logic in loadRecordings, prepend works if I loop correctly. 
-            // Better: Prepend always puts new at top. 
             recordingsList.prepend(recordingItem);
         }
 
@@ -806,7 +830,7 @@
             const index = recordings.findIndex(r => r.id === id);
             if (index > -1) recordings.splice(index, 1);
 
-            deleteRecordingFromDB(id); // Delete from DB
+            deleteRecordingFromDB(id);
 
             const el = document.querySelector(`.recording-item[data-id="${id}"]`);
             if (el) el.remove();
@@ -845,7 +869,7 @@
                 const index = recordings.findIndex(r => r.id === id);
                 if (index > -1) recordings.splice(index, 1);
 
-                deleteRecordingFromDB(id); // Delete from DB
+                deleteRecordingFromDB(id);
 
                 document.querySelector(`.recording-item[data-id="${id}"]`).remove();
             });
