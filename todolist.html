@@ -2,11 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0c0c0d">
-    <title>SyncPro Zen</title>
+    <title>To Do List</title>
     
     <!-- App Icon -->
     <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjEyMCIgZmlsbD0iIzBjMGMwZCIvPjxwYXRoIGQ9Ik0zODAgMTU0SDEzMmMtMTEgMC0yMCA5LTIwIDIwdjE3NmMwIDExIDkgMjAgMjAgMjBoMjQ4YzExIDAgMjAtOSAyMC0yMFYxNzRjMC0xMS05LTIwLTIwLTIwem0tMTIwIDUwaDEwMHYyMEgyNjB2LTIwem0wIDYwaDEwMHYyMEgyNjB2LTIwem0wIDYwaDEwMHYyMEgyNjB2LTIwem0tODAtMTIwaDQwdjQwaC00MHYtNDB6bTAgNjBoNDB2NDBoLTQwdi00MHptMCA2MGg0MHY0MGgtNDB2LTQwek0xODAgMTk0bDIwIDIwIDQwLTQwIiBzdHJva2U9IiMzYjgyZjYiIHN0cm9rZS13aWR0aD0iMjQiIGZpbGw9Im5vbmUiLz48L3N2Zz4=">
@@ -20,6 +19,7 @@
             --surface: #161618;
             --accent: #3b82f6;
             --text-main: #e5e7eb;
+            --keyboard-offset: 0px;
         }
 
         body {
@@ -46,10 +46,10 @@
             border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s ease;
-            border: 1px solid #3f3f46; 
+            border: 1px solid #333336; 
             position: relative;
             background-color: #1a1a1c;
-            overflow: hidden;
+            user-select: none;
         }
 
         .shopping-tile.done {
@@ -58,18 +58,30 @@
             opacity: 0.25;
         }
 
-        /* The Edit Hitbox - only wraps text */
+        /* Strict Text Hitbox */
         .editable-text {
             display: inline-block;
-            max-width: 100%;
             outline: none;
-            padding: 2px 4px;
+            padding: 2px 6px;
+            user-select: text;
+            cursor: text;
             word-break: break-word;
+            transition: background 0.2s;
         }
 
         .editable-text:focus {
             background: rgba(59, 130, 246, 0.15);
             border-radius: 4px;
+            user-select: auto;
+        }
+
+        /* FAB Logic with Keyboard Offset */
+        #fab-outer {
+            position: fixed;
+            right: 1.5rem;
+            bottom: calc(2rem + var(--keyboard-offset));
+            transition: bottom 0.1s ease-out;
+            z-index: 100;
         }
 
         #fab-container {
@@ -105,10 +117,10 @@
         .strikethrough { text-decoration: line-through; opacity: 0.4; }
     </style>
 </head>
-<body class="pb-32">
+<body class="pb-40">
 
     <div class="max-w-4xl mx-auto px-4 pt-6">
-        <!-- Navigation -->
+        <!-- Header -->
         <header class="flex justify-between items-center mb-10">
             <nav class="flex gap-1 bg-zinc-900/60 p-1 rounded-xl border border-white/5">
                 <button onclick="switchTab('tasks')" id="tab-tasks" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">Tasks</button>
@@ -120,7 +132,7 @@
                     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
                 </button>
                 
-                <div id="sync-panel" class="hidden absolute right-0 mt-2 w-72 p-5 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl z-[60]">
+                <div id="sync-panel" class="hidden absolute right-0 mt-2 w-72 p-5 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl z-[110]">
                     <input id="sync-code" type="text" placeholder="Sync Key" class="w-full bg-black border border-zinc-800 p-3 rounded-xl text-sm mb-4 outline-none focus:border-blue-500 text-white">
                     <div class="flex gap-2">
                         <button onclick="uploadData()" class="flex-1 py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl">Push</button>
@@ -144,7 +156,7 @@
     </div>
 
     <!-- FAB -->
-    <div class="fixed bottom-8 right-6 z-50 flex items-center justify-end" id="fab-outer">
+    <div id="fab-outer">
         <div id="fab-container" class="shadow-2xl">
             <input id="fab-input" type="text" placeholder="Type to add..." class="bg-transparent text-white px-6 outline-none placeholder-zinc-600 text-sm font-medium">
             <button onclick="toggleFAB(event)" class="h-14 w-14 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-zinc-800 transition">
@@ -158,10 +170,11 @@
         let store = { tasks: [], shopping: [] };
 
         function init() {
-            const saved = localStorage.getItem('sync_pro_final_v12');
+            const saved = localStorage.getItem('sync_pro_final_v13');
             if (saved) store = JSON.parse(saved);
             switchTab('tasks');
             
+            // Global Type-to-Add
             window.addEventListener('keydown', (e) => {
                 if (e.target.tagName === 'INPUT' || e.target.hasAttribute('contenteditable')) return;
                 if (e.key.length > 1 || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -169,13 +182,26 @@
                 document.getElementById('fab-input').focus();
             });
 
+            // Click Outside Logic
             document.addEventListener('click', (e) => {
                 const syncPanel = document.getElementById('sync-panel');
                 const syncContainer = document.getElementById('sync-container');
                 const fabContainer = document.getElementById('fab-container');
+                
                 if (!syncContainer.contains(e.target)) syncPanel.classList.add('hidden');
                 if (!fabContainer.contains(e.target) && fabContainer.classList.contains('expanded')) collapseFAB();
             });
+
+            // Keyboard Viewport Handling
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', () => {
+                    const offset = window.innerHeight - window.visualViewport.height;
+                    document.documentElement.style.setProperty('--keyboard-offset', (offset > 0 ? offset : 0) + 'px');
+                    if (offset > 0) {
+                        window.scrollTo(0, 0); // Prevent browser from shifting view
+                    }
+                });
+            }
 
             document.getElementById('fab-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') { addItem(); collapseFAB(); }
@@ -186,8 +212,8 @@
             currentTab = tab;
             const btnT = document.getElementById('tab-tasks');
             const btnS = document.getElementById('tab-shopping');
-            btnT.className = tab === 'tasks' ? 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase text-zinc-600 hover:text-zinc-400';
-            btnS.className = tab === 'shopping' ? 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase text-zinc-600 hover:text-zinc-400';
+            btnT.className = tab === 'tasks' ? 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase bg-blue-600 text-white' : 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase text-zinc-600';
+            btnS.className = tab === 'shopping' ? 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase bg-blue-600 text-white' : 'px-5 py-2 rounded-lg text-[10px] font-bold uppercase text-zinc-600';
             render();
         }
 
@@ -209,7 +235,7 @@
                 archSection.classList.add('hidden');
                 list.forEach(item => createItem(container, item));
             }
-            localStorage.setItem('sync_pro_final_v12', JSON.stringify(store));
+            localStorage.setItem('sync_pro_final_v13', JSON.stringify(store));
         }
 
         function createItem(parent, item) {
@@ -218,17 +244,19 @@
             
             if (currentTab === 'shopping') {
                 el.className = `shopping-tile ${item.done ? 'done' : ''}`;
-                // Tile handles the Toggle logic
-                el.onclick = () => toggleItem(idx);
+                el.onclick = (e) => { 
+                    // Only toggle if we didn't click the text itself
+                    if (!e.target.classList.contains('editable-text')) toggleItem(idx); 
+                };
                 
                 el.innerHTML = `
-                    <div class="w-full text-center">
-                        <span class="editable-text text-xs font-semibold" 
+                    <div class="w-full text-center pointer-events-none">
+                        <span class="editable-text text-xs font-semibold pointer-events-auto" 
                               contenteditable="true" 
                               spellcheck="false" 
                               onclick="event.stopPropagation()">${item.text}</span>
                     </div>
-                    <button onclick="event.stopPropagation(); deleteItem(${idx})" class="del-btn absolute top-1 right-1 p-1 text-zinc-700 hover:text-red-500 transition-colors">
+                    <button onclick="event.stopPropagation(); deleteItem(${idx})" class="absolute top-1 right-1 p-1 text-zinc-700 hover:text-red-500">
                         <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 `;
@@ -241,9 +269,10 @@
                     <div class="ml-4 flex-1">
                         <span class="editable-text text-[13.5px] font-medium ${item.done ? 'strikethrough' : ''}" 
                               contenteditable="true" 
-                              spellcheck="false">${item.text}</span>
+                              spellcheck="false"
+                              onclick="event.stopPropagation()">${item.text}</span>
                     </div>
-                    <button onclick="deleteItem(${idx})" class="ml-2 text-zinc-800 hover:text-red-500 transition p-1">
+                    <button onclick="deleteItem(${idx})" class="ml-2 text-zinc-800 hover:text-red-500 p-1">
                         <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 `;
@@ -264,13 +293,13 @@
         function collapseFAB() { const c = document.getElementById('fab-container'); c.classList.remove('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M12 5v14M5 12h14"/>'; document.getElementById('fab-input').blur(); }
         
         function addItem() { const i = document.getElementById('fab-input'); if (!i.value.trim()) return; store[currentTab].unshift({ text: i.value.trim(), done: false }); i.value = ''; render(); }
-        function updateText(idx, text) { if (store[currentTab][idx]) { store[currentTab][idx].text = text; localStorage.setItem('sync_pro_final_v12', JSON.stringify(store)); } }
+        function updateText(idx, text) { if (store[currentTab][idx]) { store[currentTab][idx].text = text; localStorage.setItem('sync_pro_final_v13', JSON.stringify(store)); } }
         function toggleItem(idx) { store[currentTab][idx].done = !store[currentTab][idx].done; render(); }
         function deleteItem(idx) { store[currentTab].splice(idx, 1); render(); }
         function clearCompleted() { if (confirm("Clear all completed?")) { store[currentTab] = store[currentTab].filter(i => !i.done); render(); } }
 
-        async function uploadData() { const k = document.getElementById('sync-code').value.trim(); if (!k) return alert("Key needed"); await fetch(`https://kvdb.io/pro_zen_v12/${k}`, { method: 'POST', body: JSON.stringify(store) }); alert("Data Pushed"); }
-        async function downloadData() { const k = document.getElementById('sync-code').value.trim(); const res = await fetch(`https://kvdb.io/pro_zen_v12/${k}`); if (res.ok) { store = await res.json(); render(); alert("Data Synced"); } }
+        async function uploadData() { const k = document.getElementById('sync-code').value.trim(); if (!k) return alert("Key needed"); await fetch(`https://kvdb.io/pro_zen_v13/${k}`, { method: 'POST', body: JSON.stringify(store) }); alert("Data Pushed"); }
+        async function downloadData() { const k = document.getElementById('sync-code').value.trim(); const res = await fetch(`https://kvdb.io/pro_zen_v13/${k}`); if (res.ok) { store = await res.json(); render(); alert("Data Synced"); } }
 
         init();
     </script>
