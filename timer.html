@@ -183,11 +183,11 @@
         const iconURL = URL.createObjectURL(iconBlob);
 
         const manifest = {
-            "id": "timer.html",
+            "id": window.location.pathname,
             "name": "Minimal Timer",
             "short_name": "Timer",
-            "start_url": "timer.html",
-            "scope": "./timer.html",
+            "start_url": window.location.href,
+            "scope": window.location.href,
             "display": "standalone",
             "background_color": "#0a0a0a",
             "theme_color": "#0a0a0a",
@@ -204,7 +204,7 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register(
                 URL.createObjectURL(new Blob(['self.addEventListener("fetch", (e) => {});'], { type: "text/javascript" })),
-                { scope: './timer.html' }
+                { scope: window.location.href }
             ).catch(err => console.log('SW Error:', err));
         }
 
