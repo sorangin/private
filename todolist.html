@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
@@ -13,60 +15,261 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-        :root { --bg: #0c0c0d; --surface: #161618; --accent: #3b82f6; --text-main: #e5e7eb; --keyboard-h: 0px; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text-main); height: 100vh; overflow: hidden; margin: 0; user-select: none; -webkit-user-select: none; display: flex; flex-direction: column; }
-        
-        header { padding-top: env(safe-area-inset-top); position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 1px solid rgba(255,255,255,0.05); }
-        
-        #viewport { flex: 1; overflow: hidden; position: relative; width: 100vw; }
-        #view-slider { display: flex; width: 200vw; height: 100%; will-change: transform; }
-        .view-pane { width: 100vw; height: 100%; overflow-y: auto; padding-bottom: 120px; touch-action: pan-y; }
 
-        .shopping-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
-        .section-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; display: flex; align-items: center; cursor: pointer; padding: 4px 8px; }
-        
-        .item-card { background-color: #161618; border: 1px solid #2d2d30; border-radius: 10px; cursor: grab; position: relative; }
-        .done { opacity: 0.25 !important; filter: grayscale(1); }
-        
-        .color-food { color: #f59e0b; } .card-food { border-color: rgba(245, 158, 11, 0.2); background-color: rgba(245, 158, 11, 0.04); color: #fcd34d; }
-        .color-household { color: #3b82f6; } .card-household { border-color: rgba(59, 130, 246, 0.2); background-color: rgba(59, 130, 246, 0.04); color: #93c5fd; }
-        .color-misc { color: #a855f7; } .card-misc { border-color: rgba(168, 85, 247, 0.2); background-color: rgba(168, 85, 247, 0.04); color: #d8b4fe; }
+        :root {
+            --bg: #0c0c0d;
+            --surface: #161618;
+            --accent: #3b82f6;
+            --text-main: #e5e7eb;
+            --keyboard-h: 0px;
+        }
 
-        .editable-text { outline: none; word-break: break-word; white-space: pre-wrap; user-select: text; -webkit-user-select: text; pointer-events: auto; }
-        .strikethrough { text-decoration: line-through; opacity: 0.6; }
-        
-        .sortable-ghost { opacity: 0 !important; }
-        .sortable-drag { opacity: 1 !important; transform: scale(1.02); z-index: 1000; box-shadow: 0 10px 15px rgba(0,0,0,0.5); }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            margin: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            display: flex;
+            flex-direction: column;
+        }
 
-        #fab-outer { position: fixed; right: 1rem; bottom: calc(1rem + var(--keyboard-h)); z-index: 100; pointer-events: none; transition: bottom 0.2s; }
-        #fab-container { pointer-events: auto; width: 48px; height: 48px; background: #1e1e20; border: 1px solid #2d2d30; border-radius: 24px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        #fab-container.expanded { width: min(420px, calc(100vw - 32px)); border-radius: 12px; border-color: var(--accent); }
-        #fab-input { display: none; opacity: 0; width: 100%; background: transparent; color: white; padding: 0 16px; outline: none; border: none; font-size: 16px; }
-        #fab-container.expanded #fab-input { display: block; opacity: 1; }
+        header {
+            padding-top: env(safe-area-inset-top);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
 
-        .collapsed-content { display: none !important; }
-        .chevron { transition: transform 0.2s; font-size: 8px; margin-right: 6px; display: inline-block; }
-        .is-collapsed .chevron { transform: rotate(-180deg); }
+        #viewport {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            width: 100vw;
+        }
 
-        .sync-indicator { font-size: 7px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-        .status-online { color: #22c55e; } .status-offline { color: #ef4444; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+        #view-slider {
+            display: flex;
+            width: 200vw;
+            height: 100%;
+            will-change: transform;
+        }
 
-        .chk-box { width: 18px; height: 18px; border-radius: 4px; border: 2px solid #3f3f46; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .chk-box.checked { background-color: #3b82f6; border-color: #3b82f6; }
+        .view-pane {
+            width: 100vw;
+            height: 100%;
+            overflow-y: auto;
+            padding-bottom: 120px;
+            touch-action: pan-y;
+        }
+
+        .shopping-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 6px;
+        }
+
+        .section-header {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .item-card {
+            background-color: #161618;
+            border: 1px solid #2d2d30;
+            border-radius: 10px;
+            cursor: grab;
+            position: relative;
+        }
+
+        .done {
+            opacity: 0.25 !important;
+            filter: grayscale(1);
+        }
+
+        .color-food {
+            color: #f59e0b;
+        }
+
+        .card-food {
+            border-color: rgba(245, 158, 11, 0.2);
+            background-color: rgba(245, 158, 11, 0.04);
+            color: #fcd34d;
+        }
+
+        .color-household {
+            color: #3b82f6;
+        }
+
+        .card-household {
+            border-color: rgba(59, 130, 246, 0.2);
+            background-color: rgba(59, 130, 246, 0.04);
+            color: #93c5fd;
+        }
+
+        .color-misc {
+            color: #a855f7;
+        }
+
+        .card-misc {
+            border-color: rgba(168, 85, 247, 0.2);
+            background-color: rgba(168, 85, 247, 0.04);
+            color: #d8b4fe;
+        }
+
+        .editable-text {
+            outline: none;
+            word-break: break-word;
+            white-space: pre-wrap;
+            user-select: text;
+            -webkit-user-select: text;
+            pointer-events: auto;
+        }
+
+        .strikethrough {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .sortable-ghost {
+            opacity: 0 !important;
+        }
+
+        .sortable-drag {
+            opacity: 1 !important;
+            transform: scale(1.02);
+            z-index: 1000;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        #fab-outer {
+            position: fixed;
+            right: 1rem;
+            bottom: calc(1rem + var(--keyboard-h));
+            z-index: 100;
+            pointer-events: none;
+            transition: bottom 0.2s;
+        }
+
+        #fab-container {
+            pointer-events: auto;
+            width: 48px;
+            height: 48px;
+            background: #1e1e20;
+            border: 1px solid #2d2d30;
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #fab-container.expanded {
+            width: min(420px, calc(100vw - 32px));
+            border-radius: 12px;
+            border-color: var(--accent);
+        }
+
+        #fab-input {
+            display: none;
+            opacity: 0;
+            width: 100%;
+            background: transparent;
+            color: white;
+            padding: 0 16px;
+            outline: none;
+            border: none;
+            font-size: 16px;
+        }
+
+        #fab-container.expanded #fab-input {
+            display: block;
+            opacity: 1;
+        }
+
+        .collapsed-content {
+            display: none !important;
+        }
+
+        .chevron {
+            transition: transform 0.2s;
+            font-size: 8px;
+            margin-right: 6px;
+            display: inline-block;
+        }
+
+        .is-collapsed .chevron {
+            transform: rotate(-180deg);
+        }
+
+        .sync-indicator {
+            font-size: 7px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .status-online {
+            color: #22c55e;
+        }
+
+        .status-offline {
+            color: #ef4444;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .chk-box {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 2px solid #3f3f46;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .chk-box.checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+
         /* Prevent SVG from eating the click event */
-        .chk-box svg { pointer-events: none; }
+        .chk-box svg {
+            pointer-events: none;
+        }
     </style>
 </head>
+
 <body>
     <header class="flex justify-between items-center px-4 py-2 flex-shrink-0">
         <nav class="flex gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
-            <button onclick="switchTab('tasks')" id="tab-tasks" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
-            <button onclick="switchTab('shopping')" id="tab-shopping" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
+            <button onclick="switchTab('tasks')" id="tab-tasks"
+                class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
+            <button onclick="switchTab('shopping')" id="tab-shopping"
+                class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
         </nav>
         <div class="flex flex-col items-end">
             <div id="sync-status" class="sync-indicator status-offline">Offline</div>
-            <button onclick="promptSyncID()" class="text-[8px] text-zinc-500 hover:text-white mt-0.5">Sync ID: <span id="display-id" class="underline">None</span></button>
+            <button onclick="promptSyncID()" class="text-[8px] text-zinc-500 hover:text-white mt-0.5">Sync ID: <span
+                    id="display-id" class="underline">None</span></button>
         </div>
     </header>
 
@@ -75,13 +278,21 @@
             <main id="tasks-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
                 <div id="list-content" class="space-y-1.5 mt-2"></div>
                 <section id="archive-area" class="hidden mt-6 pt-4 border-t border-zinc-900">
-                    <div id="archive-header-row" class="flex justify-between items-center mb-4 cursor-pointer group px-2">
+                    <div id="archive-header-row"
+                        class="flex justify-between items-center mb-4 cursor-pointer group px-2">
                         <div class="flex items-center gap-2 text-zinc-600">
-                            <svg class="chevron" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M19 9l-7 7-7-7"/></svg>
+                            <svg class="chevron" width="12" height="12" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="3">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
                             <p class="text-[9px] uppercase tracking-widest font-bold">Completed</p>
                         </div>
                         <button id="wipe-btn" class="text-zinc-800 hover:text-red-500 transition-colors">
-                            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                stroke-width="2">
+                                <path
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                         </button>
                     </div>
                     <div id="archive-content" class="space-y-1.5"></div>
@@ -96,15 +307,44 @@
     <div id="fab-outer">
         <div id="fab-container">
             <input id="fab-input" type="text" placeholder="Add entry..." autocomplete="off">
-            <button onclick="btnFAB(event)" class="h-12 w-12 flex items-center justify-center rounded-full hover:bg-zinc-800 transition"><svg id="fab-icon" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button onclick="btnFAB(event)"
+                class="h-12 w-12 flex items-center justify-center rounded-full hover:bg-zinc-800 transition"><svg
+                    id="fab-icon" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#3b82f6"
+                    stroke-width="3">
+                    <path d="M12 5v14M5 12h14" />
+                </svg></button>
         </div>
     </div>
 
     <script>
         // PWA Helper
-        const manifest = { "name": "To Do List", "short_name": "ToDo", "start_url": ".", "display": "standalone", "background_color": "#0c0c0d", "theme_color": "#0c0c0d" };
-        const linkManifest = document.createElement('link'); linkManifest.setAttribute('rel', 'manifest'); linkManifest.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))); document.head.appendChild(linkManifest);
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.register(URL.createObjectURL(new Blob(['self.addEventListener("fetch", (e) => {});'], {type: "text/javascript"}))).catch(()=>{}); }
+        // Generate an icon
+        const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="background:#0c0c0d"><rect width="24" height="24" fill="#0c0c0d"/><path d="M12 5v14M5 12h14" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/></svg>`;
+        const iconBlob = new Blob([iconSVG], { type: 'image/svg+xml' });
+        const iconURL = URL.createObjectURL(iconBlob);
+
+        const manifest = {
+            "name": "To Do List",
+            "short_name": "ToDo",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#0c0c0d",
+            "theme_color": "#0c0c0d",
+            "icons": [
+                { "src": iconURL, "sizes": "512x512", "type": "image/svg+xml" },
+                { "src": iconURL, "sizes": "192x192", "type": "image/svg+xml" }
+            ]
+        };
+        const linkManifest = document.createElement('link');
+        linkManifest.setAttribute('rel', 'manifest');
+        linkManifest.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' })));
+        document.head.appendChild(linkManifest);
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register(
+                URL.createObjectURL(new Blob(['self.addEventListener("fetch", (e) => {});'], { type: "text/javascript" }))
+            ).catch(err => console.log('SW Error:', err));
+        }
 
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
         let db = { tasks: [], shopping: [] }, collapsedStates = { archive: false, food: false, household: false, misc: false }, tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
@@ -120,7 +360,7 @@
         async function pullFromCloud() {
             if (!syncID || isRemoteUpdate || isDragging) return;
             const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
-            if (data?.content) { if(JSON.stringify(db) === JSON.stringify(data.content)) { updateStatus(true); return; } db = data.content; render(); updateStatus(true); } else { await pushToCloud(); }
+            if (data?.content) { if (JSON.stringify(db) === JSON.stringify(data.content)) { updateStatus(true); return; } db = data.content; render(); updateStatus(true); } else { await pushToCloud(); }
         }
 
         async function pushToCloud() {
@@ -139,19 +379,19 @@
 
         function setupSwipe() {
             const vp = document.getElementById('viewport'), slider = document.getElementById('view-slider');
-            vp.addEventListener('touchstart', e => { if(isDragging) return; panStartX = e.touches[0].clientX; panStartY = e.touches[0].clientY; isPanning = false; slider.style.transition = 'none'; }, {passive:true});
+            vp.addEventListener('touchstart', e => { if (isDragging) return; panStartX = e.touches[0].clientX; panStartY = e.touches[0].clientY; isPanning = false; slider.style.transition = 'none'; }, { passive: true });
             vp.addEventListener('touchmove', e => {
-                if(isDragging) return;
+                if (isDragging) return;
                 let dx = e.touches[0].clientX - panStartX, dy = e.touches[0].clientY - panStartY;
                 if (!isPanning && Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy)) isPanning = true;
                 if (isPanning) { let b = tab === 'tasks' ? 0 : -window.innerWidth; slider.style.transform = `translateX(${b + dx}px)`; }
-            }, {passive:true});
+            }, { passive: true });
             vp.addEventListener('touchend', e => {
-                if(isDragging) return;
+                if (isDragging) return;
                 slider.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
                 if (isPanning) { let dx = e.changedTouches[0].clientX - panStartX; if (Math.abs(dx) > 100) switchTab(dx > 0 ? 'tasks' : 'shopping'); else switchTab(tab); }
                 isPanning = false;
-            }, {passive:true});
+            }, { passive: true });
         }
 
         function render() {
@@ -159,16 +399,16 @@
             if (!listC || !shopC) return;
             listC.innerHTML = ''; archC.innerHTML = ''; shopC.innerHTML = '';
             const list = db[tab] || [];
-            list.forEach(i => { if(!i.uid) i.uid = Math.random(); if(tab === 'shopping' && !i.cat) i.cat = 'misc'; });
+            list.forEach(i => { if (!i.uid) i.uid = Math.random(); if (tab === 'shopping' && !i.cat) i.cat = 'misc'; });
 
             if (tab === 'tasks') {
                 archA.classList.toggle('is-collapsed', collapsedStates.archive); archC.classList.toggle('collapsed-content', collapsedStates.archive); archA.classList.remove('hidden');
                 list.filter(i => !i.done).forEach(i => buildItem(listC, i));
-                const comp = list.filter(i => i.done).sort((a,b) => (b.doneAt || 0) - (a.doneAt || 0));
+                const comp = list.filter(i => i.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
                 comp.forEach(i => buildItem(archC, i));
                 if (comp.length === 0) archA.classList.add('hidden');
             } else {
-                ['Food','Household','Misc'].forEach(l => renderSection(shopC, l, l.toLowerCase(), `color-${l.toLowerCase()}`));
+                ['Food', 'Household', 'Misc'].forEach(l => renderSection(shopC, l, l.toLowerCase(), `color-${l.toLowerCase()}`));
             }
             saveLocal(); initSortable();
         }
@@ -176,33 +416,33 @@
         function renderSection(p, l, k, c) {
             const items = db.shopping.filter(i => i.cat === k), t = items.length, r = items.filter(i => !i.done).length;
             const con = document.createElement('div');
-            con.innerHTML = `<div class="section-header ${c} ${collapsedStates[k]?'is-collapsed':''}" onclick="toggleCat('${k}')"><span><span class="chevron">▼</span>${l} <span class="ml-1 opacity-60">(${r}/${t})</span></span></div><div id="cat-${k}" data-cat="${k}" class="shopping-grid ${collapsedStates[k]?'collapsed-content':''}"></div>`;
+            con.innerHTML = `<div class="section-header ${c} ${collapsedStates[k] ? 'is-collapsed' : ''}" onclick="toggleCat('${k}')"><span><span class="chevron">▼</span>${l} <span class="ml-1 opacity-60">(${r}/${t})</span></span></div><div id="cat-${k}" data-cat="${k}" class="shopping-grid ${collapsedStates[k] ? 'collapsed-content' : ''}"></div>`;
             p.appendChild(con); const g = con.querySelector('.shopping-grid'); items.forEach(i => buildItem(g, i));
         }
 
         function buildItem(p, i) {
             const card = document.createElement('div'), isShop = tab === 'shopping';
             const cat = isShop ? `card-${i.cat}` : '';
-            card.className = `item-card ${cat} ${i.done?'done':''} ${!isShop?'flex items-center p-3':'flex flex-col items-center justify-center p-2 h-14 text-center'}`;
+            card.className = `item-card ${cat} ${i.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-2 h-14 text-center'}`;
             card.setAttribute('data-uid', i.uid);
-            
+
             if (!isShop) {
-                card.innerHTML = `<div class="chk-box ${i.done?'checked':''}">${i.done?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>':''}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${i.done?'strikethrough':''}">${i.text}</span>`;
+                card.innerHTML = `<div class="chk-box ${i.done ? 'checked' : ''}">${i.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${i.done ? 'strikethrough' : ''}">${i.text}</span>`;
             } else {
-                card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${i.done?'strikethrough':''}">${i.text}</span><button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1">✕</button>`;
+                card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${i.done ? 'strikethrough' : ''}">${i.text}</span><button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1">✕</button>`;
             }
 
             // ONE CLICK HANDLER ONLY
             card.onclick = (e) => {
                 const now = Date.now();
                 if (now - lastActionTime < 300) return; // Prevent double taps
-                
+
                 const idx = db[tab].findIndex(x => x.uid == i.uid);
                 const txt = card.querySelector('.editable-text');
-                
-                if (e.target === txt) { 
-                    txt.contentEditable = true; 
-                    txt.focus(); 
+
+                if (e.target === txt) {
+                    txt.contentEditable = true;
+                    txt.focus();
                 } else if (e.target.closest('.del')) {
                     remove(idx);
                 } else if (e.target.closest('.chk-box') || (isShop && !e.target.classList.contains('editable-text'))) {
@@ -219,14 +459,14 @@
 
         function initSortable() {
             const isT = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-            const conf = { 
-                animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag', 
-                delay: isT ? 350 : 0, delayOnTouchOnly: true, 
+            const conf = {
+                animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
+                delay: isT ? 350 : 0, delayOnTouchOnly: true,
                 forceFallback: true, fallbackTolerance: 5,
-                filter: '.editable-text, button', preventOnFilter: false, 
+                filter: '.editable-text, button', preventOnFilter: false,
                 onStart: () => { isDragging = true; },
                 onEnd: (evt) => {
-                    isDragging = false; 
+                    isDragging = false;
                     const list = [...db[tab]];
                     const allCards = Array.from(document.querySelectorAll('.item-card'));
                     db[tab] = allCards.map(el => {
@@ -241,8 +481,8 @@
                     saveLocal(); pushToCloud(); setTimeout(render, 50);
                 }
             };
-            if (tab === 'tasks') { Sortable.create(document.getElementById('list-content'), {...conf, group: 't'}); Sortable.create(document.getElementById('archive-content'), {...conf, group: 't'}); }
-            else { ['food','household','misc'].forEach(k => { const el = document.getElementById('cat-'+k); if(el) Sortable.create(el, {...conf, group: 's'}); }); }
+            if (tab === 'tasks') { Sortable.create(document.getElementById('list-content'), { ...conf, group: 't' }); Sortable.create(document.getElementById('archive-content'), { ...conf, group: 't' }); }
+            else { ['food', 'household', 'misc'].forEach(k => { const el = document.getElementById('cat-' + k); if (el) Sortable.create(el, { ...conf, group: 's' }); }); }
         }
 
         function switchTab(t) {
@@ -254,13 +494,13 @@
             render();
         }
 
-        function toggle(idx) { if(idx > -1) { db[tab][idx].done = !db[tab][idx].done; if(db[tab][idx].done) db[tab][idx].doneAt = Date.now(); render(); pushToCloud(); } }
-        function remove(idx) { if(idx > -1) { db[tab].splice(idx, 1); render(); pushToCloud(); } }
+        function toggle(idx) { if (idx > -1) { db[tab][idx].done = !db[tab][idx].done; if (db[tab][idx].done) db[tab][idx].doneAt = Date.now(); render(); pushToCloud(); } }
+        function remove(idx) { if (idx > -1) { db[tab].splice(idx, 1); render(); pushToCloud(); } }
         function toggleCat(k) { collapsedStates[k] = !collapsedStates[k]; render(); }
         function toggleArchive() { collapsedStates.archive = !collapsedStates.archive; render(); }
-        function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if(id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
+        function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if (id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
         function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
-        function loadLocal() { const s = localStorage.getItem('todo_db'); if(s) db = JSON.parse(s); }
+        function loadLocal() { const s = localStorage.getItem('todo_db'); if (s) db = JSON.parse(s); }
         function btnFAB(e) { e.stopPropagation(); document.getElementById('fab-container').classList.contains('expanded') ? collapseInput() : expandInput(); }
         function expandInput() { document.getElementById('fab-container').classList.add('expanded'); setTimeout(() => { const i = document.getElementById('fab-input'); i.focus(); i.click(); }, 100); }
         function collapseInput() { document.getElementById('fab-container').classList.remove('expanded'); document.getElementById('fab-input').blur(); }
@@ -270,11 +510,12 @@
                 if (e.key === 'ArrowLeft') return switchTab('tasks'); if (e.key === 'ArrowRight') return switchTab('shopping');
                 if (e.key.length === 1) { expandInput(); document.getElementById('fab-input').value = e.key; }
             };
-            document.getElementById('fab-input').onkeypress = (e) => { if (e.key === 'Enter') { const v = e.target.value.trim(); if(v) { db[tab].unshift({text:v, done:false, uid: Math.random(), cat: 'misc'}); render(); pushToCloud(); } e.target.value = ''; collapseInput(); } };
+            document.getElementById('fab-input').onkeypress = (e) => { if (e.key === 'Enter') { const v = e.target.value.trim(); if (v) { db[tab].unshift({ text: v, done: false, uid: Math.random(), cat: 'misc' }); render(); pushToCloud(); } e.target.value = ''; collapseInput(); } };
         }
         function handleBgClick(e) { if (e.target.id.includes('-pane')) collapseInput(); }
-        function updateStatus(on) { const el = document.getElementById('sync-status'); if(el) { el.innerText = on?"Synced":"Syncing..."; el.className=`sync-indicator ${on?'status-online':'status-offline'}`; } }
+        function updateStatus(on) { const el = document.getElementById('sync-status'); if (el) { el.innerText = on ? "Synced" : "Syncing..."; el.className = `sync-indicator ${on ? 'status-online' : 'status-offline'}`; } }
         init();
     </script>
 </body>
+
 </html>
