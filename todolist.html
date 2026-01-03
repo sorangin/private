@@ -3,7 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SyncPro Zen Refined</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0c0c0d">
+    <title>SyncPro Zen</title>
+    
+    <!-- App Icon -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjEyMCIgZmlsbD0iIzBjMGMwZCIvPjxwYXRoIGQ9Ik0zODAgMTU0SDEzMmMtMTEgMC0yMCA5LTIwIDIwdjE3NmMwIDExIDkgMjAgMjAgMjBoMjQ4YzExIDAgMjAtOSAyMC0yMFYxNzRjMC0xMS05LTIwLTIwLTIwem0tMTIwIDUwaDEwMHYyMEgyNjB2LTIwem0wIDYwaDEwMHYyMEgyNjB2LTIwem0wIDYwaDEwMHYyMEgyNjB2LTIwem0tODAtMTIwaDQwdjQwaC00MHYtNDB6bTAgNjBoNDB2NDBoLTQwdi00MHptMCA2MGg0MHY0MGgtNDB2LTQwek0xODAgMTk0bDIwIDIwIDQwLTQwIiBzdHJva2U9IiMzYjgyZjYiIHN0cm9rZS13aWR0aD0iMjQiIGZpbGw9Im5vbmUiLz48L3N2Zz4=">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
@@ -21,9 +28,9 @@
             color: var(--text-main);
             -webkit-tap-highlight-color: transparent;
             overflow-x: hidden;
+            min-height: 100vh;
         }
 
-        /* Shopping Grid */
         .shopping-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -35,15 +42,14 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            text-align: center;
-            padding: 16px;
+            padding: 12px;
             border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s ease;
-            /* Clearer Border */
             border: 1px solid #3f3f46; 
             position: relative;
             background-color: #1a1a1c;
+            overflow: hidden;
         }
 
         .shopping-tile.done {
@@ -52,40 +58,42 @@
             opacity: 0.25;
         }
 
-        .shopping-tile:hover:not(.done) {
-            border-color: var(--accent);
+        /* The Edit Hitbox - only wraps text */
+        .editable-text {
+            display: inline-block;
+            max-width: 100%;
+            outline: none;
+            padding: 2px 4px;
+            word-break: break-word;
         }
 
-        /* Circular FAB Logic */
+        .editable-text:focus {
+            background: rgba(59, 130, 246, 0.15);
+            border-radius: 4px;
+        }
+
         #fab-container {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             width: 56px;
             height: 56px;
             background-color: #1a1a1c;
             border: 1px solid #27272a;
-            border-radius: 28px; /* Perfect Circle */
+            border-radius: 28px;
             display: flex;
             align-items: center;
             justify-content: flex-end;
             overflow: hidden;
         }
 
-        /* Hover state remains a circle */
-        #fab-container:hover {
-            background-color: #27272a;
-        }
-
         #fab-container.expanded {
-            width: min(400px, calc(100vw - 32px));
+            width: min(400px, calc(100vw - 48px));
             border-radius: 16px;
             border-color: var(--accent);
-            background-color: #1a1a1c;
         }
 
         #fab-input {
             display: none;
             opacity: 0;
-            transition: opacity 0.2s ease;
             width: 100%;
         }
 
@@ -94,48 +102,36 @@
             opacity: 1;
         }
 
-        .strikethrough {
-            text-decoration: line-through;
-            opacity: 0.4;
-        }
-
-        [contenteditable]:focus {
-            outline: none;
-            background: rgba(59, 130, 246, 0.05);
-            border-radius: 4px;
-        }
-
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .strikethrough { text-decoration: line-through; opacity: 0.4; }
     </style>
 </head>
-<body class="min-h-screen pb-32">
+<body class="pb-32">
 
     <div class="max-w-4xl mx-auto px-4 pt-6">
         <!-- Navigation -->
-        <div class="flex justify-between items-center mb-10">
+        <header class="flex justify-between items-center mb-10">
             <nav class="flex gap-1 bg-zinc-900/60 p-1 rounded-xl border border-white/5">
                 <button onclick="switchTab('tasks')" id="tab-tasks" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">Tasks</button>
                 <button onclick="switchTab('shopping')" id="tab-shopping" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">Shopping</button>
             </nav>
 
-            <button onclick="toggleSync()" class="p-2 text-zinc-700 hover:text-blue-500 transition">
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
-            </button>
-        </div>
-
-        <!-- Sync Panel -->
-        <div id="sync-panel" class="hidden mb-10 p-6 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl">
-            <input id="sync-code" type="text" placeholder="Sync Key (Use the same word on all devices)" class="w-full bg-black border border-zinc-800 p-3 rounded-xl text-sm mb-4 outline-none focus:border-blue-500 text-white">
-            <div class="flex gap-2">
-                <button onclick="uploadData()" class="flex-1 py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl">Push</button>
-                <button onclick="downloadData()" class="flex-1 py-3 border border-zinc-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition">Pull</button>
+            <div class="relative" id="sync-container">
+                <button onclick="toggleSync(event)" class="p-2 text-zinc-700 hover:text-blue-500 transition">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                </button>
+                
+                <div id="sync-panel" class="hidden absolute right-0 mt-2 w-72 p-5 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl z-[60]">
+                    <input id="sync-code" type="text" placeholder="Sync Key" class="w-full bg-black border border-zinc-800 p-3 rounded-xl text-sm mb-4 outline-none focus:border-blue-500 text-white">
+                    <div class="flex gap-2">
+                        <button onclick="uploadData()" class="flex-1 py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl">Push</button>
+                        <button onclick="downloadData()" class="flex-1 py-3 border border-zinc-700 text-[10px] font-black uppercase tracking-widest rounded-xl">Pull</button>
+                    </div>
+                </div>
             </div>
-        </div>
+        </header>
 
-        <!-- List Content Area -->
         <div id="list-container"></div>
 
-        <!-- Completed Area -->
         <div id="archive-section" class="hidden mt-12 pt-8 border-t border-zinc-900/50">
             <div class="flex justify-between items-center mb-6 px-1">
                 <p class="text-[9px] uppercase tracking-[0.5em] text-zinc-600 font-black">Completed</p>
@@ -147,12 +143,11 @@
         </div>
     </div>
 
-    <!-- The Floating Center-Aligned FAB -->
-    <div class="fixed bottom-8 left-0 right-0 flex justify-center items-center px-4 pointer-events-none z-50">
-        <div id="fab-container" class="shadow-2xl pointer-events-auto group">
-            <input id="fab-input" type="text" placeholder="Type to add..." 
-                   class="bg-transparent text-white px-6 outline-none placeholder-zinc-600 text-sm font-medium">
-            <button onclick="toggleFAB()" class="h-14 w-14 flex-shrink-0 flex items-center justify-center rounded-full transition-colors group-hover:text-blue-400">
+    <!-- FAB -->
+    <div class="fixed bottom-8 right-6 z-50 flex items-center justify-end" id="fab-outer">
+        <div id="fab-container" class="shadow-2xl">
+            <input id="fab-input" type="text" placeholder="Type to add..." class="bg-transparent text-white px-6 outline-none placeholder-zinc-600 text-sm font-medium">
+            <button onclick="toggleFAB(event)" class="h-14 w-14 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-zinc-800 transition">
                 <svg id="fab-icon" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
             </button>
         </div>
@@ -163,23 +158,27 @@
         let store = { tasks: [], shopping: [] };
 
         function init() {
-            const saved = localStorage.getItem('sync_pro_final_v10');
+            const saved = localStorage.getItem('sync_pro_final_v12');
             if (saved) store = JSON.parse(saved);
             switchTab('tasks');
             
-            // Global Type-to-Add
             window.addEventListener('keydown', (e) => {
-                const fabInput = document.getElementById('fab-input');
-                const fabContainer = document.getElementById('fab-container');
                 if (e.target.tagName === 'INPUT' || e.target.hasAttribute('contenteditable')) return;
                 if (e.key.length > 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+                expandFAB();
+                document.getElementById('fab-input').focus();
+            });
 
-                if (!fabContainer.classList.contains('expanded')) toggleFAB();
-                fabInput.focus();
+            document.addEventListener('click', (e) => {
+                const syncPanel = document.getElementById('sync-panel');
+                const syncContainer = document.getElementById('sync-container');
+                const fabContainer = document.getElementById('fab-container');
+                if (!syncContainer.contains(e.target)) syncPanel.classList.add('hidden');
+                if (!fabContainer.contains(e.target) && fabContainer.classList.contains('expanded')) collapseFAB();
             });
 
             document.getElementById('fab-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') { addItem(); toggleFAB(); }
+                if (e.key === 'Enter') { addItem(); collapseFAB(); }
             });
         }
 
@@ -196,9 +195,7 @@
             const container = document.getElementById('list-container');
             const archSection = document.getElementById('archive-section');
             const archList = document.getElementById('archive-list');
-            
-            container.innerHTML = '';
-            archList.innerHTML = '';
+            container.innerHTML = ''; archList.innerHTML = '';
             const list = store[currentTab];
 
             if (currentTab === 'tasks') {
@@ -212,7 +209,7 @@
                 archSection.classList.add('hidden');
                 list.forEach(item => createItem(container, item));
             }
-            localStorage.setItem('sync_pro_final_v10', JSON.stringify(store));
+            localStorage.setItem('sync_pro_final_v12', JSON.stringify(store));
         }
 
         function createItem(parent, item) {
@@ -221,10 +218,17 @@
             
             if (currentTab === 'shopping') {
                 el.className = `shopping-tile ${item.done ? 'done' : ''}`;
-                el.onclick = (e) => { if(!e.target.closest('.del-btn') && !e.target.hasAttribute('contenteditable')) toggleItem(idx); };
+                // Tile handles the Toggle logic
+                el.onclick = () => toggleItem(idx);
+                
                 el.innerHTML = `
-                    <div class="text-xs font-semibold outline-none w-full px-2" contenteditable="true" spellcheck="false">${item.text}</div>
-                    <button onclick="deleteItem(${idx})" class="del-btn absolute top-1.5 right-1.5 p-1 text-zinc-700 hover:text-red-500 transition-colors">
+                    <div class="w-full text-center">
+                        <span class="editable-text text-xs font-semibold" 
+                              contenteditable="true" 
+                              spellcheck="false" 
+                              onclick="event.stopPropagation()">${item.text}</span>
+                    </div>
+                    <button onclick="event.stopPropagation(); deleteItem(${idx})" class="del-btn absolute top-1 right-1 p-1 text-zinc-700 hover:text-red-500 transition-colors">
                         <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 `;
@@ -234,84 +238,39 @@
                     <div onclick="toggleItem(${idx})" class="w-5 h-5 rounded-lg border-2 flex-shrink-0 flex items-center justify-center cursor-pointer transition ${item.done ? 'bg-blue-600 border-blue-600' : 'border-zinc-700'}">
                         ${item.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
                     </div>
-                    <div class="ml-4 text-[13.5px] font-medium flex-1 outline-none ${item.done ? 'strikethrough' : ''}" contenteditable="true" spellcheck="false">${item.text}</div>
+                    <div class="ml-4 flex-1">
+                        <span class="editable-text text-[13.5px] font-medium ${item.done ? 'strikethrough' : ''}" 
+                              contenteditable="true" 
+                              spellcheck="false">${item.text}</span>
+                    </div>
                     <button onclick="deleteItem(${idx})" class="ml-2 text-zinc-800 hover:text-red-500 transition p-1">
                         <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 `;
             }
 
-            const textPart = el.querySelector('[contenteditable]');
+            const textPart = el.querySelector('.editable-text');
             textPart.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); textPart.blur(); }
                 e.stopPropagation(); 
             });
             textPart.addEventListener('blur', () => updateText(idx, textPart.innerText));
-
             parent.appendChild(el);
         }
 
-        function toggleFAB() {
-            const container = document.getElementById('fab-container');
-            const input = document.getElementById('fab-input');
-            const icon = document.getElementById('fab-icon');
-            if (container.classList.contains('expanded')) {
-                container.classList.remove('expanded');
-                icon.innerHTML = '<path d="M12 5v14M5 12h14"/>';
-                input.blur();
-            } else {
-                container.classList.add('expanded');
-                icon.innerHTML = '<path d="M18 6L6 18M6 6l12 12"/>';
-                setTimeout(() => input.focus(), 150);
-            }
-        }
+        function toggleSync(e) { e.stopPropagation(); document.getElementById('sync-panel').classList.toggle('hidden'); }
+        function toggleFAB(e) { e.stopPropagation(); const c = document.getElementById('fab-container'); c.classList.contains('expanded') ? collapseFAB() : expandFAB(); }
+        function expandFAB() { const c = document.getElementById('fab-container'); c.classList.add('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M18 6L6 18M6 6l12 12"/>'; setTimeout(() => document.getElementById('fab-input').focus(), 150); }
+        function collapseFAB() { const c = document.getElementById('fab-container'); c.classList.remove('expanded'); document.getElementById('fab-icon').innerHTML = '<path d="M12 5v14M5 12h14"/>'; document.getElementById('fab-input').blur(); }
+        
+        function addItem() { const i = document.getElementById('fab-input'); if (!i.value.trim()) return; store[currentTab].unshift({ text: i.value.trim(), done: false }); i.value = ''; render(); }
+        function updateText(idx, text) { if (store[currentTab][idx]) { store[currentTab][idx].text = text; localStorage.setItem('sync_pro_final_v12', JSON.stringify(store)); } }
+        function toggleItem(idx) { store[currentTab][idx].done = !store[currentTab][idx].done; render(); }
+        function deleteItem(idx) { store[currentTab].splice(idx, 1); render(); }
+        function clearCompleted() { if (confirm("Clear all completed?")) { store[currentTab] = store[currentTab].filter(i => !i.done); render(); } }
 
-        function addItem() {
-            const input = document.getElementById('fab-input');
-            if (!input.value.trim()) return;
-            store[currentTab].unshift({ text: input.value.trim(), done: false });
-            input.value = '';
-            render();
-        }
-
-        function updateText(idx, text) {
-            if (store[currentTab][idx]) store[currentTab][idx].text = text;
-            localStorage.setItem('sync_pro_final_v10', JSON.stringify(store));
-        }
-
-        function toggleItem(idx) {
-            store[currentTab][idx].done = !store[currentTab][idx].done;
-            render();
-        }
-
-        function deleteItem(idx) {
-            store[currentTab].splice(idx, 1);
-            render();
-        }
-
-        function clearCompleted() {
-            if (confirm("Delete all completed items?")) {
-                store[currentTab] = store[currentTab].filter(i => !i.done);
-                render();
-            }
-        }
-
-        function toggleSync() { document.getElementById('sync-panel').classList.toggle('hidden'); }
-
-        async function uploadData() {
-            const key = document.getElementById('sync-code').value.trim();
-            if (!key) return alert("Enter key.");
-            try {
-                await fetch(`https://kvdb.io/pro_zen_v10/${key}`, { method: 'POST', body: JSON.stringify(store) });
-                alert("Pushed to cloud.");
-            } catch (e) { alert("Error."); }
-        }
-
-        async function downloadData() {
-            const key = document.getElementById('sync-code').value.trim();
-            const res = await fetch(`https://kvdb.io/pro_zen_v10/${key}`);
-            if (res.ok) { store = await res.json(); render(); alert("Synced to device."); }
-        }
+        async function uploadData() { const k = document.getElementById('sync-code').value.trim(); if (!k) return alert("Key needed"); await fetch(`https://kvdb.io/pro_zen_v12/${k}`, { method: 'POST', body: JSON.stringify(store) }); alert("Data Pushed"); }
+        async function downloadData() { const k = document.getElementById('sync-code').value.trim(); const res = await fetch(`https://kvdb.io/pro_zen_v12/${k}`); if (res.ok) { store = await res.json(); render(); alert("Data Synced"); } }
 
         init();
     </script>
