@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0c0c0d">
+    
     <title>Sora's List</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -106,6 +112,29 @@
     </div>
 
     <script>
+        // --- PWA HELPER ---
+        const manifest = {
+            "name": "Sora's List",
+            "short_name": "SoraList",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#0c0c0d",
+            "theme_color": "#0c0c0d",
+            "icons": [{
+                "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMGMwYzBkIi8+PHBhdGggZD0iTTE1MCAyNTZsNzAgNzAgMTQwLTE0MCIgc3Ryb2tlPSIjM2I4MmY2IiBzdHJva2Utd2lkdGg9IjQwIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=",
+                "sizes": "512x512",
+                "type": "image/png"
+            }]
+        };
+        const stringManifest = JSON.stringify(manifest);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(blob);
+        const linkManifest = document.createElement('link');
+        linkManifest.setAttribute('rel', 'manifest');
+        linkManifest.setAttribute('href', manifestURL);
+        document.head.appendChild(linkManifest);
+
+        // --- CONFIGURATION ---
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co";
         const SB_KEY = "sb_publishable_xSABmWC7hbSBMZULqe_IMw_M5XXDa4i";
         const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
@@ -190,13 +219,11 @@
                     <button class="del absolute top-2 right-2 text-zinc-700 text-[10px]">✕</button>`;
             }
 
-            // Click Logic
             let startX, startY;
             card.onmousedown = (e) => { startX = e.pageX; startY = e.pageY; };
             card.onmouseup = (e) => {
                 const diffX = Math.abs(e.pageX - startX);
                 const diffY = Math.abs(e.pageY - startY);
-                // If moved less than 5px, it's a click, not a drag
                 if (diffX < 5 && diffY < 5) {
                     if (e.target.closest('.chk')) toggle(idx);
                     else if (e.target.closest('.del')) remove(idx);
@@ -220,13 +247,12 @@
                 const listSnapshot = [...db[tab]];
                 db[tab] = els.map(el => listSnapshot[el.getAttribute('data-id')]);
                 saveLocal(); pushToCloud();
-                render(); // Critical to refresh data-id mapping
+                render();
             };
 
             const config = {
                 animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
-                distance: 5, // Requires 5px movement to start dragging
-                filter: '.editable-text, button, .chk', preventOnFilter: false,
+                distance: 5, filter: '.editable-text, button, .chk', preventOnFilter: false,
                 onEnd: reorder
             };
 
