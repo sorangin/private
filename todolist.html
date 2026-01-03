@@ -4,14 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
+    <!-- PWA Primary Settings -->
+    <title>To Do List</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#0c0c0d">
+
+    <!-- Inline Web App Manifest (Removes browser UI) -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"To Do List","short_name":"ToDo","display":"standalone","start_url":"./","background_color":"#0c0c0d","theme_color":"#0c0c0d","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/906/906334.png","sizes":"512x512","type":"image/png"}]}'>
     
-    <title>To Do List</title>
-    
-    <!-- SortableJS for Reordering -->
+    <!-- External Resources -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -32,9 +35,11 @@
             color: var(--text-main);
             -webkit-tap-highlight-color: transparent;
             overflow: hidden;
-            height: 100vh;
+            /* Use dvh for dynamic viewport height to prevent jumping */
+            height: 100dvh; 
             display: flex;
             flex-direction: column;
+            margin: 0;
         }
 
         .shopping-grid {
@@ -61,7 +66,6 @@
         .shopping-tile.done { opacity: 0.25; background-color: #0c0c0d; border-color: #1f1f22; }
         .shopping-tile:active { cursor: grabbing; }
 
-        /* Editing Hitbox */
         .editable-text {
             display: inline-block;
             outline: none;
@@ -75,15 +79,13 @@
             border-radius: 4px;
         }
 
-        /* Reordering Visuals */
         .sortable-ghost { opacity: 0.2; transform: scale(0.95); background: #3b82f6 !important; }
         .sortable-chosen { border-color: #3b82f6 !important; }
 
-        /* FAB Keyboard-aware */
         #fab-outer {
             position: fixed;
             right: 1.25rem;
-            bottom: calc(1.5rem + var(--keyboard-h));
+            bottom: calc(1.5rem + var(--keyboard-h) + env(safe-area-inset-bottom));
             z-index: 100;
             transition: bottom 0.1s ease-out;
             pointer-events: none;
@@ -160,6 +162,26 @@
     </div>
 
     <script>
+        // 1. DUMMY SERVICE WORKER (Keeps it single-file, required for Android "Standalone" mode)
+        const swCode = "self.addEventListener('fetch', function(event) {});";
+        const swBlob = new Blob([swCode], {type: 'application/javascript'});
+        const swUrl = URL.createObjectURL(swBlob);
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register(swUrl).catch(err => console.log('SW failed', err));
+        }
+
+        // 2. IOS STANDALONE FIX (Prevents links from popping out to Safari)
+        if (("standalone" in window.navigator) && window.navigator.standalone) {
+            document.addEventListener('click', (e) => {
+                let node = e.target;
+                while (node && node.nodeName !== 'A' && node.nodeName !== 'HTML') node = node.parentNode;
+                if (node && node.nodeName === 'A' && node.href.indexOf('http') !== -1) {
+                    e.preventDefault();
+                    window.location.href = node.href;
+                }
+            }, false);
+        }
+
         let tab = 'tasks';
         let db = { tasks: [], shopping: [] };
         let sortableMain, sortableArch;
@@ -194,11 +216,11 @@
         function initSortable() {
             const options = {
                 animation: 200,
-                delay: 250, // "Hold" requirement for reordering
+                delay: 250,
                 delayOnTouchOnly: true,
                 ghostClass: 'sortable-ghost',
                 chosenClass: 'sortable-chosen',
-                filter: '.editable-text, button', // Prevent drag on text edit or delete btn
+                filter: '.editable-text, button', 
                 onEnd: (evt) => {
                     const listKey = evt.from.id === 'archive-content' ? 'archived' : 'active';
                     reorderData(evt.oldIndex, evt.newIndex, listKey);
@@ -209,7 +231,6 @@
         }
 
         function reorderData(oldIdx, newIdx, type) {
-            // Get current view's list
             let list = db[tab];
             let active = list.filter(i => !i.done);
             let completed = list.filter(i => i.done);
