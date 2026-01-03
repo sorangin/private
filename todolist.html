@@ -14,33 +14,34 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
         :root { --bg: #0c0c0d; --surface: #161618; --accent: #3b82f6; --text-main: #e5e7eb; --keyboard-h: 0px; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text-main); height: 100vh; overflow: hidden; margin: 0; user-select: none; -webkit-user-select: none; }
-        header { padding-top: env(safe-area-inset-top); position: relative; z-index: 50; background: var(--bg); }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text-main); height: 100vh; overflow: hidden; margin: 0; user-select: none; -webkit-user-select: none; display: flex; flex-direction: column; }
         
-        #viewport { width: 100vw; height: 100%; overflow: hidden; position: relative; touch-action: none; }
+        header { padding-top: env(safe-area-inset-top); position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        #viewport { flex: 1; overflow: hidden; position: relative; width: 100vw; }
         #view-slider { display: flex; width: 200vw; height: 100%; will-change: transform; }
-        .view-pane { width: 100vw; height: 100%; overflow-y: auto; padding-bottom: 150px; touch-action: pan-y; }
+        .view-pane { width: 100vw; height: 100%; overflow-y: auto; padding-bottom: 120px; touch-action: pan-y; }
 
-        .shopping-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
-        .section-header { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; display: flex; align-items: center; cursor: pointer; padding: 0 4px; }
-        .color-food { color: #f59e0b; } .color-household { color: #3b82f6; } .color-misc { color: #a855f7; }
+        .shopping-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+        .section-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; display: flex; align-items: center; cursor: pointer; padding: 4px 8px; }
         
-        .item-card { background-color: #161618; border: 1px solid #2d2d30; border-radius: 12px; cursor: grab; position: relative; }
+        .item-card { background-color: #161618; border: 1px solid #2d2d30; border-radius: 10px; cursor: grab; position: relative; }
         .done { opacity: 0.25 !important; filter: grayscale(1); }
-        .card-food { border-color: rgba(245, 158, 11, 0.2); background-color: rgba(245, 158, 11, 0.05); color: #fcd34d; }
-        .card-household { border-color: rgba(59, 130, 246, 0.2); background-color: rgba(59, 130, 246, 0.05); color: #93c5fd; }
-        .card-misc { border-color: rgba(168, 85, 247, 0.2); background-color: rgba(168, 85, 247, 0.05); color: #d8b4fe; }
+        
+        .color-food { color: #f59e0b; } .card-food { border-color: rgba(245,158,11,0.2); background-color: rgba(245,158,11,0.04); color: #fcd34d; }
+        .color-household { color: #3b82f6; } .card-household { border-color: rgba(59,130,246,0.2); background-color: rgba(59,130,246,0.04); color: #93c5fd; }
+        .color-misc { color: #a855f7; } .card-misc { border-color: rgba(168, 85, 247, 0.2); background-color: rgba(168, 85, 247, 0.04); color: #d8b4fe; }
 
         .editable-text { outline: none; word-break: break-word; white-space: pre-wrap; user-select: text; -webkit-user-select: text; pointer-events: auto; }
         .strikethrough { text-decoration: line-through; opacity: 0.6; }
         
         .sortable-ghost { opacity: 0 !important; }
-        .sortable-drag { opacity: 1 !important; transform: scale(1.02); z-index: 1000; box-shadow: 0 15px 25px rgba(0,0,0,0.5); }
+        .sortable-drag { opacity: 1 !important; transform: scale(1.02); z-index: 1000; box-shadow: 0 10px 15px rgba(0,0,0,0.5); }
 
-        #fab-outer { position: fixed; right: 1.25rem; bottom: calc(1.25rem + var(--keyboard-h)); z-index: 100; pointer-events: none; transition: bottom 0.2s; }
-        #fab-container { pointer-events: auto; width: 50px; height: 50px; background: #1e1e20; border: 1px solid #2d2d30; border-radius: 25px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        #fab-container.expanded { width: min(420px, calc(100vw - 40px)); border-radius: 14px; border-color: var(--accent); }
-        #fab-input { display: none; opacity: 0; width: 100%; background: transparent; color: white; padding: 0 20px; outline: none; border: none; font-size: 16px; }
+        #fab-outer { position: fixed; right: 1rem; bottom: calc(1rem + var(--keyboard-h)); z-index: 100; pointer-events: none; transition: bottom 0.2s; }
+        #fab-container { pointer-events: auto; width: 48px; height: 48px; background: #1e1e20; border: 1px solid #2d2d30; border-radius: 24px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        #fab-container.expanded { width: min(420px, calc(100vw - 32px)); border-radius: 12px; border-color: var(--accent); }
+        #fab-input { display: none; opacity: 0; width: 100%; background: transparent; color: white; padding: 0 16px; outline: none; border: none; font-size: 16px; }
         #fab-container.expanded #fab-input { display: block; opacity: 1; }
 
         .collapsed-content { display: none !important; }
@@ -51,12 +52,12 @@
         .status-online { color: #22c55e; } .status-offline { color: #ef4444; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
 
-        .chk-box { width: 20px; height: 20px; border-radius: 6px; border: 2px solid #3f3f46; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+        .chk-box { width: 18px; height: 18px; border-radius: 4px; border: 2px solid #3f3f46; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
         .chk-box.checked { background-color: #3b82f6; border-color: #3b82f6; }
     </style>
 </head>
 <body>
-    <header class="flex justify-between items-center px-6 py-2 flex-shrink-0">
+    <header class="flex justify-between items-center px-4 py-2 flex-shrink-0">
         <nav class="flex gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
             <button onclick="switchTab('tasks')" id="tab-tasks" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
             <button onclick="switchTab('shopping')" id="tab-shopping" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
@@ -69,11 +70,11 @@
 
     <div id="viewport">
         <div id="view-slider">
-            <main id="tasks-pane" class="view-pane px-6 no-scrollbar" onclick="handleBgClick(event)">
-                <div id="list-content" class="space-y-1.5 mt-4"></div>
-                <section id="archive-area" class="hidden mt-8 pt-8 border-t border-zinc-900">
-                    <div onclick="toggleArchive()" class="flex justify-between items-center mb-6 cursor-pointer group">
-                        <div class="flex items-center gap-2 text-zinc-600 group-hover:text-zinc-400 transition-colors">
+            <main id="tasks-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
+                <div id="list-content" class="space-y-1.5 mt-2"></div>
+                <section id="archive-area" class="hidden mt-6 pt-4 border-t border-zinc-900">
+                    <div onclick="toggleArchive()" class="flex justify-between items-center mb-4 cursor-pointer group px-2">
+                        <div class="flex items-center gap-2 text-zinc-600">
                             <svg class="chevron" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M19 9l-7 7-7-7"/></svg>
                             <p class="text-[9px] uppercase tracking-widest font-bold">Completed</p>
                         </div>
@@ -84,8 +85,8 @@
                     <div id="archive-content" class="space-y-1.5"></div>
                 </section>
             </main>
-            <main id="shopping-pane" class="view-pane px-6 no-scrollbar" onclick="handleBgClick(event)">
-                <div id="shop-container" class="mt-4 space-y-6"></div>
+            <main id="shopping-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
+                <div id="shop-container" class="mt-2 space-y-6"></div>
             </main>
         </div>
     </div>
@@ -93,18 +94,20 @@
     <div id="fab-outer">
         <div id="fab-container">
             <input id="fab-input" type="text" placeholder="Add entry..." autocomplete="off">
-            <button onclick="btnFAB(event)" class="h-14 w-14 flex items-center justify-center rounded-full hover:bg-zinc-800 transition"><svg id="fab-icon" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button onclick="btnFAB(event)" class="h-12 w-12 flex items-center justify-center rounded-full hover:bg-zinc-800 transition"><svg id="fab-icon" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
     </div>
 
     <script>
+        const manifest = { "name": "To Do List", "short_name": "ToDo", "start_url": ".", "display": "standalone", "background_color": "#0c0c0d", "theme_color": "#0c0c0d", "icons": [{"src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMGMwYzBkIi8+PHBhdGggZD0iTTE1MCAyNTZsNzAgNzAgMTQwLTE0MCIgc3Ryb2tlPSIjM2I4MmY2IiBzdHJva2Utd2lkdGg9IjQwIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=", "sizes": "512x512", "type": "image/png"}] };
+        const linkManifest = document.createElement('link'); linkManifest.setAttribute('rel', 'manifest'); linkManifest.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))); document.head.appendChild(linkManifest);
+        if ('serviceWorker' in navigator && location.protocol !== 'file:') { const sw = 'self.addEventListener("fetch", (e) => e.respondWith(fetch(e.request)));'; navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], {type: "text/javascript"}))).catch(()=>{}); }
+
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
         let db = { tasks: [], shopping: [] }, collapsedStates = { archive: false, food: false, household: false, misc: false }, tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
         let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false;
 
         async function init() {
-            const manifest = { "name": "To Do List", "short_name": "ToDo", "start_url": ".", "display": "standalone", "background_color": "#0c0c0d", "theme_color": "#0c0c0d" };
-            const link = document.createElement('link'); link.rel = 'manifest'; link.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'})); document.head.appendChild(link);
             if (syncID) { document.getElementById('display-id').innerText = syncID; loadLocal(); await pullFromCloud(); subscribeRealtime(); } else { setTimeout(promptSyncID, 500); }
             switchTab('tasks'); setupInputLogic(); window.addEventListener('focus', pullFromCloud); setupSwipe();
         }
@@ -112,7 +115,7 @@
         async function pullFromCloud() {
             if (!syncID || isRemoteUpdate || isDragging) return;
             const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
-            if (data?.content) { if(JSON.stringify(db) === JSON.stringify(data.content)) return; db = data.content; render(); updateStatus(true); } else { await pushToCloud(); }
+            if (data?.content) { if(JSON.stringify(db) === JSON.stringify(data.content)) { updateStatus(true); return; } db = data.content; render(); updateStatus(true); } else { await pushToCloud(); }
         }
 
         async function pushToCloud() {
@@ -134,19 +137,14 @@
             vp.addEventListener('touchstart', e => { if(isDragging) return; panStartX = e.touches[0].clientX; panStartY = e.touches[0].clientY; isPanning = false; slider.style.transition = 'none'; }, {passive:true});
             vp.addEventListener('touchmove', e => {
                 if(isDragging) return;
-                let diffX = e.touches[0].clientX - panStartX;
-                let diffY = e.touches[0].clientY - panStartY;
-                if (!isPanning && Math.abs(diffX) > 20 && Math.abs(diffX) > Math.abs(diffY)) { isPanning = true; }
-                if (isPanning) { let base = tab === 'tasks' ? 0 : -window.innerWidth; slider.style.transform = `translateX(${base + diffX}px)`; }
+                let dx = e.touches[0].clientX - panStartX, dy = e.touches[0].clientY - panStartY;
+                if (!isPanning && Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy)) isPanning = true;
+                if (isPanning) { let b = tab === 'tasks' ? 0 : -window.innerWidth; slider.style.transform = `translateX(${b + dx}px)`; }
             }, {passive:true});
             vp.addEventListener('touchend', e => {
                 if(isDragging) return;
                 slider.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-                if (isPanning) {
-                    let diffX = e.changedTouches[0].clientX - panStartX;
-                    if (Math.abs(diffX) > 100) { if (diffX > 0) switchTab('tasks'); else switchTab('shopping'); } 
-                    else switchTab(tab);
-                }
+                if (isPanning) { let dx = e.changedTouches[0].clientX - panStartX; if (Math.abs(dx) > 100) switchTab(dx > 0 ? 'tasks' : 'shopping'); else switchTab(tab); }
                 isPanning = false;
             }, {passive:true});
         }
@@ -160,107 +158,106 @@
 
             if (tab === 'tasks') {
                 archA.classList.toggle('is-collapsed', collapsedStates.archive); archC.classList.toggle('collapsed-content', collapsedStates.archive); archA.classList.remove('hidden');
-                list.filter(i => !i.done).forEach(item => buildItem(listC, item));
-                const completed = list.filter(i => i.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
-                completed.forEach(item => buildItem(archC, item));
-                if (completed.length === 0) archA.classList.add('hidden');
+                list.filter(i => !i.done).forEach(i => buildItem(listC, i));
+                const comp = list.filter(i => i.done).sort((a,b) => (b.doneAt || 0) - (a.doneAt || 0));
+                comp.forEach(i => buildItem(archC, i));
+                if (comp.length === 0) archA.classList.add('hidden');
             } else {
-                renderSection(shopC, 'Food', 'food', 'color-food');
-                renderSection(shopC, 'Household', 'household', 'color-household');
-                renderSection(shopC, 'Misc', 'misc', 'color-misc');
+                ['Food','Household','Misc'].forEach(l => renderSection(shopC, l, l.toLowerCase(), `color-${l.toLowerCase()}`));
             }
             saveLocal(); initSortable();
         }
 
-        function renderSection(parent, label, key, color) {
-            const items = db.shopping.filter(i => i.cat === key), t = items.length, r = items.filter(i => !i.done).length;
-            const container = document.createElement('div');
-            container.innerHTML = `<div class="section-header ${color} ${collapsedStates[key] ? 'is-collapsed' : ''}" onclick="toggleCat('${key}')"><span><span class="chevron">▼</span>${label} <span class="ml-1 opacity-60">(${r}/${t})</span></span></div><div id="cat-${key}" data-cat="${key}" class="shopping-grid ${collapsedStates[key] ? 'collapsed-content' : ''}"></div>`;
-            parent.appendChild(container);
-            const grid = container.querySelector('.shopping-grid');
-            items.forEach(i => buildItem(grid, i));
+        function renderSection(p, l, k, c) {
+            const items = db.shopping.filter(i => i.cat === k), t = items.length, r = items.filter(i => !i.done).length;
+            const con = document.createElement('div');
+            con.innerHTML = `<div class="section-header ${c} ${collapsedStates[k]?'is-collapsed':''}" onclick="toggleCat('${k}')"><span><span class="chevron">▼</span>${l} <span class="ml-1 opacity-60">(${r}/${t})</span></span></div><div id="cat-${k}" data-cat="${k}" class="shopping-grid ${collapsedStates[k]?'collapsed-content':''}"></div>`;
+            p.appendChild(con); const g = con.querySelector('.shopping-grid'); items.forEach(i => buildItem(g, i));
         }
 
-        function buildItem(parent, item) {
+        function buildItem(p, i) {
             const card = document.createElement('div'), isShop = tab === 'shopping';
-            const catClass = isShop ? `card-${item.cat}` : '';
-            card.className = `item-card ${catClass} ${item.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-4 h-28 text-center'}`;
-            card.setAttribute('data-uid', item.uid);
-            
+            const cat = isShop ? `card-${i.cat}` : '';
+            card.className = `item-card ${cat} ${i.done?'done':''} ${!isShop?'flex items-center p-3':'flex flex-col items-center justify-center p-2 h-16 text-center'}`;
+            card.setAttribute('data-uid', i.uid);
             if (!isShop) {
-                card.innerHTML = `<div class="chk-box ${item.done ? 'checked' : ''}">${item.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${item.done ? 'strikethrough' : ''}">${item.text}</span>`;
+                card.innerHTML = `<div class="chk-box ${i.done?'checked':''}">${i.done?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>':''}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${i.done?'strikethrough':''}">${i.text}</span>`;
             } else {
-                card.innerHTML = `<span class="editable-text text-xs font-bold px-2 mb-2 ${item.done ? 'strikethrough' : ''}">${item.text}</span><button class="del absolute top-2 right-2 text-zinc-700 text-[10px] opacity-40">✕</button>`;
+                card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 mb-1 ${i.done?'strikethrough':''}">${i.text}</span><button class="del absolute top-1 right-1 text-zinc-700 text-[10px] opacity-40">✕</button>`;
             }
-
-            let moved = false, sX = 0, sY = 0;
-            card.addEventListener('touchstart', e => { moved = false; sX = e.touches[0].pageX; sY = e.touches[0].pageY; }, {passive:true});
-            card.addEventListener('touchmove', e => { if (Math.abs(e.touches[0].pageX - sX) > 5 || Math.abs(e.touches[0].pageY - sY) > 5) moved = true; }, {passive:true});
-            
-            card.onclick = (e) => {
-                if (moved) return;
-                const idx = db[tab].findIndex(i => i.uid == item.uid);
-                const txt = card.querySelector('.editable-text');
-                if (e.target === txt) { txt.contentEditable = true; txt.focus(); } 
-                else if (e.target.closest('.del')) remove(idx);
-                else if (e.target.closest('.chk-box') || (isShop && !e.target.classList.contains('editable-text'))) toggle(idx);
+            let moved = false, sx = 0, sy = 0;
+            card.onmousedown = card.ontouchstart = (e) => { moved = false; sx = (e.pageX || e.touches[0].pageX); sy = (e.pageY || e.touches[0].pageY); };
+            card.onmouseup = card.ontouchend = (e) => {
+                const ex = (e.pageX || e.changedTouches[0].pageX), ey = (e.pageY || e.changedTouches[0].pageY);
+                if (Math.abs(ex-sx) < 6 && Math.abs(ey-sy) < 6) {
+                    const idx = db[tab].findIndex(x => x.uid == i.uid);
+                    const txt = card.querySelector('.editable-text');
+                    if (e.target === txt) { txt.contentEditable = true; txt.focus(); }
+                    else if (e.target.closest('.del')) remove(idx);
+                    else if (e.target.closest('.chk-box') || (isShop && !e.target.classList.contains('editable-text'))) toggle(idx);
+                }
             };
-
             const txt = card.querySelector('.editable-text');
             txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
-            txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(i => i.uid == item.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; saveLocal(); pushToCloud(); } };
-            parent.appendChild(card);
+            txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; saveLocal(); pushToCloud(); } };
+            p.appendChild(card);
         }
 
         function initSortable() {
-            const isTouch = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-            const config = { 
+            const isT = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+            const conf = { 
                 animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag', 
-                delay: isTouch ? 350 : 0, delayOnTouchOnly: true, 
+                delay: isT ? 350 : 0, delayOnTouchOnly: true, 
+                forceFallback: true, fallbackTolerance: 5,
                 filter: '.editable-text, button', preventOnFilter: false, 
                 onStart: () => { isDragging = true; },
                 onEnd: (evt) => {
-                    isDragging = false;
+                    isDragging = false; 
                     const list = [...db[tab]];
-                    // Correct reorder logic: Look only at elements in current pane
-                    const pane = tab === 'tasks' ? '#tasks-pane' : '#shopping-pane';
-                    const els = Array.from(document.querySelectorAll(`${pane} .item-card`));
+                    const allCards = Array.from(document.querySelectorAll('.item-card'));
                     
-                    db[tab] = els.map(el => {
-                        const item = list.find(i => String(i.uid) === el.getAttribute('data-uid'));
-                        if (tab === 'tasks') item.done = el.closest('#archive-area') !== null;
-                        if (tab === 'shopping') {
-                            const newCat = el.parentElement.getAttribute('data-cat');
-                            if (newCat) item.cat = newCat;
+                    db[tab] = allCards.map(el => {
+                        const item = list.find(x => String(x.uid) === el.getAttribute('data-uid'));
+                        if (item) {
+                            if (tab === 'tasks') item.done = el.closest('#archive-area') !== null;
+                            const nC = el.parentElement.getAttribute('data-cat');
+                            if (tab === 'shopping' && nC) item.cat = nC;
                         }
                         return item;
                     }).filter(n => n);
-                    
+
                     saveLocal(); pushToCloud();
-                    setTimeout(render, 50); // Refresh to lock IDs
+                    setTimeout(render, 50);
                 }
             };
-
             if (tab === 'tasks') {
-                Sortable.create(document.getElementById('list-content'), {...config, group: 'tasks'});
-                Sortable.create(document.getElementById('archive-content'), {...config, group: 'tasks'});
+                Sortable.create(document.getElementById('list-content'), {...conf, group: 't'});
+                Sortable.create(document.getElementById('archive-content'), {...conf, group: 't'});
             } else {
-                ['food', 'household', 'misc'].forEach(k => {
+                ['food','household','misc'].forEach(k => {
                     const el = document.getElementById('cat-'+k);
-                    if(el) Sortable.create(el, {...config, group: 'shop'});
+                    if(el) Sortable.create(el, {...conf, group: 's'});
                 });
             }
         }
 
         function switchTab(t) {
-            tab = t; const slider = document.getElementById('view-slider'), tBtn = document.getElementById('tab-tasks'), sBtn = document.getElementById('tab-shopping');
+            tab = t; const slider = document.getElementById('view-slider'), tB = document.getElementById('tab-tasks'), sB = document.getElementById('tab-shopping');
             slider.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
             slider.style.transform = t === 'tasks' ? 'translateX(0)' : 'translateX(-100vw)';
-            tBtn.className = t === 'tasks' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
-            sBtn.className = t === 'shopping' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
+            tB.className = t === 'tasks' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
+            sB.className = t === 'shopping' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
             render();
         }
 
+        function toggle(idx) { if(idx > -1) { db[tab][idx].done = !db[tab][idx].done; if(db[tab][idx].done) db[tab][idx].doneAt = Date.now(); render(); pushToCloud(); } }
+        function remove(idx) { if(idx > -1) { db[tab].splice(idx, 1); render(); pushToCloud(); } }
+        function wipeCompleted() { if(confirm("Clear completed items?")) { db[tab] = db[tab].filter(i => !i.done); render(); pushToCloud(); } }
+        function toggleCat(k) { collapsedStates[k] = !collapsedStates[k]; render(); }
+        function toggleArchive() { collapsedStates.archive = !collapsedStates.archive; render(); }
+        function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if(id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
+        function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
+        function loadLocal() { const s = localStorage.getItem('todo_db'); if(s) db = JSON.parse(s); }
         function setupInputLogic() {
             window.onkeydown = (e) => {
                 if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true' || e.ctrlKey || e.metaKey) return;
@@ -269,15 +266,6 @@
             };
             document.getElementById('fab-input').onkeypress = (e) => { if (e.key === 'Enter') { const v = e.target.value.trim(); if(v) { db[tab].unshift({text:v, done:false, uid: Math.random(), cat: 'misc'}); render(); pushToCloud(); } e.target.value = ''; collapseInput(); } };
         }
-
-        function toggle(idx) { if(idx > -1) { db[tab][idx].done = !db[tab][idx].done; if(db[tab][idx].done) db[tab][idx].doneAt = Date.now(); render(); pushToCloud(); } }
-        function remove(idx) { if(idx > -1) { db[tab].splice(idx, 1); render(); pushToCloud(); } }
-        function wipeCompleted() { if(confirm("Clear completed items?")) { db[tab] = db[tab].filter(i => !i.done); render(); pushToCloud(); } }
-        function toggleCat(key) { collapsedStates[key] = !collapsedStates[key]; render(); }
-        function toggleArchive() { collapsedStates.archive = !collapsedStates.archive; render(); }
-        function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if(id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
-        function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
-        function loadLocal() { const s = localStorage.getItem('todo_db'); if(s) db = JSON.parse(s); }
         function btnFAB(e) { e.stopPropagation(); document.getElementById('fab-container').classList.contains('expanded') ? collapseInput() : expandInput(); }
         function expandInput() { document.getElementById('fab-container').classList.add('expanded'); setTimeout(() => { const i = document.getElementById('fab-input'); i.focus(); i.click(); }, 100); }
         function collapseInput() { document.getElementById('fab-container').classList.remove('expanded'); document.getElementById('fab-input').blur(); }
