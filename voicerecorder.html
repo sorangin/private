@@ -10,9 +10,9 @@
     <meta name="apple-mobile-web-app-title" content="Voice Rec">
 
     <!-- Embedded Manifest for Single-File PWA -->
-    <!-- Added 'id' and usage of 'start_url' with query param to try and differentiate this instance -->
+    <!-- Updated ID to be extremely unique to force new install prompt -->
     <link rel="manifest"
-        href='data:application/manifest+json,%7B%22id%22%3A%22voice-recorder-v2%22%2C%22name%22%3A%22Voice%20Recorder%20Pro%22%2C%22short_name%22%3A%22Voice%20Rec%22%2C%22start_url%22%3A%22.%3Fv%3D2%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f1014%22%2C%22theme_color%22%3A%22%2310b981%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F25%2F25682.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D'>
+        href='data:application/manifest+json,%7B%22id%22%3A%22voice-recorder-unique-v3-fixed%22%2C%22name%22%3A%22Voice%20Recorder%20Pro%20V3%22%2C%22short_name%22%3A%22Voice%20Rec%22%2C%22start_url%22%3A%22.%3Fv%3Dv3%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f1014%22%2C%22theme_color%22%3A%22%2310b981%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F25%2F25682.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D'>
 
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/25/25682.png">
 
@@ -79,15 +79,15 @@
                 padding: 1.5rem;
             }
 
-            /* Make FAB slightly higher on mobile to avoid bottom bars */
+            /* Make FAB higher on mobile */
             #recordBtn {
                 bottom: 80px;
                 right: 20px;
             }
 
-            /* Make bulk actions float higher too */
+            /* Bulk actions higher on mobile */
             .bulk-actions {
-                bottom: 80px;
+                bottom: 80px !important;
                 width: 90%;
             }
         }
@@ -320,12 +320,13 @@
             font-variant-numeric: tabular-nums;
         }
 
-        /* Bulk Action Bar */
+        /* Bulk Action Bar - CHANGED TO FIXED POSITION */
         .bulk-actions {
-            position: absolute;
+            position: fixed;
+            /* Changed from absolute to fixed */
             bottom: 2rem;
             left: 50%;
-            transform: translateX(-50%) translateY(100px);
+            transform: translateX(-50%) translateY(150%);
             background: var(--card-bg);
             border: 1px solid var(--border);
             padding: 0.75rem 1.0rem;
@@ -334,8 +335,9 @@
             align-items: center;
             gap: 1.0rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            transition: transform 0.3s ease;
-            z-index: 20;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 200;
+            /* Increased z-index above everything else */
             white-space: nowrap;
         }
 
