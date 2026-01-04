@@ -229,8 +229,8 @@
             display: inline-block;
         }
 
-        .is-collapsed .chevron {
-            transform: rotate(-180deg);
+        .chevron.is-collapsed {
+            transform: rotate(-90deg);
         }
 
         .sync-indicator {
@@ -1062,8 +1062,11 @@
 
             if (tab === 'tasks') {
                 const archiveArea = document.getElementById('archive-area');
-                archiveArea.classList.toggle('is-collapsed', collapsedStates.archive);
-                document.getElementById('archive-content').classList.toggle('collapsed-content', collapsedStates.archive);
+                const isArchCol = collapsedStates.archive;
+                archiveArea.classList.toggle('is-collapsed', isArchCol);
+                document.getElementById('archive-content').classList.toggle('collapsed-content', isArchCol);
+                const archChev = document.getElementById('archive-chevron');
+                if (archChev) archChev.classList.toggle('is-collapsed', isArchCol);
                 archiveArea.classList.remove('hidden');
 
                 // Tasks grouped by section
@@ -1436,6 +1439,7 @@
                     if (el) Sortable.create(el, { ...conf, group: 's' });
                 });
             }
+            initSectionSortable();
         }
 
         function switchTab(t) {
@@ -1656,6 +1660,7 @@
 
         // Section Reordering
         function initSectionSortable() {
+            const isT = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
             const listC = tab === 'tasks' ? document.getElementById('list-content') : document.getElementById('shop-container');
             if (!listC) return;
 
@@ -1665,6 +1670,8 @@
                 animation: 200,
                 handle: '.section-header',
                 draggable: '.section-block',
+                delay: isT ? 350 : 0,
+                delayOnTouchOnly: true,
                 ghostClass: 'sortable-ghost',
                 onStart: () => { window.isDraggingSectionGlobal = true; },
                 onEnd: () => {
