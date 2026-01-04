@@ -136,6 +136,7 @@
             user-select: text;
             -webkit-user-select: text;
             pointer-events: auto;
+            cursor: text;
         }
 
         .strikethrough {
@@ -149,9 +150,11 @@
 
         .sortable-drag {
             opacity: 1 !important;
-            transform: scale(1.02);
+            transform: scale(1.05);
             z-index: 1000;
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--accent) !important;
+            cursor: grabbing;
         }
 
         #fab-outer {
@@ -244,6 +247,17 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .chk-box:hover {
+            border-color: #71717a;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .chk-box.checked:hover {
+            background-color: #2563eb;
+            border-color: #2563eb;
         }
 
         .chk-box.checked {
@@ -511,7 +525,15 @@
         function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if (id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
         function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
         function loadLocal() { const s = localStorage.getItem('todo_db'); if (s) db = JSON.parse(s); }
-        function btnFAB(e) { e.stopPropagation(); document.getElementById('fab-container').classList.contains('expanded') ? collapseInput() : expandInput(); }
+        function btnFAB(e) {
+            e.stopPropagation();
+            const c = document.getElementById('fab-container');
+            if (c.classList.contains('expanded')) {
+                const i = document.getElementById('fab-input'), v = i.value.trim();
+                if (v) { db[tab].unshift({ text: v, done: false, uid: Math.random(), cat: 'misc' }); render(); pushToCloud(); i.value = ''; }
+                collapseInput();
+            } else { expandInput(); }
+        }
         function expandInput() { document.getElementById('fab-container').classList.add('expanded'); setTimeout(() => { const i = document.getElementById('fab-input'); i.focus(); i.click(); }, 100); }
         function collapseInput() { document.getElementById('fab-container').classList.remove('expanded'); document.getElementById('fab-input').blur(); }
         function setupInputLogic() {
