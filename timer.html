@@ -3,13 +3,14 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Timer</title>
     <!-- PWA meta tags -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#0a0a0a">
     <style>
+        /* --- ORIGINAL CSS RESTORED & ENHANCED --- */
         :root {
             --bg: #0a0a0a;
             --card-bg: #161616;
@@ -18,7 +19,6 @@
             --accent: #007aff;
             --accent-dim: rgba(0, 122, 255, 0.15);
             --danger: #ff3b30;
-            /* Red color for finished state */
         }
 
         body {
@@ -32,6 +32,8 @@
             margin: 0;
             overflow: hidden;
             -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            /* easier swipe */
         }
 
         .container {
@@ -39,6 +41,13 @@
             width: 100%;
             max-width: 320px;
             padding: 20px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        .container::-webkit-scrollbar {
+            display: none;
         }
 
         .timer-header {
@@ -53,7 +62,7 @@
             margin: 0;
             line-height: 1;
             cursor: text;
-            transition: color 0.2s;
+            transition: color 0.2s, transform 0.2s;
             outline: none;
             display: inline-block;
             min-width: 200px;
@@ -61,6 +70,13 @@
 
         #timer-display:focus {
             color: var(--accent);
+        }
+
+        /* Visual Feedback: Hover on timer if not running/finished */
+        .container:not(.running):not(.finished) #timer-display:hover {
+            color: #ddd;
+            transform: scale(1.02);
+            cursor: pointer;
         }
 
         #end-time-display {
@@ -93,12 +109,18 @@
         .preset-btn:hover {
             background: #222;
             border-color: #333;
+            transform: scale(1.02);
+            /* Feedback */
         }
 
         .preset-btn.active {
             background: var(--accent-dim);
             border-color: var(--accent);
             color: var(--accent);
+        }
+
+        .preset-btn:active {
+            transform: scale(0.98);
         }
 
         .controls {
@@ -118,13 +140,20 @@
             justify-content: center;
             align-items: center;
             cursor: pointer;
-            transition: transform 0.2s, background-color 0.2s;
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+            color: var(--bg);
         }
 
         .control-btn svg {
             width: 24px;
             height: 24px;
-            fill: var(--bg);
+            fill: currentColor;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            /* Glow Feedback */
         }
 
         .control-btn:active {
@@ -136,9 +165,538 @@
             color: var(--accent);
         }
 
-        /* Red text when finished */
         .finished #timer-display {
             color: var(--danger);
+        }
+
+        /* --- TABS & NAV --- */
+        .view-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translate(-50%, 150%);
+            /* Hidden by default */
+            background: rgba(22, 22, 22, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid #333;
+            border-radius: 30px;
+            padding: 8px 24px;
+            display: flex;
+            gap: 24px;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .bottom-nav.visible {
+            transform: translate(-50%, 0);
+        }
+
+        /* Nav Trigger Zone */
+        .nav-trigger {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 80px;
+            z-index: 90;
+        }
+
+        .nav-item {
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: color 0.2s, transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .nav-item:hover {
+            transform: scale(1.2);
+            /* Pop Feedback */
+            color: var(--text-primary);
+        }
+
+        .nav-item:active {
+            transform: scale(0.9);
+        }
+
+        .nav-item.active {
+            color: var(--accent);
+            /* UPDATED: Blue Icon */
+        }
+
+        .nav-icon {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+            display: block;
+        }
+
+        /* Alarm Specific */
+        .alarm-item {
+            background: var(--card-bg);
+            border: 1px solid #222;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-align: left;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s, border-color 0.2s;
+        }
+
+        .alarm-item:hover {
+            background-color: #1e1e1e;
+            border-color: #333;
+            transform: translateY(-2px);
+            /* Lift Feedback */
+        }
+
+        .alarm-item:active {
+            transform: scale(0.98);
+        }
+
+        .alarm-time {
+            font-size: 1.6rem;
+            font-weight: 600;
+            /* BOLDER */
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+            font-variant-numeric: tabular-nums;
+            display: flex;
+            flex-direction: column;
+            line-height: 1;
+        }
+
+        .alarm-note {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-left: 4px;
+            display: inline-block;
+            font-weight: 400;
+        }
+
+        .alarm-days {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            font-weight: 400;
+        }
+
+        .toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: #333;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .toggle-switch:hover {
+            transform: scale(1.05);
+        }
+
+        .toggle-switch.on {
+            background: var(--accent);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .toggle-switch.on::after {
+            transform: translateX(20px);
+        }
+
+        #next-alarm-info {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            text-align: left;
+            font-size: 0.9rem;
+            height: 1.2em;
+        }
+
+        /* Stopwatch specific */
+        .stopwatch-laps {
+            margin-top: 20px;
+            border-top: 1px solid #222;
+            padding-top: 10px;
+        }
+
+        .lap-row {
+            display: grid;
+            grid-template-columns: 0.5fr 1fr 1fr;
+            /* No, Split, Total */
+            gap: 8px;
+            padding: 8px 0;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #222;
+            font-size: 0.9rem;
+            text-align: right;
+            font-feature-settings: 'tnum';
+        }
+
+        .lap-row span:first-child {
+            text-align: left;
+        }
+
+        .lap-row:first-child {
+            color: var(--accent);
+        }
+
+        #sw-display {
+            font-size: 4rem;
+            font-weight: 200;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -2px;
+            margin: 2rem 0;
+            transition: color 0.2s;
+        }
+
+        #sw-display.active-accent {
+            color: var(--accent);
+        }
+
+        /* --- PROFESSIONAL EDITOR --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 200;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.3s;
+        }
+
+        .modal-card {
+            background: rgba(22, 22, 22, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 30px;
+            text-align: center;
+            width: 340px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        /* DELETE BUTTON */
+        .delete-btn-corner {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            display: none;
+            /* hidden by default */
+        }
+
+        .delete-btn-corner:hover {
+            color: var(--danger);
+            background: rgba(255, 59, 48, 0.1);
+        }
+
+        .delete-btn-corner svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .wheel-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 180px;
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+            margin-top: 10px;
+            overflow: hidden;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .wheel-highlight {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 50px;
+            transform: translateY(-50%);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            pointer-events: none;
+            box-sizing: border-box;
+            border-radius: 8px;
+        }
+
+        .wheel-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(to bottom, #161616 0%, transparent 100%);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .wheel-container::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(to top, #161616 0%, transparent 100%);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .wheel-col {
+            height: 100%;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scrollbar-width: none;
+            flex: 1;
+            text-align: center;
+            cursor: grab;
+        }
+
+        .wheel-col.grabbing {
+            cursor: grabbing;
+            scroll-snap-type: none;
+        }
+
+        /* Disable snap while drag */
+        .wheel-col::-webkit-scrollbar {
+            display: none;
+        }
+
+        .wheel-spacer {
+            height: 65px;
+        }
+
+        .wheel-item {
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            scroll-snap-align: center;
+            font-size: 2.2rem;
+            font-weight: 400;
+            color: #666;
+            transition: color 0.2s, transform 0.2s;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .wheel-item:hover {
+            color: #888;
+        }
+
+        /* Subtle hint */
+
+        .col-hour {
+            flex: 0 0 80px;
+        }
+
+        .col-sep {
+            flex: 0 0 20px;
+            font-size: 2rem;
+            color: #fff;
+            padding-bottom: 5px;
+            opacity: 0.5;
+        }
+
+        .col-min {
+            flex: 0 0 80px;
+        }
+
+        .col-ampm {
+            flex: 0 0 60px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .col-ampm .wheel-item {
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .btn-text {
+            background: none;
+            border: none;
+            color: var(--accent);
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 10px 20px;
+            transition: opacity 0.2s, transform 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-text:hover {
+            opacity: 0.7;
+            transform: translateY(-1px);
+        }
+
+        .btn-text:active {
+            transform: translateY(0);
+            opacity: 0.5;
+        }
+
+        /* DAY SELECTOR */
+        .day-selector {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 25px;
+            gap: 5px;
+        }
+
+        .day-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: transparent;
+            border: 1px solid #444;
+            color: #888;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .day-btn:hover {
+            border-color: #666;
+            color: #fff;
+        }
+
+        .day-btn.selected {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 2px 10px var(--accent-dim);
+        }
+
+        /* RING BUTTONS */
+        .ring-btn {
+            padding: 18px 40px;
+            border-radius: 35px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            min-width: 160px;
+            margin: 12px;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        .ring-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .ring-btn:active {
+            transform: scale(0.95);
+            opacity: 0.8;
+        }
+
+        .ring-snooze {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 8px 24px rgba(0, 122, 255, 0.4);
+        }
+
+        .ring-stop {
+            background: rgba(255, 59, 48, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+        }
+
+        #ring-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        #ring-countdown {
+            display: none;
+            font-size: 5rem;
+            font-weight: 200;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 30px;
         }
     </style>
 </head>
@@ -146,236 +704,558 @@
 <body>
 
     <div class="container" id="app-container">
-        <div class="timer-header">
-            <h1 id="timer-display" contenteditable="true" spellcheck="false" inputmode="numeric">20:00</h1>
-            <div id="end-time-display"></div>
+        <!-- TIMER -->
+        <div id="view-timer" class="view-section active">
+            <div class="timer-header">
+                <h1 id="timer-display" contenteditable="true" spellcheck="false" inputmode="numeric">20:00</h1>
+                <div id="end-time-display"></div>
+            </div>
+            <div class="timer-selection">
+                <div class="button-group">
+                    <button class="preset-btn" onclick="Timer.set(20, this)">20m</button>
+                    <button class="preset-btn" onclick="Timer.set(30, this)">30m</button>
+                </div>
+                <div class="button-group">
+                    <button class="preset-btn" onclick="Timer.set(5, this)">5m</button>
+                    <button class="preset-btn" onclick="Timer.set(10, this)">10m</button>
+                </div>
+            </div>
+            <div class="controls">
+                <button id="toggle-btn" class="control-btn" onclick="Timer.toggle()">
+                    <svg id="play-icon" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                    <svg id="pause-icon" viewBox="0 0 24 24" style="display:none;">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                </button>
+            </div>
         </div>
 
-        <div class="timer-selection">
-            <div class="button-group">
-                <button class="preset-btn" onclick="setTimer(20, this)">20m</button>
-                <button class="preset-btn" onclick="setTimer(30, this)">30m</button>
+        <!-- ALARM -->
+        <div id="view-alarm" class="view-section">
+            <div class="timer-header" style="margin-bottom: 1.5rem;">
+                <button class="btn-text" style="float:right; font-size:1.5rem; padding:0;"
+                    onclick="Alarm.openPicker()">+</button>
+                <h1 style="font-size: 2rem; margin: 0; font-weight: 400; text-align: left;">Alarms</h1>
             </div>
-
-            <div class="button-group">
-                <button class="preset-btn" onclick="setTimer(5, this)">5m</button>
-                <button class="preset-btn" onclick="setTimer(10, this)">10m</button>
-            </div>
+            <div id="next-alarm-info"></div>
+            <div id="alarm-list-container" style="padding-bottom: 60px;"></div>
         </div>
 
-        <div class="controls">
-            <button id="toggle-btn" class="control-btn" onclick="toggleTimer()">
-                <svg id="play-icon" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                </svg>
-                <svg id="pause-icon" viewBox="0 0 24 24" style="display:none;">
-                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+        <!-- STOPWATCH -->
+        <div id="view-stopwatch" class="view-section">
+            <div class="timer-header">
+                <h1 id="sw-display">00:00.00</h1>
+            </div>
+            <div class="controls" style="gap: 30px;">
+                <button id="sw-lap-reset-btn" class="control-btn"
+                    style="background: var(--card-bg); color: var(--text-primary); border: 1px solid #333; width: 64px; height: 64px;"
+                    onclick="Stopwatch.lapOrReset()">
+                    <span id="sw-lap-text" style="font-size:0.8rem;">Reset</span>
+                </button>
+                <button id="sw-btn" class="control-btn" onclick="Stopwatch.toggle()">
+                    <svg id="sw-play-icon" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                </button>
+            </div>
+            <div id="sw-laps" class="stopwatch-laps"></div>
+        </div>
+    </div>
+
+    <!-- NAV TRIGGER ZONE -->
+    <div class="nav-trigger" id="nav-trigger"></div>
+
+    <!-- NAV -->
+    <nav class="bottom-nav" id="bottom-nav">
+        <div class="nav-item active" id="nav-timer" onclick="App.switchTab('timer', this)">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+                <path
+                    d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.48-9 10s4.03 10 9 10 9-4.48 9-10c0-2.12-.74-4.07-1.97-5.61zM12 22c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
+            </svg>
+        </div>
+        <div class="nav-item" id="nav-alarm" onclick="App.switchTab('alarm', this)">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+                <path
+                    d="M22 5.72l-4.6-3.86-1.29 1.53 4.6 3.86L22 5.72zM7.88 3.39L6.6 1.86 2 5.71l1.29 1.53 4.59-3.85zM12.5 8H11v6l4.75 2.85.75-1.23-4-2.37V8zM12 4c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 16c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7 7 7z" />
+            </svg>
+        </div>
+        <div class="nav-item" id="nav-stopwatch" onclick="App.switchTab('stopwatch', this)">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+                <path
+                    d="M6 14c0-3.31 2.69-6 6-6s6 2.69 6 6-2.69 6-6 6-6-2.69-6-6-6-2.69-6-6zm12 0c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6 6 2.69 6 6zM11 8h2v6h-2V8zm1-5C6.48 3 2 7.48 2 13s4.48 10 10 10 10-4.48 10-10S17.52 3 12 3zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+            </svg>
+        </div>
+    </nav>
+
+    <!-- PICKER -->
+    <div id="modal-time-picker" class="modal-overlay">
+        <div class="modal-card">
+            <button class="delete-btn-corner" id="modal-delete-btn" onclick="Alarm.delete()">
+                <svg viewBox="0 0 24 24">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
                 </svg>
             </button>
+            <h3 class="modal-title">Edit Alarm</h3>
+            <div class="wheel-container">
+                <div class="wheel-highlight"></div>
+                <div class="wheel-col col-hour" id="wheel-hour"></div>
+                <div class="col-sep">:</div>
+                <div class="wheel-col col-min" id="wheel-min"></div>
+                <div class="wheel-col col-ampm" id="wheel-ampm"></div>
+            </div>
+
+            <!-- DAYS -->
+            <div class="day-selector" id="day-selector">
+                <button class="day-btn" data-day="0">S</button>
+                <button class="day-btn" data-day="1">M</button>
+                <button class="day-btn" data-day="2">T</button>
+                <button class="day-btn" data-day="3">W</button>
+                <button class="day-btn" data-day="4">T</button>
+                <button class="day-btn" data-day="5">F</button>
+                <button class="day-btn" data-day="6">S</button>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; width:100%;">
+                <button class="btn-text" style="color:var(--danger)" onclick="Alarm.closePicker()">Cancel</button>
+                <button class="btn-text" onclick="Alarm.save()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RING -->
+    <div id="alarm-ring-overlay"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background: #000; z-index:999; flex-direction:column; align-items:center; justify-content:center;">
+        <h1 style="font-size:4rem; color:#fff; font-weight:200; margin-bottom:3rem;">Alarm</h1>
+        <h2 id="ring-countdown"></h2>
+        <div id="ring-controls">
+            <button class="ring-btn ring-snooze" id="btn-snooze" onclick="Alarm.snooze()">Snooze</button>
+            <button class="ring-btn ring-stop" onclick="Alarm.stopRing()">Stop</button>
         </div>
     </div>
 
     <script>
-        // --- PWA Helper ---
-        // Generate an icon
-        const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="background:#0a0a0a"><rect width="24" height="24" fill="#0a0a0a"/><circle cx="12" cy="12" r="9" fill="none" stroke="#007aff" stroke-width="2"/><path d="M12 6v6h4" fill="none" stroke="#007aff" stroke-width="2" stroke-linecap="round"/></svg>`;
-        const iconBlob = new Blob([iconSVG], { type: 'image/svg+xml' });
-        const iconURL = URL.createObjectURL(iconBlob);
-
-        const manifest = {
-            "id": window.location.pathname,
-            "name": "Minimal Timer",
-            "short_name": "Timer",
-            "start_url": window.location.href,
-            "scope": window.location.href,
-            "display": "standalone",
-            "background_color": "#0a0a0a",
-            "theme_color": "#0a0a0a",
-            "icons": [
-                { "src": iconURL, "sizes": "512x512", "type": "image/svg+xml" },
-                { "src": iconURL, "sizes": "192x192", "type": "image/svg+xml" }
-            ]
+        // --- App (Navigation) ---
+        const App = {
+            tabs: ['timer', 'alarm', 'stopwatch'],
+            currentIdx: 0,
+            touchStartX: 0,
+            nav: document.getElementById('bottom-nav'),
+            navTrigger: document.getElementById('nav-trigger'),
+            navTimer: null,
+            lastWheel: 0,
+            init() {
+                // Key Nav
+                document.addEventListener('keydown', (e) => {
+                    if (document.getElementById('modal-time-picker').style.display === 'flex') return;
+                    if (e.key === 'ArrowLeft') this.prevTab();
+                    if (e.key === 'ArrowRight') this.nextTab();
+                });
+                // Touch Swipe
+                document.addEventListener('touchstart', (e) => { this.touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+                document.addEventListener('touchend', (e) => {
+                    if (document.getElementById('modal-time-picker').style.display === 'flex') return;
+                    const diff = e.changedTouches[0].screenX - this.touchStartX;
+                    if (diff > 50) this.prevTab();
+                    if (diff < -50) this.nextTab();
+                }, { passive: true });
+                // Touchpad Swipe
+                window.addEventListener('wheel', (e) => {
+                    if (document.getElementById('modal-time-picker').style.display === 'flex') return;
+                    if (Date.now() - this.lastWheel < 500) return;
+                    if (Math.abs(e.deltaX) > 30 && Math.abs(e.deltaY) < 30) {
+                        this.lastWheel = Date.now();
+                        if (e.deltaX > 0) this.nextTab(); else this.prevTab();
+                    }
+                }, { passive: true });
+                // Auto-Hide Nav
+                const showNav = () => { this.nav.classList.add('visible'); clearTimeout(this.navTimer); };
+                const hideNav = () => { this.nav.classList.remove('visible'); };
+                this.showNav = showNav; // Expose
+                this.navTrigger.addEventListener('mouseenter', showNav);
+                this.navTrigger.addEventListener('mouseleave', (e) => { if (e.relatedTarget !== this.nav && !this.nav.contains(e.relatedTarget)) hideNav(); });
+                this.nav.addEventListener('mouseenter', showNav);
+                this.nav.addEventListener('mouseleave', (e) => { if (e.relatedTarget !== this.navTrigger) hideNav(); });
+                document.addEventListener('touchstart', (e) => { if (!this.nav.contains(e.target) && !this.navTrigger.contains(e.target)) hideNav(); else showNav(); }, { passive: true });
+                showNav(); setTimeout(() => this.nav.classList.remove('visible'), 2000);
+            },
+            prevTab() { if (this.currentIdx > 0) this.switchTab(this.tabs[this.currentIdx - 1]); },
+            nextTab() { if (this.currentIdx < this.tabs.length - 1) this.switchTab(this.tabs[this.currentIdx + 1]); },
+            switchTab(id, el) {
+                this.currentIdx = this.tabs.indexOf(id);
+                document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+                document.getElementById(`view-${id}`).classList.add('active');
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                if (el) el.classList.add('active'); else document.getElementById(`nav-${id}`).classList.add('active');
+                if (this.showNav) { this.showNav(); clearTimeout(this.navTimer); this.navTimer = setTimeout(() => this.nav.classList.remove('visible'), 2000); }
+                AudioMgr.init();
+            }
         };
-        const linkManifest = document.createElement('link');
-        linkManifest.setAttribute('rel', 'manifest');
-        linkManifest.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' })));
-        document.head.appendChild(linkManifest);
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(
-                URL.createObjectURL(new Blob(['self.addEventListener("fetch", (e) => {});'], { type: "text/javascript" })),
-                { scope: window.location.href }
-            ).catch(err => console.log('SW Error:', err));
-        }
-
-        // --- Timer Logic ---
-        let timeLeft = 1200;
-        let timerId = null;
-        let isRunning = false;
-        let isEditing = false;
-        let audioCtx = null;
-
-        const display = document.getElementById('timer-display');
-        const endTimeDisplay = document.getElementById('end-time-display');
-        const toggleBtn = document.getElementById('toggle-btn');
-        const playIcon = document.getElementById('play-icon');
-        const pauseIcon = document.getElementById('pause-icon');
-        const appContainer = document.getElementById('app-container');
-
-        // This wakes up the audio engine on user tap so it can play during silent mode
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioMgr = {
+            ctx: null, timer: null,
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); },
+            startSound() {
+                this.init(); if (navigator.vibrate) navigator.vibrate([1000, 500, 1000, 500]);
+                const playNoise = () => {
+                    const t = this.ctx.currentTime;
+                    const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
+                    o.connect(g); g.connect(this.ctx.destination);
+                    o.type = 'sine'; o.frequency.setValueAtTime(440, t); o.frequency.exponentialRampToValueAtTime(880, t + 0.1);
+                    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.05); g.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+                    o.start(t); o.stop(t + 0.5);
+                };
+                if (this.timer) clearInterval(this.timer);
+                this.timer = setInterval(playNoise, 1000); playNoise();
+            },
+            stopSound() {
+                if (this.timer) clearInterval(this.timer);
+                if (navigator.vibrate) navigator.vibrate(0);
+            },
+            startAlarm() {
+                this.startSound();
+                document.getElementById('alarm-ring-overlay').style.display = 'flex';
+            },
+            stopAlarm() {
+                this.stopSound();
+                document.getElementById('alarm-ring-overlay').style.display = 'none';
             }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+        };
+
+        const Timer = {
+            timeLeft: 1200, timerId: null, isRunning: false, isEditing: false,
+            display: document.getElementById('timer-display'), endTimeEl: document.getElementById('end-time-display'),
+            toggleBtn: document.getElementById('toggle-btn'), playIcon: document.getElementById('play-icon'), pauseIcon: document.getElementById('pause-icon'),
+            container: document.getElementById('app-container'),
+            init() {
+                this.display.addEventListener('focus', () => { this.isEditing = true; this.stop(); });
+                this.display.addEventListener('blur', () => { this.isEditing = false; this.parseInput(); });
+                this.display.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); this.display.blur(); } });
+                this.updateDisplay();
+            },
+            parseInput() {
+                const txt = this.display.textContent.trim(); let s = 0;
+                if (txt.includes(':')) { const p = txt.split(':'); s = (parseInt(p[0]) || 0) * 60 + (parseInt(p[1]) || 0); } else s = (parseInt(txt) || 0) * 60;
+                if (s > 0) { this.timeLeft = s; this.container.classList.remove('finished'); this.updateDisplay(); this.start(); } else this.updateDisplay();
+            },
+            set(m, btn) {
+                this.stop(); this.container.classList.remove('finished'); this.timeLeft = m * 60;
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                if (btn) btn.classList.add('active');
+                this.updateDisplay(); this.start();
+            },
+            toggle() { if (this.isRunning) this.stop(); else this.start(); },
+            start() {
+                AudioMgr.init(); if (this.timeLeft <= 0) return;
+                clearInterval(this.timerId); this.isRunning = true; this.container.classList.add('running');
+                this.playIcon.style.display = 'none'; this.pauseIcon.style.display = 'block';
+                this.toggleBtn.style.backgroundColor = 'var(--accent)'; this.toggleBtn.style.color = '#fff';
+                this.timerId = setInterval(() => { if (!this.isEditing) { this.timeLeft--; this.updateDisplay(); if (this.timeLeft <= 0) this.complete(); } }, 1000);
+                this.updateEndTime();
+            },
+            stop() {
+                this.isRunning = false; clearInterval(this.timerId); this.container.classList.remove('running');
+                this.playIcon.style.display = 'block'; this.pauseIcon.style.display = 'none';
+                this.toggleBtn.style.backgroundColor = 'var(--text-primary)'; this.toggleBtn.style.color = 'var(--bg)';
+                this.updateDisplay();
+            },
+            complete() { this.stop(); this.container.classList.add('finished'); AudioMgr.startAlarm(); },
+            updateDisplay() {
+                if (this.isEditing) return;
+                const m = Math.floor(Math.abs(this.timeLeft) / 60); const s = Math.abs(this.timeLeft) % 60;
+                const str = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                this.display.textContent = str; document.title = this.isRunning ? str + " • Timer" : "Timer"; this.updateEndTime();
+            },
+            updateEndTime() {
+                if (this.timeLeft <= 0) { this.endTimeEl.textContent = this.isRunning ? "Time's up" : ""; return; }
+                const end = new Date(Date.now() + this.timeLeft * 1000);
+                this.endTimeEl.textContent = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }
-        }
+        };
 
-        display.addEventListener('focus', () => {
-            isEditing = true;
-            stopTimer();
-        });
-
-        display.addEventListener('blur', () => {
-            isEditing = false;
-            parseInput();
-        });
-
-        display.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                display.blur();
+        const Picker = {
+            itemH: 50, els: { h: document.getElementById('wheel-hour'), m: document.getElementById('wheel-min'), ap: document.getElementById('wheel-ampm') },
+            init() {
+                this.els.h.innerHTML = this.genOpts(1, 12);
+                this.els.m.innerHTML = this.genOpts(0, 59, true);
+                this.els.ap.innerHTML = `<div class="wheel-spacer"></div><div class="wheel-item" data-val="AM">AM</div><div class="wheel-item" data-val="PM">PM</div><div class="wheel-spacer"></div>`;
+                Object.values(this.els).forEach(el => {
+                    el.addEventListener('scroll', () => {
+                        Array.from(el.children).forEach(c => {
+                            if (c.classList.contains('wheel-item')) {
+                                const box = c.getBoundingClientRect(); const parent = el.getBoundingClientRect();
+                                const offset = Math.abs((box.top + box.height / 2) - (parent.top + parent.height / 2));
+                                if (offset < 25) c.style.color = '#fff'; else c.style.color = '#555';
+                            }
+                        });
+                    });
+                    el.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('wheel-item')) {
+                            const targetScroll = e.target.offsetTop - el.offsetHeight / 2 + e.target.offsetHeight / 2;
+                            el.scrollTo({ top: targetScroll, behavior: 'smooth' });
+                        }
+                    });
+                    this.addDrag(el);
+                });
+            },
+            addDrag(el) {
+                let isDown = false; let startY; let scrollTop;
+                el.addEventListener('mousedown', (e) => { isDown = true; startY = e.pageY - el.offsetTop; scrollTop = el.scrollTop; el.classList.add('grabbing'); });
+                el.addEventListener('mouseleave', () => { isDown = false; el.classList.remove('grabbing'); });
+                el.addEventListener('mouseup', () => { isDown = false; el.classList.remove('grabbing'); });
+                el.addEventListener('mousemove', (e) => {
+                    if (!isDown) return; e.preventDefault();
+                    const y = e.pageY - el.offsetTop; const walk = (y - startY) * 2;
+                    el.scrollTop = scrollTop - walk;
+                });
+            },
+            genOpts(min, max, pad = false) {
+                let s = `<div class="wheel-spacer"></div>`;
+                for (let i = min; i <= max; i++) { const v = pad ? i.toString().padStart(2, '0') : i; s += `<div class="wheel-item" data-val="${v}">${v}</div>`; }
+                return s + `<div class="wheel-spacer"></div>`;
+            },
+            set(h, m, apStr) {
+                this.els.h.scrollTop = (h - 1) * this.itemH; this.els.m.scrollTop = m * this.itemH; this.els.ap.scrollTop = (apStr === 'AM' ? 0 : 1) * this.itemH;
+                Object.values(this.els).forEach(el => el.dispatchEvent(new Event('scroll')));
+            },
+            get() {
+                const getVal = (el) => {
+                    let closest = null, minD = Infinity;
+                    Array.from(el.children).forEach(c => {
+                        if (c.classList.contains('wheel-item')) {
+                            const box = c.getBoundingClientRect(); const parent = el.getBoundingClientRect();
+                            const d = Math.abs((box.top + box.height / 2) - (parent.top + parent.height / 2));
+                            if (d < minD) { minD = d; closest = c; }
+                        }
+                    });
+                    return closest ? closest.dataset.val : null;
+                };
+                return { h: getVal(this.els.h), m: getVal(this.els.m), ap: getVal(this.els.ap) };
             }
-        });
+        };
 
-        function parseInput() {
-            const text = display.textContent.trim();
-            let totalSeconds = 0;
-            if (text.includes(':')) {
-                const parts = text.split(':');
-                const mins = parseInt(parts[0]) || 0;
-                const secs = parseInt(parts[1]) || 0;
-                totalSeconds = (mins * 60) + secs;
-            } else {
-                const mins = parseInt(text) || 0;
-                totalSeconds = mins * 60;
-            }
-            if (totalSeconds > 0) {
-                timeLeft = totalSeconds;
-                appContainer.classList.remove('finished');
-                updateDisplay();
-                startTimer();
-            } else {
-                updateDisplay();
-            }
-        }
+        const Alarm = {
+            alarms: [], listEl: document.getElementById('alarm-list-container'), infoEl: document.getElementById('next-alarm-info'), editId: null,
+            snoozeInterval: null,
+            init() {
+                const saved = localStorage.getItem('timer_alarms');
+                if (saved) { try { this.alarms = JSON.parse(saved); this.render(); } catch (e) { } }
+                Picker.init(); setInterval(() => this.check(), 1000);
+                document.querySelectorAll('.day-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => { e.target.classList.toggle('selected'); });
+                });
+            },
+            persist() { localStorage.setItem('timer_alarms', JSON.stringify(this.alarms)); },
+            check() {
+                const now = new Date();
+                const nowStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                const nowSec = now.getSeconds();
+                const currentDay = now.getDay();
 
-        function updateDisplay() {
-            if (isEditing) return;
-            const mins = Math.floor(Math.abs(timeLeft) / 60);
-            const secs = Math.abs(timeLeft) % 60;
-            const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-            display.textContent = timeStr;
-            document.title = isRunning ? `${timeStr} • Timer` : 'Timer';
-            updateEndTime();
-        }
+                let changed = false;
+                this.alarms.forEach(a => {
+                    if (a.active && a.time24 === nowStr && nowSec === 0) {
+                        const days = a.days || [];
+                        if (days.length > 0) {
+                            if (days.includes(currentDay)) { AudioMgr.startAlarm(); }
+                        } else {
+                            a.active = false; changed = true; AudioMgr.startAlarm();
+                        }
+                    }
+                });
+                if (changed) { this.render(); this.persist(); }
+                this.updateInfo();
+            },
+            snooze() {
+                AudioMgr.stopSound();
+                // Setup UI
+                const btnSnooze = document.getElementById('btn-snooze');
+                const cdDisplay = document.getElementById('ring-countdown');
+                btnSnooze.style.display = 'none';
+                cdDisplay.style.display = 'block';
 
-        function updateEndTime() {
-            if (timeLeft <= 0) {
-                endTimeDisplay.textContent = isRunning ? "Time's up" : "";
-                return;
-            }
-            const now = new Date();
-            const end = new Date(now.getTime() + timeLeft * 1000);
-            endTimeDisplay.textContent = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
+                // Logic
+                const targetTime = Date.now() + (9 * 60 * 1000);
 
-        function setTimer(mins, btnElement) {
-            initAudio(); // Wake up sound
-            stopTimer();
-            appContainer.classList.remove('finished');
-            timeLeft = Math.floor(mins * 60);
-            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
-            if (btnElement) btnElement.classList.add('active');
-            updateDisplay();
-            startTimer();
-        }
+                const update = () => {
+                    const diff = targetTime - Date.now();
+                    if (diff <= 0) {
+                        // Ring Again
+                        clearInterval(this.snoozeInterval);
+                        AudioMgr.startAlarm(); // Shows overlay again if hidden, restarts sound
+                        // Reset UI
+                        btnSnooze.style.display = 'block';
+                        cdDisplay.style.display = 'none';
+                    } else {
+                        // Update Display
+                        const m = Math.floor(diff / 60000).toString().padStart(2, '0');
+                        const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+                        cdDisplay.textContent = `${m}:${s}`;
+                    }
+                };
 
-        function toggleTimer() {
-            initAudio(); // Wake up sound
-            if (isRunning) stopTimer();
-            else startTimer();
-        }
-
-        function startTimer() {
-            if (timeLeft <= 0) return;
-            clearInterval(timerId);
-            isRunning = true;
-            appContainer.classList.remove('finished');
-            appContainer.classList.add('running');
-            playIcon.style.display = 'none';
-            pauseIcon.style.display = 'block';
-            toggleBtn.style.backgroundColor = 'var(--accent)';
-            timerId = setInterval(() => {
-                if (!isEditing) {
-                    timeLeft--;
-                    updateDisplay();
-                    if (timeLeft <= 0) complete();
+                // Start immediate + interval
+                update();
+                if (this.snoozeInterval) clearInterval(this.snoozeInterval);
+                this.snoozeInterval = setInterval(update, 1000);
+            },
+            stopRing() {
+                AudioMgr.stopAlarm();
+                if (this.snoozeInterval) clearInterval(this.snoozeInterval);
+                // Reset UI for next time
+                document.getElementById('btn-snooze').style.display = 'block';
+                document.getElementById('ring-countdown').style.display = 'none';
+            },
+            openPicker(id = null) {
+                this.editId = id; let h, m, ap, days = [];
+                const delBtn = document.getElementById('modal-delete-btn');
+                if (id) {
+                    const a = this.alarms.find(x => x.id === id);
+                    if (a) {
+                        const [H, M] = a.time24.split(':').map(Number); ap = H >= 12 ? 'PM' : 'AM'; h = H % 12 || 12; m = M;
+                        days = a.days || [];
+                        delBtn.style.display = 'block';
+                    }
+                } else {
+                    const now = new Date(Date.now() + 60000); const H = now.getHours(); ap = H >= 12 ? 'PM' : 'AM'; h = H % 12 || 12; m = now.getMinutes();
+                    delBtn.style.display = 'none';
                 }
-            }, 1000);
-            updateEndTime();
-        }
+                setTimeout(() => Picker.set(h, m, ap), 50);
+                document.querySelectorAll('.day-btn').forEach(btn => {
+                    const d = parseInt(btn.dataset.day);
+                    if (days.includes(d)) btn.classList.add('selected'); else btn.classList.remove('selected');
+                });
+                document.getElementById('modal-time-picker').style.display = 'flex';
+            },
+            closePicker() { document.getElementById('modal-time-picker').style.display = 'none'; this.editId = null; },
+            save() {
+                const val = Picker.get();
+                if (val.h && val.m && val.ap) {
+                    let H = parseInt(val.h);
+                    if (val.ap === 'PM' && H !== 12) H += 12; if (val.ap === 'AM' && H === 12) H = 0;
+                    const time24 = `${H.toString().padStart(2, '0')}:${val.m.toString().padStart(2, '0')}`;
+                    const days = [];
+                    document.querySelectorAll('.day-btn.selected').forEach(btn => days.push(parseInt(btn.dataset.day)));
+                    days.sort((a, b) => a - b);
 
-        function stopTimer() {
-            isRunning = false;
-            clearInterval(timerId);
-            appContainer.classList.remove('running');
-            playIcon.style.display = 'block';
-            pauseIcon.style.display = 'none';
-            toggleBtn.style.backgroundColor = 'var(--text-primary)';
-            updateDisplay();
-        }
-
-        function complete() {
-            timeLeft = 0;
-            stopTimer();
-            appContainer.classList.add('finished');
-
-            // Vibrate (works on Android even on silent)
-            if ("vibrate" in navigator) {
-                navigator.vibrate([500, 200, 500, 200, 500]);
+                    if (this.editId) {
+                        const a = this.alarms.find(x => x.id === this.editId);
+                        if (a) { a.time24 = time24; a.days = days; }
+                    }
+                    else { this.alarms.push({ id: Date.now(), time24: time24, active: true, days: days }); }
+                    this.render(); this.persist();
+                }
+                this.closePicker();
+            },
+            delete() {
+                if (this.editId) { this.alarms = this.alarms.filter(a => a.id !== this.editId); this.render(); this.persist(); this.closePicker(); }
+            },
+            toggle(id, e) {
+                e.stopPropagation(); const a = this.alarms.find(x => x.id === id); if (a) { a.active = !a.active; this.render(); this.persist(); }
+            },
+            render() {
+                this.alarms.sort((a, b) => a.time24.localeCompare(b.time24));
+                this.listEl.innerHTML = this.alarms.map(a => {
+                    const [H, M] = a.time24.split(':').map(Number);
+                    const ap = H >= 12 ? 'PM' : 'AM'; const h = H % 12 || 12; const m = M.toString().padStart(2, '0');
+                    let dayStr = "";
+                    if (a.days && a.days.length > 0) {
+                        if (a.days.length === 7) dayStr = "Daily";
+                        else if (a.days.length === 2 && a.days.includes(0) && a.days.includes(6)) dayStr = "Weekends";
+                        else if (a.days.length === 5 && !a.days.includes(0) && !a.days.includes(6)) dayStr = "Weekdays";
+                        else { const map = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; dayStr = a.days.map(d => map[d]).join(', '); }
+                    }
+                    return `<div class="alarm-item" onclick="Alarm.openPicker(${a.id})">
+                        <div class="alarm-time" style="color:${a.active ? 'var(--text-primary)' : 'var(--text-secondary)'}">
+                            <span>${h}:${m}<span class="alarm-note">${ap}</span></span>
+                            ${dayStr ? `<span class="alarm-days">${dayStr}</span>` : ''}
+                        </div>
+                        <div class="toggle-switch ${a.active ? 'on' : ''}" onclick="Alarm.toggle(${a.id}, event)"></div>
+                    </div>`;
+                }).join('');
+                this.updateInfo();
+            },
+            updateInfo() {
+                const active = this.alarms.filter(a => a.active);
+                if (active.length === 0) { this.infoEl.textContent = ""; return; }
+                const now = new Date();
+                const nowMin = now.getHours() * 60 + now.getMinutes();
+                const nowDay = now.getDay();
+                let minMinutes = Infinity;
+                active.forEach(a => {
+                    const [h, m] = a.time24.split(':').map(Number);
+                    const alarmMin = h * 60 + m;
+                    const days = (a.days && a.days.length > 0) ? a.days : null;
+                    if (!days) {
+                        let diff = alarmMin - nowMin; if (diff <= 0) diff += 1440; if (diff < minMinutes) minMinutes = diff;
+                    } else {
+                        days.forEach(d => {
+                            let dayOffset = (d - nowDay + 7) % 7; let diff;
+                            if (dayOffset === 0) { diff = alarmMin - nowMin; if (diff <= 0) diff += 10080; } else { diff = (dayOffset * 1440) + (alarmMin - nowMin); }
+                            if (diff < minMinutes) minMinutes = diff;
+                        });
+                    }
+                });
+                if (minMinutes === Infinity) { this.infoEl.textContent = ""; return; }
+                const daysLeft = Math.floor(minMinutes / 1440);
+                const hrsLeft = Math.floor((minMinutes % 1440) / 60);
+                const minsLeft = minMinutes % 60;
+                let txt = "Alarm in ";
+                if (daysLeft > 0) txt += `${daysLeft}d `;
+                if (hrsLeft > 0) txt += `${hrsLeft}h `;
+                txt += `${minsLeft}m`;
+                this.infoEl.textContent = txt;
             }
+        };
 
-            playAlarm();
-            // No alert() popup here anymore
-        }
+        const Stopwatch = {
+            t0: 0, elapsed: 0, running: false, req: null, laps: [], display: document.getElementById('sw-display'), lapsDiv: document.getElementById('sw-laps'),
+            btnMain: document.getElementById('sw-btn'), btnSub: document.getElementById('sw-lap-reset-btn'), txtSub: document.getElementById('sw-lap-text'),
+            toggle() { if (this.running) this.stop(); else this.start(); },
+            start() {
+                AudioMgr.init(); this.running = true; this.t0 = Date.now() - this.elapsed;
+                const loop = () => { if (!this.running) return; this.elapsed = Date.now() - this.t0; this.render(this.elapsed); this.req = requestAnimationFrame(loop); };
+                this.req = requestAnimationFrame(loop);
+                this.btnMain.innerHTML = `<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+                this.display.classList.add('active-accent');
+                this.updateSubBtn();
+            },
+            stop() {
+                this.running = false; cancelAnimationFrame(this.req);
+                this.btnMain.innerHTML = `<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+                this.display.classList.remove('active-accent');
+                this.updateSubBtn();
+            },
+            lapOrReset() { if (this.running) this.lap(); else this.reset(); },
+            lap() {
+                const p = this.laps.length > 0 ? this.laps[0].total : 0; const s = this.elapsed - p; this.laps.unshift({ total: this.elapsed, split: s }); this.renderLaps();
+            },
+            reset() { this.elapsed = 0; this.laps = []; this.render(0); this.renderLaps(); },
+            updateSubBtn() { this.txtSub.textContent = this.running ? "Lap" : "Reset"; },
+            render(ms) {
+                const d = new Date(ms); const m = d.getUTCMinutes().toString().padStart(2, '0'); const s = d.getUTCSeconds().toString().padStart(2, '0'); const c = Math.floor(d.getUTCMilliseconds() / 10).toString().padStart(2, '0');
+                this.display.textContent = `${m}:${s}.${c}`;
+            },
+            renderLaps() {
+                const html = this.laps.map((l, i) => {
+                    const n = this.laps.length - i;
+                    const f = (ms) => { const d = new Date(ms); return `${d.getUTCMinutes().toString().padStart(2, '0')}:${d.getUTCSeconds().toString().padStart(2, '0')}.${Math.floor(d.getUTCMilliseconds() / 10).toString().padStart(2, '0')}`; };
+                    return `<div class="lap-row"><span>Lap ${n}</span><span>${f(l.split)}</span><span>${f(l.total)}</span></div>`;
+                }).join('');
+                this.lapsDiv.innerHTML = html;
+            }
+        };
 
-        function playAlarm() {
-            initAudio();
-            const playPing = (freq, startTime, duration) => {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(freq, startTime);
-                gain.gain.setValueAtTime(0, startTime);
-                gain.gain.linearRampToValueAtTime(0.2, startTime + 0.1);
-                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(startTime);
-                osc.stop(startTime + duration);
-            };
-            const now = audioCtx.currentTime;
-            // YOUR ORIGINAL MUSIC:
-            const notes = [349.23, 440.00, 523.25, 659.25];
-            notes.forEach((freq, i) => {
-                playPing(freq, now + (i * 0.5), 3);
-                playPing(freq, now + 2 + (i * 0.5), 3);
-            });
-        }
+        App.init(); // Init Navigation
+        Timer.init();
+        Alarm.init();
 
-        updateDisplay();
+        // PWA
+        const iSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="background:#0a0a0a"><rect width="24" height="24" fill="#0a0a0a"/><circle cx="12" cy="12" r="9" fill="none" stroke="#007aff" stroke-width="2"/><path d="M12 6v6h4" fill="none" stroke="#007aff" stroke-width="2" stroke-linecap="round"/></svg>`;
+        const l = document.createElement('link'); l.rel = 'manifest';
+        l.href = URL.createObjectURL(new Blob([JSON.stringify({ "name": "Timer", "display": "standalone", "background_color": "#0a0a0a", "start_url": location.href, "icons": [{ "src": URL.createObjectURL(new Blob([iSVG], { type: 'image/svg+xml' })), "sizes": "512x512", "type": "image/svg+xml" }] })], { type: 'application/json' }));
+        document.head.appendChild(l);
     </script>
 </body>
 
