@@ -1099,7 +1099,13 @@
                 this.toggleBtn.style.backgroundColor = 'var(--text-primary)'; this.toggleBtn.style.color = 'var(--bg)';
                 this.updateDisplay();
             },
-            complete() { this.stop(); this.container.classList.add('finished'); AudioMgr.startAlarm(); },
+            complete() {
+                this.stop();
+                this.container.classList.add('finished');
+                // Just ring briefly for 3s, no overlay
+                AudioMgr.startSound();
+                setTimeout(() => AudioMgr.stopSound(), 3000);
+            },
             updateDisplay() {
                 if (this.isEditing) return;
                 const m = Math.floor(Math.abs(this.timeLeft) / 60); const s = Math.abs(this.timeLeft) % 60;
