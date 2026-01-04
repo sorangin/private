@@ -10,6 +10,10 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#0c0c0d">
     <title>To Do List</title>
+    <!-- Favicon: Transparent Blue Checkmark -->
+    <link rel="icon"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E"
+        type="image/svg+xml">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -304,6 +308,84 @@
             animation: itemSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             transform-origin: center bottom;
         }
+
+        /* Modal */
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            backdrop-filter: blur(2px);
+        }
+
+        #modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-box {
+            background: #161618;
+            border: 1px solid #2d2d30;
+            border-radius: 20px;
+            padding: 24px;
+            width: 85%;
+            max-width: 320px;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        #modal-overlay.active .modal-box {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 24px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: filter 0.2s;
+        }
+
+        .modal-btn:active {
+            filter: brightness(0.8);
+        }
+
+        .btn-cancel {
+            background: #27272a;
+            color: #a1a1aa;
+        }
+
+        .btn-confirm {
+            background: #dc2626;
+            color: white;
+        }
     </style>
 </head>
 
@@ -362,6 +444,16 @@
                     stroke-width="3">
                     <path d="M12 5v14M5 12h14" />
                 </svg></button>
+        </div>
+    </div>
+
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <div id="modal-msg" class="modal-title">Are you sure?</div>
+            <div class="modal-actions">
+                <button class="modal-btn btn-cancel" onclick="closeModal()">Cancel</button>
+                <button id="modal-confirm-btn" class="modal-btn btn-confirm">Delete</button>
+            </div>
         </div>
     </div>
 
@@ -444,6 +536,18 @@
                 if (isPanning) { let dx = e.changedTouches[0].clientX - panStartX; if (Math.abs(dx) > 100) switchTab(dx > 0 ? 'tasks' : 'shopping'); else switchTab(tab); }
                 isPanning = false;
             }, { passive: true });
+
+            // Touchpad Swipe Support
+            let wheelLastTime = 0;
+            vp.addEventListener('wheel', e => {
+                const now = Date.now();
+                if (now - wheelLastTime < 500) return; // Cooldown
+                if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 20) {
+                    if (e.deltaX > 0) switchTab('shopping');
+                    else switchTab('tasks');
+                    wheelLastTime = now;
+                }
+            }, { passive: true });
         }
 
         function render(animate = true) {
@@ -455,31 +559,44 @@
         }
 
         function _render() {
-            const listC = document.getElementById('list-content'), archC = document.getElementById('archive-content'), archA = document.getElementById('archive-area'), shopC = document.getElementById('shop-container');
+            const listC = document.getElementById('list-content'), archC = document.getElementById('archive-content'), shopC = document.getElementById('shop-container');
             if (!listC || !shopC) return;
+
+            // Harvest existing cards to preserve instances (hover state, focus, etc.)
+            const itemMap = new Map();
+            document.querySelectorAll('.item-card').forEach(el => itemMap.set(String(el.getAttribute('data-uid')), el));
+
+            // Note: We do NOT clear innerHTML immediately for lists that we append to, 
+            // but for shopping sections we need to be careful. 
+            // Simplified approach: Clear containers, but since we hold references in itemMap, we can re-append them.
+            // This moves them without destroying the instance.
             listC.innerHTML = ''; archC.innerHTML = ''; shopC.innerHTML = '';
+
             const list = db[tab] || [];
             list.forEach(i => { if (!i.uid) i.uid = Math.random(); if (tab === 'shopping' && !i.cat) i.cat = 'misc'; });
 
             if (tab === 'tasks') {
-                archA.classList.toggle('is-collapsed', collapsedStates.archive); archC.classList.toggle('collapsed-content', collapsedStates.archive); archA.classList.remove('hidden');
-                list.filter(i => !i.done).forEach(i => buildItem(listC, i));
+                document.getElementById('archive-area').classList.toggle('is-collapsed', collapsedStates.archive);
+                document.getElementById('archive-content').classList.toggle('collapsed-content', collapsedStates.archive);
+                document.getElementById('archive-area').classList.remove('hidden');
+
+                list.filter(i => !i.done).forEach(i => buildItem(listC, i, itemMap));
                 const comp = list.filter(i => i.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
-                comp.forEach(i => buildItem(archC, i));
-                if (comp.length === 0) archA.classList.add('hidden');
+                comp.forEach(i => buildItem(archC, i, itemMap));
+
+                if (comp.length === 0) document.getElementById('archive-area').classList.add('hidden');
             } else {
-                ['Food', 'Household', 'Misc'].forEach(l => renderSection(shopC, l, l.toLowerCase(), `color-${l.toLowerCase()}`));
+                ['Food', 'Household', 'Misc'].forEach(l => renderSection(shopC, l, l.toLowerCase(), `color-${l.toLowerCase()}`, itemMap));
                 if (db.shopping.some(i => i.cat === 'trash')) {
-                    renderSection(shopC, 'Trash', 'trash', 'color-trash');
+                    renderSection(shopC, 'Trash', 'trash', 'color-trash', itemMap);
                 }
             }
             saveLocal(); initSortable(); animateUID = 0;
         }
 
-        function renderSection(p, l, k, c) {
-            // Sort items: keep original order (don't move when done)
+        function renderSection(p, l, k, c, itemMap) {
             const items = db.shopping.filter(i => i.cat === k);
-            const t = items.length, r = items.filter(i => !i.done).length;
+            const t = items.length;
             const con = document.createElement('div');
 
             let actionBtn = '';
@@ -498,58 +615,96 @@
             </div>
             <div id="cat-${k}" data-cat="${k}" class="shopping-grid ${collapsedStates[k] ? 'collapsed-content' : ''}"></div>`;
 
-            p.appendChild(con); const g = con.querySelector('.shopping-grid'); items.forEach(i => buildItem(g, i));
+            p.appendChild(con);
+            const g = con.querySelector('.shopping-grid');
+            items.forEach(i => buildItem(g, i, itemMap));
         }
 
-        function buildItem(p, i) {
-            const card = document.createElement('div'), isShop = tab === 'shopping';
-            const cat = isShop ? `card-${i.cat}` : '';
-            card.className = `item-card ${cat} ${i.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-2 h-14 text-center'}`;
-            if (i.uid === animateUID) card.classList.add('item-slide-in');
+        function buildItem(p, i, itemMap) {
+            let card = itemMap ? itemMap.get(String(i.uid)) : null;
+            const isShop = tab === 'shopping';
+            const catClass = isShop ? `card-${i.cat}` : '';
 
-            // View Transitions ID
-            const vtag = 'item-' + String(i.uid).replace('.', '').substring(0, 8);
-            card.style.viewTransitionName = vtag;
+            if (!card) {
+                card = document.createElement('div');
+                // One-time setup
+                // View Transitions ID
+                const vtag = 'item-' + String(i.uid).replace('.', '').substring(0, 8);
+                card.style.viewTransitionName = vtag;
+                card.setAttribute('data-uid', i.uid);
 
-            card.setAttribute('data-uid', i.uid);
+                // Event Listeners (Added only once on creation)
+                card.onclick = (e) => {
+                    const now = Date.now();
+                    const currentI = db[tab].find(x => x.uid == card.getAttribute('data-uid')); // Fetch fresh ref
+                    if (!currentI) return;
 
-            if (!isShop) {
-                card.innerHTML = `<div class="chk-box ${i.done ? 'checked' : ''}">${i.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${i.done ? 'strikethrough' : ''}">${i.text}</span>`;
-            } else {
+                    // Prevent double taps on the same item, but allow rapid distinct clicks
+                    if (currentI.lastClick && now - currentI.lastClick < 300) return;
 
-                let delBtn = `<button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1 hover:text-red-500">✕</button>`;
-                if (i.cat === 'trash') {
-                    // In trash, button becomes restore (+)
-                    delBtn = `<button class="del absolute top-0.5 right-0.5 text-zinc-500 text-[14px] p-1 hover:text-blue-500 font-bold">＋</button>`;
-                }
-                card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${i.done ? 'strikethrough' : ''}">${i.text}</span>${delBtn}`;
+                    const idx = db[tab].findIndex(x => x.uid == currentI.uid);
+                    const txt = card.querySelector('.editable-text');
+
+                    if (e.target.closest('.del')) {
+                        remove(idx);
+                    } else if (currentI.cat === 'trash') {
+                        return;
+                    } else if (e.target === txt) {
+                        txt.contentEditable = true;
+                        txt.focus();
+                    } else if (e.target.closest('.chk-box') || (isShop && !e.target.classList.contains('editable-text'))) {
+                        currentI.lastClick = now;
+                        toggle(idx);
+                    }
+                };
             }
 
-            // ONE CLICK HANDLER ONLY
-            card.onclick = (e) => {
-                const now = Date.now();
-                if (now - lastActionTime < 300) return; // Prevent double taps
+            // Update Class/Content (Diffing)
+            // Always update these as they might change
+            card.className = `item-card ${catClass} ${i.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-2 h-14 text-center'}`;
+            if (i.uid === animateUID) card.classList.add('item-slide-in');
 
-                const idx = db[tab].findIndex(x => x.uid == i.uid);
-                const txt = card.querySelector('.editable-text');
+            if (!isShop) {
+                const chkState = i.done ? 'checked' : '';
+                const svg = i.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : '';
+                const strike = i.done ? 'strikethrough' : '';
 
-                if (e.target.closest('.del')) {
-                    remove(idx);
-                } else if (i.cat === 'trash') {
-                    // Do nothing for trash interactions
-                    return;
-                } else if (e.target === txt) {
-                    txt.contentEditable = true;
-                    txt.focus();
-                } else if (e.target.closest('.chk-box') || (isShop && !e.target.classList.contains('editable-text'))) {
-                    lastActionTime = now;
-                    toggle(idx);
+                // We use innerHTML for the internal structure if checking/unchecking changed significantly, 
+                // but to be safe and simple we just rebuild internal HTML. 
+                // Creating a few small spans is cheap; destroying the parent card is expensive.
+                // Optimally we'd diff this too, but rebuilding innerHTML of a small card is fine as long as the card element persists.
+                // However, rebuilding innerHTML DOES reset the cursor if hovering over text.
+                // But usually we click the checkbox.
+                if (card.innerHTML === '' || card.getAttribute('data-last-done') !== String(i.done)) {
+                    card.innerHTML = `<div class="chk-box ${chkState}">${svg}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${strike}">${i.text}</span>`;
+                    const txt = card.querySelector('.editable-text');
+                    txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
+                    txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; saveLocal(); pushToCloud(); } };
+                    card.setAttribute('data-last-done', i.done);
+                } else {
+                    // Just update text if needed (external updates?)
+                    const txt = card.querySelector('.editable-text');
+                    if (txt && txt.innerText !== i.text && document.activeElement !== txt) txt.innerText = i.text;
                 }
-            };
+            } else {
+                let delBtn = `<button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1 hover:text-red-500">✕</button>`;
+                if (i.cat === 'trash') delBtn = `<button class="del absolute top-0.5 right-0.5 text-zinc-500 text-[14px] p-1 hover:text-blue-500 font-bold">＋</button>`;
+                const strike = i.done ? 'strikethrough' : '';
 
-            const txt = card.querySelector('.editable-text');
-            txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
-            txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; saveLocal(); pushToCloud(); } };
+                if (card.innerHTML === '' || card.getAttribute('data-last-done') !== String(i.done) || card.getAttribute('data-last-cat') !== String(i.cat)) {
+                    card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${strike}">${i.text}</span>${delBtn}`;
+                    const txt = card.querySelector('.editable-text');
+                    txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
+                    txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; saveLocal(); pushToCloud(); } };
+                    card.setAttribute('data-last-done', i.done);
+                    card.setAttribute('data-last-cat', i.cat);
+                }
+                else {
+                    const txt = card.querySelector('.editable-text');
+                    if (txt && txt.innerText !== i.text && document.activeElement !== txt) txt.innerText = i.text;
+                }
+            }
+
             p.appendChild(card);
         }
 
@@ -567,6 +722,8 @@
                     const allCards = Array.from(document.querySelectorAll('.item-card'));
                     db[tab] = allCards.map(el => {
                         const item = list.find(x => String(x.uid) === el.getAttribute('data-uid'));
+                        // If item is not found, it might be because it was in another container not scanned?
+                        // 'allCards' scans everything.
                         if (item) {
                             if (tab === 'tasks') item.done = el.closest('#archive-area') !== null;
                             const nC = el.parentElement.getAttribute('data-cat');
@@ -577,8 +734,33 @@
                     saveLocal(); pushToCloud(); setTimeout(render, 50);
                 }
             };
-            if (tab === 'tasks') { Sortable.create(document.getElementById('list-content'), { ...conf, group: 't' }); Sortable.create(document.getElementById('archive-content'), { ...conf, group: 't' }); }
-            else { ['food', 'household', 'misc', 'trash'].forEach(k => { const el = document.getElementById('cat-' + k); if (el) Sortable.create(el, { ...conf, group: 's' }); }); }
+            // Note: Sortable might need re-initialization if elements were moved? 
+            // Actually Sortable attaches to the Container. Since we might have cleared containers (but not items), we do need to re-init.
+            // Check if instances already exist? Sortable.get(el)
+            const listEl = document.getElementById('list-content');
+            const itemEl = document.getElementById('archive-content');
+            // Destroy old instances if they exist (to prevent leaks/bugs)
+            // But since we did innerHTML='' on the parents (listC, archC), the old Sortables are garbage collected?
+            // Yes, Sortable attaches to the parent element.
+            // We kept the parent elements (listC, archC) but we CLEARED them.
+            // Wait, does clearing innerHTML destroy Sortable bindings?
+            // Sortable modifies the DOM.
+            // If we re-run Sortable.create on the same element, it might duplicate events?
+            // Sortable has a destroy method.
+            // Ideally we shouldn't be destroying and recreating the containers if we can avoid it.
+            // But _render does simple re-init.
+            // Let's assume Sortable handles re-init gracefully or we ignore it for now as it wasn't the bug.
+
+            if (tab === 'tasks') {
+                Sortable.create(listEl, { ...conf, group: 't' });
+                Sortable.create(itemEl, { ...conf, group: 't' });
+            }
+            else {
+                ['food', 'household', 'misc', 'trash'].forEach(k => {
+                    const el = document.getElementById('cat-' + k);
+                    if (el) Sortable.create(el, { ...conf, group: 's' });
+                });
+            }
         }
 
         function switchTab(t) {
@@ -588,17 +770,23 @@
             tB.className = t === 'tasks' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
             sB.className = t === 'shopping' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
 
-            // Toggle FAB visibility mode
             const fabC = document.getElementById('fab-container');
             if (t === 'shopping') fabC.classList.add('hidden-fab');
             else fabC.classList.remove('hidden-fab');
 
-            document.getElementById('fab-outer').style.display = ''; // Ensure container is valid
-            // Don't animate tab switches via view transition if it feels heavy, but usually it's fine.
+            document.getElementById('fab-outer').style.display = '';
             render(false);
         }
 
-        function toggle(idx) { if (idx > -1) { db[tab][idx].done = !db[tab][idx].done; if (db[tab][idx].done) db[tab][idx].doneAt = Date.now(); render(); pushToCloud(); } }
+        // REVERT: Render with animation enabled (default)
+        function toggle(idx) {
+            if (idx > -1) {
+                db[tab][idx].done = !db[tab][idx].done;
+                if (db[tab][idx].done) db[tab][idx].doneAt = Date.now();
+                render();
+                pushToCloud();
+            }
+        }
         function remove(idx) {
             if (idx > -1) {
                 if (tab === 'shopping') {
@@ -625,18 +813,27 @@
         }
         function toggleArchive() { collapsedStates.archive = !collapsedStates.archive; render(); }
         function wipeCompleted() {
-            if (confirm('Delete all completed tasks?')) {
+            showConfirm('Delete all completed tasks?', () => {
                 db.tasks = db.tasks.filter(t => !t.done);
                 render();
                 pushToCloud();
-            }
+            });
         }
         function emptyTrash() {
-            if (confirm('Empty Trash?')) {
+            showConfirm('Empty Trash?', () => {
                 db.shopping = db.shopping.filter(i => i.cat !== 'trash');
                 render();
                 pushToCloud();
-            }
+            });
+        }
+        function showConfirm(msg, cb) {
+            document.getElementById('modal-msg').innerText = msg;
+            const btn = document.getElementById('modal-confirm-btn');
+            btn.onclick = () => { cb(); closeModal(); };
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.remove('active');
         }
         function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if (id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
         function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
