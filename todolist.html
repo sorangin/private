@@ -482,9 +482,11 @@
             if (!isShop) {
                 card.innerHTML = `<div class="chk-box ${i.done ? 'checked' : ''}">${i.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${i.done ? 'strikethrough' : ''}">${i.text}</span>`;
             } else {
+
                 let delBtn = `<button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1 hover:text-red-500">✕</button>`;
                 if (i.cat === 'trash') {
-                    // In trash, X deletes permanently
+                    // In trash, button becomes restore (+)
+                    delBtn = `<button class="del absolute top-0.5 right-0.5 text-zinc-500 text-[14px] p-1 hover:text-blue-500 font-bold">＋</button>`;
                 }
                 card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${i.done ? 'strikethrough' : ''}">${i.text}</span>${delBtn}`;
             }
@@ -497,11 +499,14 @@
                 const idx = db[tab].findIndex(x => x.uid == i.uid);
                 const txt = card.querySelector('.editable-text');
 
-                if (e.target === txt) {
+                if (e.target.closest('.del')) {
+                    remove(idx);
+                } else if (i.cat === 'trash') {
+                    // Do nothing for trash interactions
+                    return;
+                } else if (e.target === txt) {
                     txt.contentEditable = true;
                     txt.focus();
-                } else if (e.target.closest('.del')) {
-                    remove(idx);
                 } else if (e.target.closest('.chk-box') || (isShop && !e.target.classList.contains('editable-text'))) {
                     lastActionTime = now;
                     toggle(idx);
@@ -563,8 +568,12 @@
             if (idx > -1) {
                 if (tab === 'shopping') {
                     if (db.shopping[idx].cat === 'trash') {
-                        db.shopping.splice(idx, 1);
+                        // Restore logic
+                        db.shopping[idx].cat = db.shopping[idx].origCat || 'misc';
+                        delete db.shopping[idx].origCat;
                     } else {
+                        // Trash logic
+                        db.shopping[idx].origCat = db.shopping[idx].cat;
                         db.shopping[idx].cat = 'trash';
                     }
                 } else {
