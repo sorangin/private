@@ -286,6 +286,24 @@
             pointer-events: none !important;
             transform: scale(0.5) !important;
         }
+
+        /* Entry Animation */
+        @keyframes itemSlideUp {
+            0% {
+                opacity: 0;
+                transform: translateY(100px) scale(0.8);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .item-slide-in {
+            animation: itemSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transform-origin: center bottom;
+        }
     </style>
 </head>
 
@@ -382,7 +400,7 @@
 
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
         let db = { tasks: [], shopping: [] }, collapsedStates = { archive: false, food: false, household: false, misc: false, trash: false }, tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
-        let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false, lastActionTime = 0, activeCat = 'misc';
+        let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false, lastActionTime = 0, activeCat = 'misc', animateUID = 0;
 
         async function init() {
             if (syncID) { document.getElementById('display-id').innerText = syncID; loadLocal(); await pullFromCloud(); subscribeRealtime(); } else { setTimeout(promptSyncID, 500); }
@@ -428,7 +446,15 @@
             }, { passive: true });
         }
 
-        function render() {
+        function render(animate = true) {
+            if (animate && document.startViewTransition) {
+                document.startViewTransition(() => _render());
+            } else {
+                _render();
+            }
+        }
+
+        function _render() {
             const listC = document.getElementById('list-content'), archC = document.getElementById('archive-content'), archA = document.getElementById('archive-area'), shopC = document.getElementById('shop-container');
             if (!listC || !shopC) return;
             listC.innerHTML = ''; archC.innerHTML = ''; shopC.innerHTML = '';
@@ -447,11 +473,13 @@
                     renderSection(shopC, 'Trash', 'trash', 'color-trash');
                 }
             }
-            saveLocal(); initSortable();
+            saveLocal(); initSortable(); animateUID = 0;
         }
 
         function renderSection(p, l, k, c) {
-            const items = db.shopping.filter(i => i.cat === k), t = items.length, r = items.filter(i => !i.done).length;
+            // Sort items: keep original order (don't move when done)
+            const items = db.shopping.filter(i => i.cat === k);
+            const t = items.length, r = items.filter(i => !i.done).length;
             const con = document.createElement('div');
 
             let actionBtn = '';
@@ -477,6 +505,12 @@
             const card = document.createElement('div'), isShop = tab === 'shopping';
             const cat = isShop ? `card-${i.cat}` : '';
             card.className = `item-card ${cat} ${i.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-2 h-14 text-center'}`;
+            if (i.uid === animateUID) card.classList.add('item-slide-in');
+
+            // View Transitions ID
+            const vtag = 'item-' + String(i.uid).replace('.', '').substring(0, 8);
+            card.style.viewTransitionName = vtag;
+
             card.setAttribute('data-uid', i.uid);
 
             if (!isShop) {
@@ -560,7 +594,8 @@
             else fabC.classList.remove('hidden-fab');
 
             document.getElementById('fab-outer').style.display = ''; // Ensure container is valid
-            render();
+            // Don't animate tab switches via view transition if it feels heavy, but usually it's fine.
+            render(false);
         }
 
         function toggle(idx) { if (idx > -1) { db[tab][idx].done = !db[tab][idx].done; if (db[tab][idx].done) db[tab][idx].doneAt = Date.now(); render(); pushToCloud(); } }
@@ -613,8 +648,9 @@
                 const i = document.getElementById('fab-input'), v = i.value.trim();
                 // For shopping, we use activeCat. For tasks, simple unshift.
                 if (v) {
-                    if (tab === 'shopping') db.shopping.push({ text: v, done: false, uid: Math.random(), cat: activeCat });
-                    else db.tasks.unshift({ text: v, done: false, uid: Math.random() });
+                    const uid = Math.random(); animateUID = uid;
+                    if (tab === 'shopping') db.shopping.push({ text: v, done: false, uid: uid, cat: activeCat });
+                    else db.tasks.unshift({ text: v, done: false, uid: uid });
                     render(); pushToCloud(); i.value = '';
                 }
                 collapseInput();
@@ -650,8 +686,9 @@
                 if (e.key === 'Enter') {
                     const v = e.target.value.trim();
                     if (v) {
-                        if (tab === 'shopping') db.shopping.push({ text: v, done: false, uid: Math.random(), cat: activeCat });
-                        else db.tasks.unshift({ text: v, done: false, uid: Math.random() });
+                        const uid = Math.random(); animateUID = uid;
+                        if (tab === 'shopping') db.shopping.push({ text: v, done: false, uid: uid, cat: activeCat });
+                        else db.tasks.unshift({ text: v, done: false, uid: uid });
                         render(); pushToCloud();
                     }
                     e.target.value = ''; collapseInput();
