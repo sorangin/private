@@ -119,6 +119,7 @@
             color: #93c5fd;
         }
 
+
         .color-misc {
             color: #a855f7;
         }
@@ -127,6 +128,16 @@
             border-color: rgba(168, 85, 247, 0.2);
             background-color: rgba(168, 85, 247, 0.04);
             color: #d8b4fe;
+        }
+
+        .color-trash {
+            color: #71717a;
+        }
+
+        .card-trash {
+            border-color: rgba(113, 113, 122, 0.2);
+            background-color: rgba(113, 113, 122, 0.04);
+            color: #a1a1aa;
         }
 
         .editable-text {
@@ -265,9 +276,15 @@
             border-color: #3b82f6;
         }
 
-        /* Prevent SVG from eating the click event */
         .chk-box svg {
             pointer-events: none;
+        }
+
+        /* Hide FAB in shopping mode unless expanded */
+        .hidden-fab:not(.expanded) {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transform: scale(0.5) !important;
         }
     </style>
 </head>
@@ -364,8 +381,8 @@
         }
 
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
-        let db = { tasks: [], shopping: [] }, collapsedStates = { archive: false, food: false, household: false, misc: false }, tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
-        let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false, lastActionTime = 0;
+        let db = { tasks: [], shopping: [] }, collapsedStates = { archive: false, food: false, household: false, misc: false, trash: false }, tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
+        let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false, lastActionTime = 0, activeCat = 'misc';
 
         async function init() {
             if (syncID) { document.getElementById('display-id').innerText = syncID; loadLocal(); await pullFromCloud(); subscribeRealtime(); } else { setTimeout(promptSyncID, 500); }
@@ -426,6 +443,9 @@
                 if (comp.length === 0) archA.classList.add('hidden');
             } else {
                 ['Food', 'Household', 'Misc'].forEach(l => renderSection(shopC, l, l.toLowerCase(), `color-${l.toLowerCase()}`));
+                if (db.shopping.some(i => i.cat === 'trash')) {
+                    renderSection(shopC, 'Trash', 'trash', 'color-trash');
+                }
             }
             saveLocal(); initSortable();
         }
@@ -433,7 +453,23 @@
         function renderSection(p, l, k, c) {
             const items = db.shopping.filter(i => i.cat === k), t = items.length, r = items.filter(i => !i.done).length;
             const con = document.createElement('div');
-            con.innerHTML = `<div class="section-header ${c} ${collapsedStates[k] ? 'is-collapsed' : ''}" onclick="toggleCat('${k}')"><span><span class="chevron">▼</span>${l} <span class="ml-1 opacity-60">(${r}/${t})</span></span></div><div id="cat-${k}" data-cat="${k}" class="shopping-grid ${collapsedStates[k] ? 'collapsed-content' : ''}"></div>`;
+
+            let actionBtn = '';
+            if (k !== 'trash') {
+                actionBtn = `<button class="ml-auto w-12 h-7 flex items-center justify-center rounded-full bg-blue-600 text-white text-lg font-bold hover:bg-blue-500 shadow-sm transition-colors pb-1" onclick="toggleInput('${k}', event)">＋</button>`;
+            } else if (t > 0) {
+                actionBtn = `<button class="ml-auto w-12 h-7 flex items-center justify-center rounded-full bg-red-900/40 text-red-400 hover:bg-red-900/60 transition-colors" onclick="emptyTrash()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`;
+            }
+
+            con.innerHTML = `<div class="section-header ${c}" onclick="toggleCat('${k}', event)">
+                <div class="flex items-center flex-1">
+                    <span class="chevron ${collapsedStates[k] ? 'is-collapsed' : ''}">▼</span>${l} 
+                    <span class="ml-1 opacity-60">(${t})</span>
+                </div>
+                ${actionBtn}
+            </div>
+            <div id="cat-${k}" data-cat="${k}" class="shopping-grid ${collapsedStates[k] ? 'collapsed-content' : ''}"></div>`;
+
             p.appendChild(con); const g = con.querySelector('.shopping-grid'); items.forEach(i => buildItem(g, i));
         }
 
@@ -446,7 +482,11 @@
             if (!isShop) {
                 card.innerHTML = `<div class="chk-box ${i.done ? 'checked' : ''}">${i.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${i.done ? 'strikethrough' : ''}">${i.text}</span>`;
             } else {
-                card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${i.done ? 'strikethrough' : ''}">${i.text}</span><button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1">✕</button>`;
+                let delBtn = `<button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1 hover:text-red-500">✕</button>`;
+                if (i.cat === 'trash') {
+                    // In trash, X deletes permanently
+                }
+                card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${i.done ? 'strikethrough' : ''}">${i.text}</span>${delBtn}`;
             }
 
             // ONE CLICK HANDLER ONLY
@@ -499,7 +539,7 @@
                 }
             };
             if (tab === 'tasks') { Sortable.create(document.getElementById('list-content'), { ...conf, group: 't' }); Sortable.create(document.getElementById('archive-content'), { ...conf, group: 't' }); }
-            else { ['food', 'household', 'misc'].forEach(k => { const el = document.getElementById('cat-' + k); if (el) Sortable.create(el, { ...conf, group: 's' }); }); }
+            else { ['food', 'household', 'misc', 'trash'].forEach(k => { const el = document.getElementById('cat-' + k); if (el) Sortable.create(el, { ...conf, group: 's' }); }); }
         }
 
         function switchTab(t) {
@@ -508,12 +548,37 @@
             slider.style.transform = t === 'tasks' ? 'translateX(0)' : 'translateX(-100vw)';
             tB.className = t === 'tasks' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
             sB.className = t === 'shopping' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
+
+            // Toggle FAB visibility mode
+            const fabC = document.getElementById('fab-container');
+            if (t === 'shopping') fabC.classList.add('hidden-fab');
+            else fabC.classList.remove('hidden-fab');
+
+            document.getElementById('fab-outer').style.display = ''; // Ensure container is valid
             render();
         }
 
         function toggle(idx) { if (idx > -1) { db[tab][idx].done = !db[tab][idx].done; if (db[tab][idx].done) db[tab][idx].doneAt = Date.now(); render(); pushToCloud(); } }
-        function remove(idx) { if (idx > -1) { db[tab].splice(idx, 1); render(); pushToCloud(); } }
-        function toggleCat(k) { collapsedStates[k] = !collapsedStates[k]; render(); }
+        function remove(idx) {
+            if (idx > -1) {
+                if (tab === 'shopping') {
+                    if (db.shopping[idx].cat === 'trash') {
+                        db.shopping.splice(idx, 1);
+                    } else {
+                        db.shopping[idx].cat = 'trash';
+                    }
+                } else {
+                    db[tab].splice(idx, 1);
+                }
+                render(); pushToCloud();
+            }
+        }
+        function toggleCat(k, e) {
+            // If clicking the button inside, don't toggle
+            if (e && e.target.tagName === 'BUTTON') return;
+            collapsedStates[k] = !collapsedStates[k];
+            render();
+        }
         function toggleArchive() { collapsedStates.archive = !collapsedStates.archive; render(); }
         function wipeCompleted() {
             if (confirm('Delete all completed tasks?')) {
@@ -522,27 +587,67 @@
                 pushToCloud();
             }
         }
+        function emptyTrash() {
+            if (confirm('Empty Trash?')) {
+                db.shopping = db.shopping.filter(i => i.cat !== 'trash');
+                render();
+                pushToCloud();
+            }
+        }
         function promptSyncID() { const id = window.prompt("Sync ID:", syncID || ""); if (id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); } }
         function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
         function loadLocal() { const s = localStorage.getItem('todo_db'); if (s) db = JSON.parse(s); }
-        function btnFAB(e) {
+        async function btnFAB(e) {
             e.stopPropagation();
             const c = document.getElementById('fab-container');
             if (c.classList.contains('expanded')) {
                 const i = document.getElementById('fab-input'), v = i.value.trim();
-                if (v) { db[tab].unshift({ text: v, done: false, uid: Math.random(), cat: 'misc' }); render(); pushToCloud(); i.value = ''; }
+                // For shopping, we use activeCat. For tasks, simple unshift.
+                if (v) {
+                    if (tab === 'shopping') db.shopping.push({ text: v, done: false, uid: Math.random(), cat: activeCat });
+                    else db.tasks.unshift({ text: v, done: false, uid: Math.random() });
+                    render(); pushToCloud(); i.value = '';
+                }
                 collapseInput();
-            } else { expandInput(); }
+            } else { expandInput('misc'); }
         }
-        function expandInput() { document.getElementById('fab-container').classList.add('expanded'); setTimeout(() => { const i = document.getElementById('fab-input'); i.focus(); i.click(); }, 100); }
+
+        function toggleInput(cat, e) {
+            e.stopPropagation();
+            const c = document.getElementById('fab-container');
+            const i = document.getElementById('fab-input');
+            if (c.classList.contains('expanded') && activeCat === cat && !i.value.trim()) {
+                collapseInput();
+            } else {
+                expandInput(cat);
+            }
+        }
+        function expandInput(cat) {
+            activeCat = cat || 'misc';
+            document.getElementById('fab-container').classList.add('expanded');
+            const inp = document.getElementById('fab-input');
+            inp.placeholder = tab === 'shopping' ? `Add to ${cat}...` : "Add entry...";
+            setTimeout(() => { inp.focus(); inp.click(); }, 100);
+        }
         function collapseInput() { document.getElementById('fab-container').classList.remove('expanded'); document.getElementById('fab-input').blur(); }
         function setupInputLogic() {
             window.onkeydown = (e) => {
+                if (e.key === 'Escape') return collapseInput();
                 if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true' || e.ctrlKey || e.metaKey) return;
                 if (e.key === 'ArrowLeft') return switchTab('tasks'); if (e.key === 'ArrowRight') return switchTab('shopping');
-                if (e.key.length === 1) { expandInput(); document.getElementById('fab-input').value = e.key; }
+                if (e.key.length === 1) { expandInput('misc'); document.getElementById('fab-input').value = e.key; }
             };
-            document.getElementById('fab-input').onkeypress = (e) => { if (e.key === 'Enter') { const v = e.target.value.trim(); if (v) { db[tab].unshift({ text: v, done: false, uid: Math.random(), cat: 'misc' }); render(); pushToCloud(); } e.target.value = ''; collapseInput(); } };
+            document.getElementById('fab-input').onkeypress = (e) => {
+                if (e.key === 'Enter') {
+                    const v = e.target.value.trim();
+                    if (v) {
+                        if (tab === 'shopping') db.shopping.push({ text: v, done: false, uid: Math.random(), cat: activeCat });
+                        else db.tasks.unshift({ text: v, done: false, uid: Math.random() });
+                        render(); pushToCloud();
+                    }
+                    e.target.value = ''; collapseInput();
+                }
+            };
         }
         function handleBgClick(e) { if (e.target.id.includes('-pane')) collapseInput(); }
         function updateStatus(on) { const el = document.getElementById('sync-status'); if (el) { el.innerText = on ? "Synced" : "Syncing..."; el.className = `sync-indicator ${on ? 'status-online' : 'status-offline'}`; } }
