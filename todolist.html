@@ -543,7 +543,7 @@
                 <!-- Archive Area now appended dynamically or kept at bottom -->
                 <section id="archive-area" class="hidden mt-6 pt-4 border-t border-zinc-900">
                     <div id="archive-header-row"
-                        class="flex justify-between items-center mb-4 cursor-pointer group px-2">
+                        class="flex justify-between md:justify-start items-center mb-4 cursor-pointer group px-2 md:gap-3">
                         <div class="flex items-center gap-2 text-zinc-600">
                             <svg class="chevron" width="12" height="12" fill="none" viewBox="0 0 24 24"
                                 stroke="currentColor" stroke-width="3">
@@ -997,6 +997,7 @@
                     updateFabColor();
                 }
                 cb();
+                expandInput();
             };
 
             b.onclick = (e) => { e.stopPropagation(); selectAction(); };
@@ -1123,6 +1124,7 @@
                     };
 
                     hdr.addEventListener('touchstart', startSecPress, { passive: true });
+                    hdr.addEventListener('touchmove', cancelSecPress, { passive: true });
                     hdr.addEventListener('touchend', (e) => {
                         if (!secTimer && !window.isDraggingSectionGlobal) e.preventDefault();
                         cancelSecPress();
@@ -1195,11 +1197,11 @@
 
             let actionBtn = '';
             if (k === 'trash' && t > 0) {
-                actionBtn = `<button class="ml-auto w-12 h-7 flex items-center justify-center rounded-full bg-zinc-800/60 text-zinc-400 hover:bg-zinc-700/80 transition-colors" onclick="emptyTrash()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`;
+                actionBtn = `<button class="ml-auto md:ml-2 text-zinc-600 hover:text-red-500 transition-colors" onclick="emptyTrash()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`;
             }
 
             con.innerHTML = `<div class="section-header" style="color:${color}" onclick="toggleCat('${k}', event)">
-                <div class="flex items-center flex-1">
+                <div class="flex items-center flex-1 md:flex-initial">
                     <span class="chevron ${collapsedStates[k] ? 'is-collapsed' : ''}">▼</span>${l} 
                     <span class="ml-1 opacity-60">(${t})</span>
                 </div>
@@ -1223,6 +1225,7 @@
                 };
                 const cancelSecPress = () => { if (secTimer) { clearTimeout(secTimer); secTimer = null; } };
                 hdr.addEventListener('touchstart', startSecPress, { passive: true });
+                hdr.addEventListener('touchmove', cancelSecPress, { passive: true });
                 hdr.addEventListener('touchend', cancelSecPress);
                 hdr.addEventListener('mousedown', startSecPress);
                 hdr.addEventListener('mouseup', cancelSecPress);
