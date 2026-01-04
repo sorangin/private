@@ -354,8 +354,8 @@
         /* Stopwatch specific */
         .stopwatch-laps {
             margin-top: 20px;
-            border-top: 1px solid #222;
             padding-top: 10px;
+            /* No top border here */
         }
 
         .lap-row {
@@ -400,7 +400,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(4px);
             z-index: 200;
             display: none;
             justify-content: center;
@@ -409,8 +409,9 @@
         }
 
         .modal-card {
-            background: rgba(22, 22, 22, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #1c1c1e;
+            /* Solid iOS-like dark */
+            border: 1px solid #333;
             border-radius: 24px;
             padding: 30px;
             text-align: center;
@@ -418,9 +419,48 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.8);
+            /* Starker shadow */
             animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             position: relative;
+        }
+
+        /* FAB Add Button */
+        .fab-add {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            font-size: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 80;
+            transition: transform 0.2s;
+        }
+
+        .fab-add:hover {
+            transform: scale(1.05);
+        }
+
+        .fab-add:active {
+            transform: scale(0.95);
+        }
+
+        @media (min-width: 400px) {
+            .fab-add {
+                right: auto;
+                left: 50%;
+                margin-left: 90px;
+                /* Center (320px / 2) - Button/2 roughly + offset */
+            }
         }
 
         /* DELETE BUTTON */
@@ -488,12 +528,14 @@
             right: 0;
             height: 50px;
             transform: translateY(-50%);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(255, 255, 255, 0.03);
+            /* REMOVED BORDERS */
+            background: #2c2c2e;
+            /* Lighter pill */
             pointer-events: none;
             box-sizing: border-box;
-            border-radius: 8px;
+            border-radius: 12px;
+            z-index: 0;
+            /* Behind text */
         }
 
         .wheel-container::before {
@@ -503,7 +545,7 @@
             left: 0;
             right: 0;
             height: 60px;
-            background: linear-gradient(to bottom, #161616 0%, transparent 100%);
+            background: linear-gradient(to bottom, #1c1c1e 0%, transparent 100%);
             z-index: 10;
             pointer-events: none;
         }
@@ -515,7 +557,7 @@
             left: 0;
             right: 0;
             height: 60px;
-            background: linear-gradient(to top, #161616 0%, transparent 100%);
+            background: linear-gradient(to top, #1c1c1e 0%, transparent 100%);
             z-index: 10;
             pointer-events: none;
         }
@@ -528,6 +570,10 @@
             flex: 1;
             text-align: center;
             cursor: grab;
+            position: relative;
+            /* Ensure z-index works */
+            z-index: 2;
+            /* SIT ABOVE HIGHLIGHT */
         }
 
         .wheel-col.grabbing {
@@ -538,6 +584,11 @@
         /* Disable snap while drag */
         .wheel-col::-webkit-scrollbar {
             display: none;
+        }
+
+        /* Remove bottom border from last lap */
+        .lap-row:last-child {
+            border-bottom: none;
         }
 
         .wheel-spacer {
@@ -735,8 +786,6 @@
         <!-- ALARM -->
         <div id="view-alarm" class="view-section">
             <div class="timer-header" style="margin-bottom: 1.5rem;">
-                <button class="btn-text" style="float:right; font-size:1.5rem; padding:0;"
-                    onclick="Alarm.openPicker()">+</button>
                 <h1 style="font-size: 2rem; margin: 0; font-weight: 400; text-align: left;">Alarms</h1>
             </div>
             <div id="next-alarm-info"></div>
@@ -760,9 +809,12 @@
                     </svg>
                 </button>
             </div>
-            <div id="sw-laps" class="stopwatch-laps"></div>
+            <div id="sw-laps" class="stopwatch-laps" style="display:none;"></div>
         </div>
     </div>
+
+    <!-- GLOBAL FAB (Hidden Default) -->
+    <button id="fab-add-alarm" class="fab-add" style="display:none;" onclick="Alarm.openPicker()">+</button>
 
     <!-- NAV TRIGGER ZONE -->
     <div class="nav-trigger" id="nav-trigger"></div>
@@ -818,7 +870,7 @@
             </div>
 
             <div style="display:flex; justify-content:space-between; width:100%;">
-                <button class="btn-text" style="color:var(--danger)" onclick="Alarm.closePicker()">Cancel</button>
+                <button class="btn-text" style="color: #888;" onclick="Alarm.closePicker()">Cancel</button>
                 <button class="btn-text" onclick="Alarm.save()">Save</button>
             </div>
         </div>
@@ -888,6 +940,11 @@
                 document.getElementById(`view-${id}`).classList.add('active');
                 document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
                 if (el) el.classList.add('active'); else document.getElementById(`nav-${id}`).classList.add('active');
+
+                // FAB Visibility
+                const fab = document.getElementById('fab-add-alarm');
+                if (fab) fab.style.display = (id === 'alarm') ? 'flex' : 'none';
+
                 if (this.showNav) { this.showNav(); clearTimeout(this.navTimer); this.navTimer = setTimeout(() => this.nav.classList.remove('visible'), 2000); }
                 AudioMgr.init();
             }
@@ -1238,6 +1295,12 @@
                 this.display.textContent = `${m}:${s}.${c}`;
             },
             renderLaps() {
+                if (this.laps.length === 0) {
+                    this.lapsDiv.style.display = 'none';
+                    this.lapsDiv.innerHTML = '';
+                    return;
+                }
+                this.lapsDiv.style.display = 'block';
                 const html = this.laps.map((l, i) => {
                     const n = this.laps.length - i;
                     const f = (ms) => { const d = new Date(ms); return `${d.getUTCMinutes().toString().padStart(2, '0')}:${d.getUTCSeconds().toString().padStart(2, '0')}.${Math.floor(d.getUTCMilliseconds() / 10).toString().padStart(2, '0')}`; };
