@@ -995,9 +995,9 @@
                     else activeShopCat = valueToSet;
                     document.getElementById('fab-input').placeholder = `Add to ${text}...`;
                     updateFabColor();
+                    expandInput();
                 }
                 cb();
-                expandInput();
             };
 
             b.onclick = (e) => { e.stopPropagation(); selectAction(); };
@@ -1673,7 +1673,7 @@
                 animation: 200,
                 handle: '.section-header',
                 draggable: '.section-block',
-                delay: isT ? 350 : 0,
+                delay: isT ? 800 : 0,
                 delayOnTouchOnly: true,
                 ghostClass: 'sortable-ghost',
                 onStart: () => { window.isDraggingSectionGlobal = true; },
