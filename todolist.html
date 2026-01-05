@@ -1175,17 +1175,27 @@
                     let isDraggingSec = false;
                     const hdr = secDiv.querySelector('.section-header');
 
-                    const startSecPress = () => {
+                    let startX = 0, startY = 0;
+                    const startSecPress = (e) => {
+                        if (e.type === 'touchstart') {
+                            startX = e.touches[0].clientX;
+                            startY = e.touches[0].clientY;
+                        }
                         secTimer = setTimeout(() => {
                             if (!window.isDraggingSectionGlobal) {
                                 secTimer = null;
                                 openSectionEdit(secId);
                                 if (navigator.vibrate) navigator.vibrate(50);
                             }
-                        }, 600);
+                        }, 800);
                     };
 
-                    const cancelSecPress = () => {
+                    const cancelSecPress = (e) => {
+                        if (e && e.type === 'touchmove') {
+                            const x = e.touches[0].clientX;
+                            const y = e.touches[0].clientY;
+                            if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return; // Tolerance
+                        }
                         if (secTimer) {
                             clearTimeout(secTimer);
                             secTimer = null;
@@ -1262,16 +1272,28 @@
             if (k !== 'trash') {
                 const hdr = con.querySelector('.section-header');
                 let secTimer = null;
-                const startSecPress = () => {
+                let startX = 0, startY = 0;
+                const startSecPress = (e) => {
+                    if (e.type === 'touchstart') {
+                        startX = e.touches[0].clientX;
+                        startY = e.touches[0].clientY;
+                    }
                     secTimer = setTimeout(() => {
                         if (!window.isDraggingSectionGlobal) {
                             secTimer = null;
                             openSectionEdit(k);
                             if (navigator.vibrate) navigator.vibrate(50);
                         }
-                    }, 600);
+                    }, 800);
                 };
-                const cancelSecPress = () => { if (secTimer) { clearTimeout(secTimer); secTimer = null; } };
+                const cancelSecPress = (e) => {
+                    if (e && e.type === 'touchmove') {
+                        const x = e.touches[0].clientX;
+                        const y = e.touches[0].clientY;
+                        if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return;
+                    }
+                    if (secTimer) { clearTimeout(secTimer); secTimer = null; }
+                };
                 hdr.addEventListener('touchstart', startSecPress, { passive: true });
                 hdr.addEventListener('touchmove', cancelSecPress, { passive: true });
                 hdr.addEventListener('touchend', cancelSecPress);
@@ -1746,7 +1768,7 @@
                 animation: 200,
                 handle: '.section-header',
                 draggable: '.section-block',
-                delay: isT ? 200 : 0,
+                delay: isT ? 150 : 0,
                 delayOnTouchOnly: true,
                 ghostClass: 'sortable-ghost',
                 onStart: () => { window.isDraggingSectionGlobal = true; },
