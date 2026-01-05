@@ -692,7 +692,7 @@
         .rainbow-picker::-webkit-color-swatch {
             border: none;
             border-radius: 50%;
-            opacity: 0;
+            background: transparent !important;
         }
 
         /* Consistent trash icon color - removed red hover as requested */
@@ -1601,7 +1601,7 @@
                         // Use activeTaskSection (which is now an ID)
                         db.tasks.unshift({ text: v, done: false, uid: uid, section: activeTaskSection });
                     }
-                    render(); pushToCloud(); i.value = '';
+                    render(false); pushToCloud(); i.value = '';
                 }
                 collapseInput();
             } else { expandInput(); }
@@ -1782,7 +1782,7 @@
                         } else {
                             db.tasks.unshift({ text: v, done: false, uid: uid, section: activeTaskSection });
                         }
-                        render(); pushToCloud();
+                        render(false); pushToCloud();
                     }
                     e.target.value = ''; collapseInput();
                 }
