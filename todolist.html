@@ -1770,6 +1770,8 @@
                 draggable: '.section-block',
                 delay: isT ? 150 : 0,
                 delayOnTouchOnly: true,
+                forceFallback: true,
+                fallbackTolerance: 5,
                 ghostClass: 'sortable-ghost',
                 onStart: () => { window.isDraggingSectionGlobal = true; },
                 onEnd: () => {
