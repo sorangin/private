@@ -223,7 +223,7 @@
         }
 
         .chevron {
-            transition: transform 0.2s;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             font-size: 8px;
             margin-right: 6px;
             display: inline-block;
@@ -344,12 +344,12 @@
         @keyframes itemSlideUp {
             0% {
                 opacity: 0;
-                transform: translateY(100px) scale(0.8);
+                transform: translateY(20px);
             }
 
             100% {
                 opacity: 1;
-                transform: translateY(0) scale(1);
+                transform: translateY(0);
             }
         }
 
@@ -640,7 +640,7 @@
                             class="color-btn w-8 h-8 rounded-full border-2 border-transparent hover:scale-110 transition-transform"
                             style="background:#a78bfa" data-color="#a78bfa"></button>
                         <input type="color" id="edit-sec-color-input"
-                            class="w-8 h-8 rounded-full p-0 border-0 overflow-hidden cursor-pointer">
+                            class="w-8 h-8 rounded-full p-0 border-0 overflow-hidden cursor-pointer rainbow-picker">
                     </div>
                 </div>
             </div>
@@ -676,6 +676,22 @@
 
         .hover-highlight {
             background: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .rainbow-picker {
+            appearance: none;
+            -webkit-appearance: none;
+            background: conic-gradient(from 0deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000) !important;
+        }
+
+        .rainbow-picker::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        .rainbow-picker::-webkit-color-swatch {
+            border: none;
+            border-radius: 50%;
+            opacity: 0;
         }
 
         /* Consistent trash icon color - removed red hover as requested */
@@ -739,7 +755,7 @@
             updateStatus(true); // Refresh UI to show offline
         });
 
-        if ('serviceWorker' in navigator) {
+        if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
             navigator.serviceWorker.register(
                 URL.createObjectURL(new Blob(['self.addEventListener("fetch", (e) => {});'], { type: "text/javascript" })),
                 { scope: window.location.href }
@@ -748,8 +764,7 @@
 
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
         // Data Model Update: taskSections & shopCategories
-        let db = { tasks: [], shopping: [], taskSections: ['Tasks'], shopCategories: [] };
-        let collapsedStates = { archive: false }; // States will be added dynamically by ID
+        let db = { tasks: [], shopping: [], taskSections: ['Tasks'], shopCategories: [], collapsedStates: { archive: false } };
         let tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
         let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false, lastActionTime = 0, animateUID = 0;
 
@@ -775,8 +790,9 @@
             db.shopCategories = db.shopCategories.map(c => typeof c === 'string' ? { id: c, title: c, color: '#ffffff' } : c);
 
             // Ensure collapsed states exist
-            db.taskSections.forEach(s => { if (collapsedStates[s.id] === undefined) collapsedStates[s.id] = false; });
-            db.shopCategories.forEach(c => { if (collapsedStates[c.id] === undefined) collapsedStates[c.id] = false; });
+            if (!db.collapsedStates) db.collapsedStates = { archive: false };
+            db.taskSections.forEach(s => { if (db.collapsedStates[s.id] === undefined) db.collapsedStates[s.id] = false; });
+            db.shopCategories.forEach(c => { if (db.collapsedStates[c.id] === undefined) db.collapsedStates[c.id] = false; });
 
             // Default selections
             if (!db.taskSections.some(s => s.id === activeTaskSection)) activeTaskSection = db.taskSections[0].id;
@@ -794,6 +810,7 @@
                 if (JSON.stringify(db) === JSON.stringify(data.content)) { updateStatus(true); return; }
                 db = data.content;
                 // Migration checks
+                if (!db.collapsedStates) db.collapsedStates = { archive: false };
                 if (!db.taskSections || db.taskSections.length === 0) db.taskSections = [{ id: 'Tasks', title: 'Tasks', color: '#ffffff' }];
                 db.taskSections = db.taskSections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff' } : s);
 
@@ -837,6 +854,7 @@
             supabaseClient.channel('changes').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, payload => {
                 if (isRemoteUpdate || isDragging) return;
                 isRemoteUpdate = true; db = payload.new.content;
+                if (!db.collapsedStates) db.collapsedStates = { archive: false };
                 if (!db.taskSections) db.taskSections = ['Tasks'];
                 render(); isRemoteUpdate = false;
             }).subscribe();
@@ -1063,7 +1081,7 @@
 
             if (tab === 'tasks') {
                 const archiveArea = document.getElementById('archive-area');
-                const isArchCol = collapsedStates.archive;
+                const isArchCol = db.collapsedStates.archive;
                 archiveArea.classList.toggle('is-collapsed', isArchCol);
                 document.getElementById('archive-content').classList.toggle('collapsed-content', isArchCol);
                 const archChev = document.getElementById('archive-chevron');
@@ -1085,7 +1103,7 @@
                     secDiv.className = 'section-block mb-4';
                     secDiv.setAttribute('data-sec-id', secId);
 
-                    const isCol = collapsedStates[secId];
+                    const isCol = db.collapsedStates[secId];
                     const count = list.filter(i => !i.done && (i.section === secId || (!i.section && secIdx === 0))).length;
 
                     secDiv.innerHTML = `<div class="section-header cursor-pointer hover:bg-white/5 transition-colors rounded-lg px-2 py-1 -mx-2" data-sec-id="${secId}">
@@ -1202,12 +1220,12 @@
 
             con.innerHTML = `<div class="section-header" style="color:${color}" onclick="toggleCat('${k}', event)">
                 <div class="flex items-center flex-1 md:flex-initial">
-                    <span class="chevron ${collapsedStates[k] ? 'is-collapsed' : ''}">▼</span>${l} 
+                    <span class="chevron ${db.collapsedStates[k] ? 'is-collapsed' : ''}">▼</span>${l} 
                     <span class="ml-1 opacity-60">(${t})</span>
                 </div>
                 ${actionBtn}
             </div>
-            <div id="cat-${k}" data-cat="${k}" class="shopping-grid ${collapsedStates[k] ? 'collapsed-content' : ''}"></div>`;
+            <div id="cat-${k}" data-cat="${k}" class="shopping-grid ${db.collapsedStates[k] ? 'collapsed-content' : ''}"></div>`;
 
             p.appendChild(con);
 
@@ -1497,10 +1515,10 @@
         function toggleCat(k, e) {
             // If clicking the button inside, don't toggle
             if (e && e.target.tagName === 'BUTTON') return;
-            collapsedStates[k] = !collapsedStates[k];
-            render();
+            db.collapsedStates[k] = !db.collapsedStates[k];
+            render(); saveLocal(); pushToCloud();
         }
-        function toggleArchive() { collapsedStates.archive = !collapsedStates.archive; render(); }
+        function toggleArchive() { db.collapsedStates.archive = !db.collapsedStates.archive; render(); saveLocal(); pushToCloud(); }
         function wipeCompleted() {
             showConfirm('Delete all completed tasks?', () => {
                 db.tasks = db.tasks.filter(t => !t.done);
@@ -1706,12 +1724,10 @@
         function expandInput() {
             document.getElementById('fab-container').classList.add('expanded');
             const inp = document.getElementById('fab-input');
-            if (tab === 'shopping') {
-                inp.placeholder = `Add to ${activeShopCat}...`;
-            } else {
-                const sec = db.taskSections.find(s => s.id === activeTaskSection);
-                inp.placeholder = `Add to ${sec ? sec.title : 'Tasks'}...`;
-            }
+            const list = tab === 'shopping' ? db.shopCategories : db.taskSections;
+            const activeId = tab === 'shopping' ? activeShopCat : activeTaskSection;
+            const sec = list.find(s => s.id === activeId);
+            inp.placeholder = `Add to ${sec ? sec.title : (tab === 'shopping' ? 'Items' : 'Tasks')}...`;
             updateFabColor();
             setTimeout(() => { inp.focus(); inp.click(); }, 100);
         }
