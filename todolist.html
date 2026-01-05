@@ -45,7 +45,7 @@
             padding-top: env(safe-area-inset-top);
             position: sticky;
             top: 0;
-            z-index: 100;
+            z-index: 2000;
             background: var(--bg);
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
@@ -522,8 +522,9 @@
 </head>
 
 <body>
-    <header class="flex justify-between items-center px-4 py-2 flex-shrink-0">
-        <nav class="flex gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
+    <header style="view-transition-name: main-header" class="flex justify-between items-center px-4 py-2 flex-shrink-0">
+        <nav style="view-transition-name: main-tabs"
+            class="flex gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
             <button onclick="switchTab('tasks')" id="tab-tasks"
                 class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
             <button onclick="switchTab('shopping')" id="tab-shopping"
@@ -706,9 +707,9 @@
             color: #a1a1aa !important;
         }
 
-        /* Fix full-screen white flash in View Transitions (Refined for Mobile) */
+        /* Refined White Flash Suppression & Stabilization */
         html {
-            background-color: var(--bg);
+            background-color: var(--bg) !important;
         }
 
         ::view-transition-group(root) {
@@ -719,6 +720,12 @@
         ::view-transition-new(root) {
             animation: none !important;
             mix-blend-mode: normal !important;
+        }
+
+        /* Keep header and tabs absolutely stable */
+        ::view-transition-group(main-header),
+        ::view-transition-group(main-tabs) {
+            animation-duration: 0s !important;
         }
     </style>
 
