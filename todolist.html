@@ -583,8 +583,8 @@
         </div>
     </div>
 
-    <div id="modal-overlay">
-        <div class="modal-box">
+    <div id="modal-overlay" onclick="closeModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
             <div id="modal-msg" class="modal-title">Are you sure?</div>
             <div class="modal-actions">
                 <button class="modal-btn btn-cancel" onclick="closeModal()">Cancel</button>
@@ -594,8 +594,8 @@
     </div>
 
     <!-- Custom Prompt Modal -->
-    <div id="prompt-modal-overlay" class="modal-overlay">
-        <div class="modal-box">
+    <div id="prompt-modal-overlay" class="modal-overlay" onclick="closePrompt()">
+        <div class="modal-box" onclick="event.stopPropagation()">
             <div id="prompt-msg" class="modal-title">Enter Value</div>
             <input id="prompt-input" type="text"
                 class="w-full bg-[#27272a] border border-[#3f3f46] rounded-xl px-4 py-3 text-white mb-6 outline-none focus:border-blue-500 transition-colors">
@@ -607,9 +607,9 @@
     </div>
 
     <!-- Edit Section Modal -->
-    <div id="edit-sec-modal"
+    <div id="edit-sec-modal" onclick="closeEditModal()"
         class="fixed inset-0 z-[2100] flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 bg-black/60 backdrop-blur-sm">
-        <div
+        <div onclick="event.stopPropagation()"
             class="bg-[#161618] border border-[#2d2d30] rounded-2xl p-6 w-[85%] max-w-[320px] scale-90 transition-transform duration-200 shadow-2xl">
             <h3 class="text-white font-bold text-lg mb-4 text-center">Edit Section</h3>
             <div class="space-y-4">
@@ -704,6 +704,13 @@
         #wipe-btn:hover,
         .trash-icon-btn:hover {
             color: #a1a1aa !important;
+        }
+
+        /* Fix full-screen white flash in View Transitions */
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+            animation: none;
+            mix-blend-mode: normal;
         }
     </style>
 
