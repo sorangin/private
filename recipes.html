@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Primal Recipes</title> <!-- PWA (Single File) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Primal">
+    <link rel="apple-touch-icon"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300bcd4'%3E%3Cpath d='M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'/%3E%3C/svg%3E">
     <link rel="manifest"
         href="data:application/manifest+json,{%22name%22:%22Primal%20Recipes%22,%22short_name%22:%22Primal%22,%22id%22:%22/primal-recipes-v1%22,%22start_url%22:%22recipes.html%22,%22display%22:%22standalone%22,%22background_color%22:%22#121212%22,%22theme_color%22:%22#121212%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='%2300bcd4'%3E%3Cpath%20d='M12%206.253v13m0-13C10.832%205.477%209.246%205%207.5%205S4.168%205.477%203%206.253v13C4.168%2018.477%205.754%2018%207.5%2018s3.332.477%204.5%201.253m0-13C13.168%205.477%2014.754%205%2016.5%205c1.747%200%203.332.477%204.5%201.253v13C19.832%2018.477%2018.247%2018%2016.5%2018c-1.746%200-3.332.477-4.5%201.253'/%3E%3C/svg%3E%22,%22sizes%22:%22any%22,%22type%22:%22image/svg+xml%22,%22purpose%22:%22any%22}]}">
     <link rel="icon" type="image/svg+xml"
@@ -213,6 +218,45 @@
             width: 100%;
         }
 
+        @media (max-width: 600px) {
+            header {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .logo {
+                font-size: 1.25rem;
+            }
+
+            .controls {
+                width: 100%;
+                justify-content: center;
+                gap: 0.5rem;
+            }
+
+            #searchInput {
+                width: 130px;
+            }
+
+            .recipe-grid {
+                padding: 1rem;
+                grid-template-columns: 1fr;
+            }
+
+            .card {
+                height: 100px;
+            }
+
+            .card-image {
+                width: 100px;
+            }
+
+            .card-title {
+                font-size: 1rem;
+            }
+        }
+
         .card {
             background-color: var(--surface-color);
             border-radius: 8px;
@@ -414,6 +458,32 @@
         @media (max-width: 768px) {
             .split-view {
                 flex-direction: column;
+                gap: 1rem;
+            }
+
+            .modal-content {
+                width: 100%;
+                height: 100%;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+
+            .modal-body {
+                padding: 1.25rem;
+            }
+
+            .modal-header,
+            .modal-footer {
+                padding: 1rem;
+            }
+
+            h2 {
+                font-size: 1.25rem;
+            }
+
+            button {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
             }
         }
 
@@ -740,12 +810,22 @@
                     <label for="supabaseKey">Supabase Anon Key</label>
                     <input type="password" id="supabaseKey" placeholder="your-anon-key">
                 </div>
+                <div id="syncStatus"
+                    style="font-size: 0.8rem; text-align: center; margin-bottom: 1rem; color: var(--secondary-accent);">
+                    Checking connection...
+                </div>
                 <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
                     <button id="saveSyncBtn" class="btn-icon" onclick="app.saveSyncSettings()"
                         style="background-color: var(--primary-accent); color: #000; flex: 1; justify-content: center;"
                         title="Save & Connect">
                         <svg class="icon">
                             <use href="#icon-check" />
+                        </svg>
+                    </button>
+                    <button id="forceSyncBtn" class="btn-icon secondary" onclick="app.forceSync()"
+                        style="flex: 1; justify-content: center;" title="Force Sync Now">
+                        <svg class="icon">
+                            <use href="#icon-cloud" />
                         </svg>
                     </button>
                 </div>
@@ -1323,6 +1403,27 @@
                 this.syncModal.classList.remove('active');
             }
 
+            async forceSync() {
+                if (!this.supabase) return alert('Connect to Supabase first');
+                const btn = document.getElementById('forceSyncBtn');
+                const status = document.getElementById('syncStatus');
+                btn.disabled = true;
+                status.innerText = 'Syncing...';
+
+                try {
+                    await this.pullFromCloud();
+                    await this.pushToCloud();
+                    this.render();
+                    status.innerText = 'Last sync: ' + new Date().toLocaleTimeString();
+                    alert('Sync complete!');
+                } catch (err) {
+                    status.innerText = 'Sync failed';
+                    console.error(err);
+                } finally {
+                    btn.disabled = false;
+                }
+            }
+
             async saveSyncSettings() {
                 const url = document.getElementById('supabaseUrl').value.trim();
                 const key = document.getElementById('supabaseKey').value.trim();
@@ -1558,6 +1659,17 @@
         // Initialize App
         const app = new RecipeApp();
 
+        // --- PWA Service Worker (Blob) ---
+        if ('serviceWorker' in navigator && location.protocol === 'https:') {
+            const swCode = `
+                self.addEventListener('install', e => self.skipWaiting());
+                self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+                self.addEventListener('fetch', e => e.respondWith(fetch(e.request)));
+            `;
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(url).catch(console.error);
+        }
         // --- Close modals on outside click ---
         window.onclick = function (event) {
             if (event.target == document.getElementById('recipeModal')) {
