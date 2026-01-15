@@ -62,7 +62,7 @@
 
         #view-slider {
             display: flex;
-            width: 200vw;
+            width: 300vw;
             height: 100%;
             will-change: transform;
         }
@@ -450,16 +450,16 @@
             position: fixed;
             bottom: calc(70px + var(--keyboard-h));
             right: 1rem;
-            background: #1e1e20;
-            border: 1px solid #2d2d30;
+            background: #18181b;
+            border: 1px solid #27272a;
             border-radius: 12px;
             padding: 8px;
-            min-width: 160px;
+            min-width: 180px;
             display: flex;
             flex-direction: column;
             gap: 4px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            z-index: 101;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+            z-index: 9999;
             opacity: 0;
             pointer-events: none;
             transform: translateY(10px) scale(0.95);
@@ -529,17 +529,25 @@
 
 <body>
     <header style="view-transition-name: main-header" class="flex justify-between items-center px-4 py-2 flex-shrink-0">
-        <nav style="view-transition-name: main-tabs"
-            class="flex gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
-            <button onclick="switchTab('tasks')" id="tab-tasks"
-                class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
-            <button onclick="switchTab('shopping')" id="tab-shopping"
-                class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
-        </nav>
+        <div class="flex items-center gap-3">
+            <button id="menu-btn" onclick="toggleOptionsMenu(event)"
+                class="text-zinc-500 hover:text-white transition-colors">
+                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <nav style="view-transition-name: main-tabs" id="tab-nav"
+                class="flex gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
+                <button onclick="switchTab('tasks')" id="tab-tasks" data-id="tasks"
+                    class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
+                <button onclick="switchTab('dailies')" id="tab-dailies" data-id="dailies"
+                    class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Dailies</button>
+                <button onclick="switchTab('shopping')" id="tab-shopping" data-id="shopping"
+                    class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
+            </nav>
+        </div>
         <div class="flex flex-col items-end">
             <div id="sync-status" class="sync-indicator status-offline">Offline</div>
-            <button onclick="promptSyncID()" class="text-[8px] text-zinc-500 hover:text-white mt-0.5">Sync ID: <span
-                    id="display-id" class="underline">None</span></button>
         </div>
     </header>
 
@@ -572,6 +580,9 @@
             <main id="shopping-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
                 <div id="shop-container" class="mt-2 space-y-6"></div>
             </main>
+            <main id="dailies-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
+                <div id="dailies-content" class="space-y-6 mt-2"></div>
+            </main>
         </div>
     </div>
 
@@ -597,6 +608,51 @@
                 <button class="modal-btn btn-cancel" onclick="closeModal()">Cancel</button>
                 <button id="modal-confirm-btn" class="modal-btn btn-confirm">Delete</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Help / Tutorial Modal -->
+    <div id="help-modal" onclick="closeHelp()"
+        class="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300 bg-black/80 backdrop-blur-md">
+        <div onclick="event.stopPropagation()"
+            class="bg-[#161618] border border-[#2d2d30] rounded-3xl p-8 w-[90%] max-w-[450px] max-h-[85vh] overflow-y-auto scale-95 transition-all duration-300 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-black text-white uppercase tracking-tighter">Guide</h2>
+                <button onclick="closeHelp()" class="text-zinc-500 hover:text-white transition-colors">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="space-y-6 text-zinc-400 text-sm leading-relaxed">
+                <section>
+                    <h3 class="text-blue-500 font-bold uppercase text-[11px] tracking-widest mb-2">Navigation</h3>
+                    <p>Swipe left/right or use arrow keys to switch tabs. Drag tabs in the header to reorder them.</p>
+                </section>
+                <section>
+                    <h3 class="text-green-500 font-bold uppercase text-[11px] tracking-widest mb-2">Tasks</h3>
+                    <p>Reorder items within or between sections. Long-press a section header to edit its name or color.
+                    </p>
+                </section>
+                <section>
+                    <h3 class="text-teal-500 font-bold uppercase text-[11px] tracking-widest mb-2">Dailies</h3>
+                    <p>Tasks that reset automatically. Change a section's recurrence (Daily, Weekly, etc.) by
+                        long-pressing its header. Set your preferred Day Reset Time in the menu.</p>
+                </section>
+                <section>
+                    <h3 class="text-orange-500 font-bold uppercase text-[11px] tracking-widest mb-2">Shopping</h3>
+                    <p>Items checked off move to Trash. Use the trash icon on the header to wipe them all at once.</p>
+                </section>
+                <section>
+                    <h3 class="text-zinc-500 font-bold uppercase text-[11px] tracking-widest mb-2">Sync</h3>
+                    <p>Enter your Sync ID in the menu to access your data on any device in real-time.</p>
+                </section>
+            </div>
+            <button onclick="closeHelp()"
+                class="w-full mt-8 bg-zinc-800 text-white py-4 rounded-2xl font-bold hover:bg-zinc-700 transition-colors">Got
+                it!</button>
         </div>
     </div>
 
@@ -636,6 +692,18 @@
                     <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1 block">Name</label>
                     <input id="edit-sec-name" type="text"
                         class="w-full bg-[#27272a] border border-[#3f3f46] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div id="edit-sec-interval-container" class="hidden">
+                    <label
+                        class="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1 block">Recurrence</label>
+                    <select id="edit-sec-interval"
+                        class="w-full bg-[#27272a] border border-[#3f3f46] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="bi-weekly">Bi-Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
                 </div>
                 <div>
                     <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1 block">Color</label>
@@ -693,7 +761,16 @@
         </div>
     </div>
     <style>
-        #edit-sec-modal.active {
+        #tab-nav:empty {
+            display: none;
+        }
+
+        #tab-nav button[style*="display: none"]+button {
+            border-left: none;
+        }
+
+        #edit-sec-modal.active,
+        #help-modal.active {
             opacity: 1;
             pointer-events: auto;
         }
@@ -823,41 +900,123 @@
 
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
         // Data Model Update: taskSections & shopCategories
-        let db = { tasks: [], shopping: [], taskSections: ['Tasks'], shopCategories: [], collapsedStates: { archive: false } };
+        let db = {
+            tasks: [],
+            shopping: [],
+            dailies: [],
+            taskSections: ['Tasks'],
+            shopCategories: [],
+            dailySections: [
+                { id: 'Daily', title: 'Daily', interval: 'daily', color: '#3b82f6' },
+                { id: 'Weekly', title: 'Weekly', interval: 'weekly', color: '#10b981' },
+                { id: 'Monthly', title: 'Monthly', interval: 'monthly', color: '#8b5cf6' }
+            ],
+            collapsedStates: { archive: false },
+            settings: {
+                tabs: { tasks: true, shopping: true, dailies: true },
+                tabOrder: ['tasks', 'dailies', 'shopping'],
+                lastResetDate: null,
+                resetTime: 0
+            }
+        };
         let tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
         let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false, lastActionTime = 0, animateUID = 0;
 
         // Active selections
         let activeTaskSection = 'Tasks';
-        let activeShopCat = 'misc'; // food, household, misc
+        let activeShopCat = 'misc';
+        let activeDailySection = 'Daily';
 
-        async function init() {
-            if (syncID) { document.getElementById('display-id').innerText = syncID; loadLocal(); await pullFromCloud(); subscribeRealtime(); } else { setTimeout(promptSyncID, 500); }
+        // Unified Migration Logic
+        function migrateDB(data) {
+            if (!data) data = {};
+            if (!data.tasks) data.tasks = [];
+            if (!data.shopping) data.shopping = [];
 
-            // Migrate Task Sections
-            if (!db.taskSections || db.taskSections.length === 0) db.taskSections = [{ id: 'Tasks', title: 'Tasks', color: '#ffffff' }];
-            db.taskSections = db.taskSections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff' } : s);
+            // Dailies Array
+            if (!data.dailies) data.dailies = [];
 
-            // Migrate Shopping Categories
-            if (!db.shopCategories || db.shopCategories.length === 0) {
-                db.shopCategories = [
+            // Task Sections
+            if (!data.taskSections || data.taskSections.length === 0) data.taskSections = [{ id: 'Tasks', title: 'Tasks', color: '#ffffff' }];
+            data.taskSections = data.taskSections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff' } : s);
+
+            // Daily Sections
+            if (!data.dailySections || data.dailySections.length === 0 || (data.dailySections.length === 1 && data.dailySections[0].id === 'Dailies')) {
+                data.dailySections = [
+                    { id: 'Daily', title: 'Daily', interval: 'daily', color: '#3b82f6' },
+                    { id: 'Weekly', title: 'Weekly', interval: 'weekly', color: '#10b981' },
+                    { id: 'Monthly', title: 'Monthly', interval: 'monthly', color: '#8b5cf6' }
+                ];
+                // Move old items
+                data.dailies.forEach(d => { if (d.section === 'Dailies' || !d.section) d.section = 'Daily'; });
+            }
+            data.dailySections = data.dailySections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff', interval: 'daily' } : s);
+
+            // Daily Items Migration
+            data.dailies.forEach(d => {
+                if (!d.section) d.section = 'Daily';
+                if (d.section === 'Dailies' && !data.dailySections.some(s => s.id === 'Dailies')) d.section = 'Daily';
+            });
+
+            // Shopping Categories
+            if (!data.shopCategories || data.shopCategories.length === 0) {
+                data.shopCategories = [
                     { id: 'food', title: 'Food', color: '#f59e0b' },
                     { id: 'household', title: 'Household', color: '#3b82f6' },
                     { id: 'misc', title: 'Misc', color: '#a855f7' }
                 ];
             }
-            db.shopCategories = db.shopCategories.map(c => typeof c === 'string' ? { id: c, title: c, color: '#ffffff' } : c);
+            data.shopCategories = data.shopCategories.map(c => typeof c === 'string' ? { id: c, title: c, color: '#ffffff' } : c);
 
-            // Ensure collapsed states exist
-            if (!db.collapsedStates) db.collapsedStates = { archive: false };
-            db.taskSections.forEach(s => { if (db.collapsedStates[s.id] === undefined) db.collapsedStates[s.id] = false; });
-            db.shopCategories.forEach(c => { if (db.collapsedStates[c.id] === undefined) db.collapsedStates[c.id] = false; });
+            // Collapsed States
+            if (!data.collapsedStates) data.collapsedStates = { archive: false };
+            data.taskSections.forEach(s => { if (data.collapsedStates[s.id] === undefined) data.collapsedStates[s.id] = false; });
+            data.shopCategories.forEach(c => { if (data.collapsedStates[c.id] === undefined) data.collapsedStates[c.id] = false; });
+            data.dailySections.forEach(s => { if (data.collapsedStates[s.id] === undefined) data.collapsedStates[s.id] = false; });
 
-            // Default selections
-            if (!db.taskSections.some(s => s.id === activeTaskSection)) activeTaskSection = db.taskSections[0].id;
-            if (!db.shopCategories.some(c => c.id === activeShopCat)) activeShopCat = db.shopCategories[0].id;
+            // Settings & Tabs
+            if (!data.settings) data.settings = { tabs: { tasks: true, shopping: true, dailies: true }, tabOrder: ['tasks', 'dailies', 'shopping'], resetTime: 0 };
+            if (!data.settings.tabs) data.settings.tabs = { tasks: true, shopping: true, dailies: true };
+            if (!data.settings.tabOrder) data.settings.tabOrder = ['tasks', 'dailies', 'shopping'];
+            if (data.settings.resetTime === undefined) data.settings.resetTime = 0;
 
-            switchTab('tasks'); setupInputLogic(); window.addEventListener('focus', pullFromCloud); setupSwipe(); setupFabGestures(); setupMenuTouch();
+            // Ensure active selections are valid
+            if (!data.taskSections.some(s => s.id === activeTaskSection)) activeTaskSection = data.taskSections[0]?.id || 'Tasks';
+            if (!data.shopCategories.some(c => c.id === activeShopCat)) activeShopCat = data.shopCategories[0]?.id || 'misc';
+            if (!data.dailySections.some(s => s.id === activeDailySection)) activeDailySection = data.dailySections[0]?.id || 'Daily';
+
+            return data;
+        }
+
+        function renderTabOrder() {
+            const nav = document.getElementById('tab-nav');
+            const btns = {
+                'tasks': document.getElementById('tab-tasks'),
+                'dailies': document.getElementById('tab-dailies'),
+                'shopping': document.getElementById('tab-shopping')
+            };
+            db.settings.tabOrder.forEach(id => {
+                const b = btns[id];
+                if (b) nav.appendChild(b); // appendChild moves existing node
+            });
+        }
+
+        async function init() {
+            if (syncID) { loadLocal(); await pullFromCloud(); subscribeRealtime(); } else { setTimeout(promptSyncID, 500); }
+
+            // Apply unified migration
+            db = migrateDB(db);
+
+            // Determine initial tab
+            const firstTab = db.settings.tabOrder.find(t => db.settings.tabs[t]);
+            tab = firstTab || 'tasks';
+
+            checkDailiesReset();
+            renderTabOrder();
+            updateTabVisibility();
+            switchTab(tab);
+            setupInputLogic(); window.addEventListener('focus', pullFromCloud); setupSwipe(); setupFabGestures(); setupMenuTouch();
+            initTabSortable();
             document.getElementById('archive-header-row').onclick = toggleArchive;
             document.getElementById('wipe-btn').onclick = (e) => { e.stopPropagation(); wipeCompleted(); };
         }
@@ -867,24 +1026,14 @@
             const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
             if (data?.content) {
                 if (JSON.stringify(db) === JSON.stringify(data.content)) { updateStatus(true); return; }
-                db = data.content;
-                // Migration checks
-                if (!db.collapsedStates) db.collapsedStates = { archive: false };
-                if (!db.taskSections || db.taskSections.length === 0) db.taskSections = [{ id: 'Tasks', title: 'Tasks', color: '#ffffff' }];
-                db.taskSections = db.taskSections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff' } : s);
 
-                if (!db.shopCategories || db.shopCategories.length === 0) {
-                    db.shopCategories = [
-                        { id: 'food', title: 'Food', color: '#f59e0b' },
-                        { id: 'household', title: 'Household', color: '#3b82f6' },
-                        { id: 'misc', title: 'Misc', color: '#a855f7' }
-                    ];
-                }
-                db.shopCategories = db.shopCategories.map(c => typeof c === 'string' ? { id: c, title: c, color: '#ffffff' } : c);
+                // MIGRATION: Fix cloud data before using it
+                const migrated = migrateDB(data.content);
+                db = migrated;
 
-                if (!db.taskSections.some(s => s.id === activeTaskSection)) activeTaskSection = db.taskSections[0].id;
-                if (!db.shopCategories.some(c => c.id === activeShopCat)) activeShopCat = db.shopCategories[0].id;
-
+                renderTabOrder();
+                checkDailiesReset();
+                updateTabVisibility();
                 render(); updateStatus(true);
             } else { await pushToCloud(); }
         }
@@ -912,9 +1061,10 @@
         function subscribeRealtime() {
             supabaseClient.channel('changes').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, payload => {
                 if (isRemoteUpdate || isDragging) return;
-                isRemoteUpdate = true; db = payload.new.content;
-                if (!db.collapsedStates) db.collapsedStates = { archive: false };
-                if (!db.taskSections) db.taskSections = ['Tasks'];
+                isRemoteUpdate = true;
+                db = migrateDB(payload.new.content);
+                renderTabOrder();
+                updateTabVisibility();
                 render(); isRemoteUpdate = false;
             }).subscribe();
         }
@@ -926,13 +1076,23 @@
             vp.addEventListener('touchmove', e => {
                 if (isDragging) return;
                 let dx = e.touches[0].clientX - panStartX, dy = e.touches[0].clientY - panStartY;
-                if (!isPanning && Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy)) isPanning = true;
+                if (!isPanning && Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy)) {
+                    // Only allow panning if both tabs are enabled
+                    if (db.settings.tabs.tasks && db.settings.tabs.shopping) isPanning = true;
+                }
                 if (isPanning) { let b = tab === 'tasks' ? 0 : -window.innerWidth; slider.style.transform = `translateX(${b + dx}px)`; }
             }, { passive: true });
             vp.addEventListener('touchend', e => {
                 if (isDragging) return;
                 slider.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-                if (isPanning) { let dx = e.changedTouches[0].clientX - panStartX; if (Math.abs(dx) > 100) switchTab(dx > 0 ? 'tasks' : 'shopping'); else switchTab(tab); }
+                if (isPanning) {
+                    let dx = e.changedTouches[0].clientX - panStartX;
+                    if (Math.abs(dx) > 100) {
+                        const nextTab = dx > 0 ? 'tasks' : 'shopping';
+                        if (db.settings.tabs[nextTab]) switchTab(nextTab);
+                        else switchTab(tab);
+                    } else switchTab(tab);
+                }
                 isPanning = false;
             }, { passive: true });
 
@@ -940,10 +1100,18 @@
             let wheelLastTime = 0;
             vp.addEventListener('wheel', e => {
                 const now = Date.now();
-                if (now - wheelLastTime < 500) return; // Cooldown
-                if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 20) {
-                    if (e.deltaX > 0) switchTab('shopping');
-                    else switchTab('tasks');
+                if (now - wheelLastTime < 300) return; // Cooldown
+                if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 10) {
+                    const idx = db.settings.tabOrder.indexOf(tab);
+                    if (e.deltaX > 0) {
+                        // Swipe left (content moves right) -> Go to next tab
+                        const next = db.settings.tabOrder[idx + 1];
+                        if (next && db.settings.tabs[next]) switchTab(next);
+                    } else {
+                        // Swipe right (content moves left) -> Go to prev tab
+                        const prev = db.settings.tabOrder[idx - 1];
+                        if (prev && db.settings.tabs[prev]) switchTab(prev);
+                    }
                     wheelLastTime = now;
                 }
             }, { passive: true });
@@ -1011,6 +1179,27 @@
                         }
                     });
                 });
+            } else if (tab === 'dailies') {
+                db.dailySections.forEach((s, idx) => {
+                    const title = s.title;
+                    const id = s.id;
+                    const color = s.color || '#ffffff';
+                    addMenuOption(m, title, id === activeDailySection, () => {
+                        closeFabMenu();
+                    }, id, color);
+                });
+                const div = document.createElement('div'); div.className = 'menu-divider'; m.appendChild(div);
+                addMenuOption(m, '+ New Section', false, () => {
+                    closeFabMenu();
+                    showPrompt("New Section Name", "", (n) => {
+                        if (n && !db.dailySections.some(x => x.title === n)) {
+                            const newSec = { id: 'sec_' + Date.now(), title: n, color: '#ffffff' };
+                            db.dailySections.push(newSec);
+                            activeDailySection = newSec.id;
+                            pushToCloud(); render();
+                        }
+                    });
+                });
             } else {
                 db.taskSections.forEach((s, idx) => {
                     const title = s.title;
@@ -1069,6 +1258,7 @@
             const selectAction = () => {
                 if (valueToSet !== null) {
                     if (tab === 'tasks') activeTaskSection = valueToSet;
+                    else if (tab === 'dailies') activeDailySection = valueToSet;
                     else activeShopCat = valueToSet;
                     document.getElementById('fab-input').placeholder = `Add to ${text}...`;
                     updateFabColor();
@@ -1129,14 +1319,52 @@
             }
         }
 
+        function checkDailiesReset() {
+            const now = new Date();
+            const resetHour = db.settings.resetTime || 0;
+
+            // Adjust "now" to the start of the reset day
+            const adjustedNow = new Date(now);
+            adjustedNow.setHours(adjustedNow.getHours() - resetHour);
+
+            const todayStr = adjustedNow.toISOString().split('T')[0];
+            const lastReset = db.settings.lastResetDate;
+
+            if (lastReset !== todayStr) {
+                db.dailies.forEach(item => {
+                    const sec = db.dailySections.find(s => s.id === item.section);
+                    const interval = sec ? (sec.interval || 'daily') : 'daily';
+
+                    if (interval === 'daily') {
+                        item.done = false;
+                    } else if (interval === 'weekly') {
+                        if (adjustedNow.getDay() === 1) item.done = false;
+                    } else if (interval === 'bi-weekly') {
+                        // Use a fixed Monday (e.g., Jan 5th 1970) as reference for bi-weekly parity
+                        const monday = new Date(adjustedNow);
+                        monday.setDate(monday.getDate() - (monday.getDay() || 7) + 1);
+                        const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+                        const weekIdx = Math.floor(monday.getTime() / msPerWeek);
+                        if (adjustedNow.getDay() === 1 && weekIdx % 2 === 0) item.done = false;
+                    } else if (interval === 'monthly') {
+                        if (adjustedNow.getDate() === 1) item.done = false;
+                    } else if (interval === 'yearly') {
+                        if (adjustedNow.getMonth() === 0 && adjustedNow.getDate() === 1) item.done = false;
+                    }
+                });
+                db.settings.lastResetDate = todayStr;
+                saveLocal(); pushToCloud();
+            }
+        }
+
         function _render() {
-            const listC = document.getElementById('list-content'), archC = document.getElementById('archive-content'), shopC = document.getElementById('shop-container');
-            if (!listC || !shopC) return;
+            const listC = document.getElementById('list-content'), archC = document.getElementById('archive-content'), shopC = document.getElementById('shop-container'), dailyC = document.getElementById('dailies-content');
+            if (!listC || !shopC || !dailyC) return;
 
             const itemMap = new Map();
             document.querySelectorAll('.item-card').forEach(el => itemMap.set(String(el.getAttribute('data-uid')), el));
 
-            listC.innerHTML = ''; archC.innerHTML = ''; shopC.innerHTML = '';
+            listC.innerHTML = ''; archC.innerHTML = ''; shopC.innerHTML = ''; dailyC.innerHTML = '';
 
             const list = db[tab] || [];
             list.forEach(i => { if (!i.uid) i.uid = Math.random(); if (tab === 'shopping' && !i.cat) i.cat = 'misc'; });
@@ -1246,6 +1474,12 @@
 
                 // Make section blocks sortable
                 initSectionSortable();
+            } else if (tab === 'dailies') {
+                db.dailySections.forEach((sec, secIdx) => {
+                    const secId = sec.id;
+                    renderDailiesSection(dailyC, sec.title, secId, sec.color || '#ffffff', itemMap, secIdx === 0);
+                });
+                initSectionSortable();
             } else {
                 db.shopCategories.forEach(c => renderSection(shopC, c.title, c.id, c.color || '#ffffff', itemMap));
                 if (db.shopping.some(i => i.cat === 'trash')) {
@@ -1321,11 +1555,70 @@
             items.forEach(i => buildItem(g, i, itemMap));
         }
 
+        function renderDailiesSection(p, l, k, color, itemMap, isDefault) {
+            const secDiv = document.createElement('div');
+            secDiv.className = 'section-block mb-4';
+            secDiv.setAttribute('data-sec-id', k);
+
+            const isCol = db.collapsedStates[k];
+            const items = db.dailies.filter(i => i.section === k || (isDefault && !i.section));
+            const count = items.length;
+            const active = items.filter(i => !i.done).length;
+
+            secDiv.innerHTML = `<div class="section-header cursor-pointer hover:bg-white/5 transition-colors rounded-lg px-2 py-1 -mx-2" data-sec-id="${k}">
+                <span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${color}">▼</span>
+                <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${color}">${l}</span>
+                <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${active}/${count}</span>
+            </div>
+            <div id="list-${k}" class="space-y-1.5 ${isCol ? 'collapsed-content' : ''}"></div>`;
+
+            const hdr = secDiv.querySelector('.section-header');
+            hdr.onclick = () => toggleCat(k);
+            hdr.oncontextmenu = (e) => { e.preventDefault(); openSectionEdit(k); };
+
+            let secTimer = null;
+            let startX = 0, startY = 0;
+            const startSecPress = (e) => {
+                if (e.type === 'touchstart') {
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                }
+                secTimer = setTimeout(() => {
+                    if (!window.isDraggingSectionGlobal) {
+                        secTimer = null;
+                        openSectionEdit(k);
+                        if (navigator.vibrate) navigator.vibrate(50);
+                    }
+                }, 800);
+            };
+            const cancelSecPress = (e) => {
+                if (e && e.type === 'touchmove') {
+                    const x = e.touches[0].clientX;
+                    const y = e.touches[0].clientY;
+                    if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return;
+                }
+                if (secTimer) { clearTimeout(secTimer); secTimer = null; }
+            };
+            hdr.addEventListener('touchstart', startSecPress, { passive: true });
+            hdr.addEventListener('touchmove', cancelSecPress, { passive: true });
+            hdr.addEventListener('touchend', cancelSecPress);
+            hdr.addEventListener('mousedown', startSecPress);
+            hdr.addEventListener('mouseup', cancelSecPress);
+            hdr.addEventListener('mouseleave', cancelSecPress);
+            hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cancelSecPress(); });
+
+            p.appendChild(secDiv);
+
+            const cont = secDiv.querySelector(`[id^="list-"]`);
+            items.forEach(i => buildItem(cont, i, itemMap));
+        }
+
         function buildItem(p, i, itemMap) {
             let card = itemMap ? itemMap.get(String(i.uid)) : null;
             const isShop = tab === 'shopping';
+            const isDailies = tab === 'dailies';
             // Find section/category color
-            const list = isShop ? db.shopCategories : db.taskSections;
+            const list = isShop ? db.shopCategories : (isDailies ? db.dailySections : db.taskSections);
             const id = isShop ? i.cat : (i.section || list[0].id);
             const sec = list.find(s => s.id === id);
 
@@ -1469,9 +1762,14 @@
                 delay: isT ? 350 : 0, delayOnTouchOnly: true,
                 forceFallback: true, fallbackTolerance: 5,
                 filter: '.editable-text, button, .chk-box, .del', preventOnFilter: true,
-                onStart: () => { isDragging = true; },
+                onStart: (evt) => {
+                    isDragging = true;
+                    // Add a class to body to prevent scrolling/swiping during drag
+                    document.body.style.overflow = 'hidden';
+                },
                 onEnd: (evt) => {
                     isDragging = false;
+                    document.body.style.overflow = '';
 
                     // Manual Drop-on-Header detection
                     const touch = evt.originalEvent.changedTouches ? evt.originalEvent.changedTouches[0] : evt.originalEvent;
@@ -1481,9 +1779,10 @@
                     if (header && header.hasAttribute('data-sec-id')) {
                         const targetId = header.getAttribute('data-sec-id');
                         const itemUid = evt.item.getAttribute('data-uid');
-                        const item = db[tab].find(i => String(i.uid) === itemUid);
+                        const itemIdx = db[tab].findIndex(i => String(i.uid) === itemUid);
 
-                        if (item) {
+                        if (itemIdx > -1) {
+                            const item = db[tab][itemIdx];
                             let changed = false;
                             if (tab === 'shopping' && item.cat !== targetId) {
                                 item.cat = targetId;
@@ -1495,51 +1794,62 @@
                             }
 
                             if (changed) {
+                                // Important: move item to the top of its new container in the array
+                                db[tab].splice(itemIdx, 1);
+                                db[tab].unshift(item);
                                 saveLocal(); pushToCloud(); render();
-                                return; // Skip normal reorder logic
+                                return;
                             }
                         }
                     }
 
+                    // Get new order from DOM
                     const allCards = Array.from(document.querySelectorAll('.item-card'));
                     const listRef = [...db[tab]];
 
-                    db[tab] = allCards.map(el => {
-                        const item = listRef.find(x => String(x.uid) === el.getAttribute('data-uid'));
+                    const newDbList = [];
+                    allCards.forEach(el => {
+                        const uid = el.getAttribute('data-uid');
+                        const item = listRef.find(x => String(x.uid) === uid);
                         if (item) {
                             if (tab === 'tasks') {
-                                // Updated logic: check if in archive OR which section
                                 const parent = el.parentElement;
-                                if (parent.id === 'archive-content') item.done = true;
-                                else if (parent.id.startsWith('list-')) {
+                                if (parent.id === 'archive-content') {
+                                    item.done = true;
+                                    if (!item.doneAt) item.doneAt = Date.now();
+                                }
+                                else {
                                     item.done = false;
-                                    // Extract section ID (the id after 'list-')
                                     const secId = parent.id.replace('list-', '');
                                     item.section = secId;
-                                } else {
-                                    item.done = false; // default
                                 }
                             } else {
                                 const nC = el.parentElement.getAttribute('data-cat');
                                 if (nC) item.cat = nC;
                             }
+                            newDbList.push(item);
                         }
-                        return item;
-                    }).filter(n => n);
-                    saveLocal(); pushToCloud(); setTimeout(render, 50);
+                    });
+
+                    // Update main database
+                    db[tab] = newDbList;
+                    saveLocal(); pushToCloud();
+
+                    // Delay render slightly to allow SortableJS to finish its animation
+                    setTimeout(() => render(false), 50);
                 }
             };
             const listEl = document.getElementById('list-content');
             const itemEl = document.getElementById('archive-content');
 
-            if (tab === 'tasks') {
+            if (tab === 'tasks' || tab === 'dailies') {
                 // Scan for section item containers (list-SECTIONID)
                 document.querySelectorAll('[id^="list-"]').forEach(el => {
                     // Skip archive - it has its own init
                     if (el.id === 'list-content') return;
-                    Sortable.create(el, { ...conf, group: 't' });
+                    Sortable.create(el, { ...conf, group: tab.charAt(0) });
                 });
-                Sortable.create(document.getElementById('archive-content'), { ...conf, group: 't' });
+                if (tab === 'tasks') Sortable.create(document.getElementById('archive-content'), { ...conf, group: 't' });
             }
             else {
                 db.shopCategories.forEach(c => {
@@ -1553,25 +1863,65 @@
         }
 
         function switchTab(t) {
-            tab = t; const slider = document.getElementById('view-slider'), tB = document.getElementById('tab-tasks'), sB = document.getElementById('tab-shopping');
-            slider.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-            slider.style.transform = t === 'tasks' ? 'translateX(0)' : 'translateX(-100vw)';
-            tB.className = t === 'tasks' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
-            sB.className = t === 'shopping' ? 'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' : 'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
+            tab = t;
+            const slider = document.getElementById('view-slider');
+            const tabs = ['tasks', 'dailies', 'shopping'];
 
-            // FAB always visible now!
-            // Update placeholders
+            // Respect tabOrder
+            const activeIndex = db.settings.tabOrder.indexOf(t);
+            const offset = activeIndex * -100;
+
+            slider.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+            slider.style.transform = `translateX(${offset}vw)`;
+
+            // Re-order the panes physically to match the offset? 
+            // Or just rely on the order in the HTML being fixed and offset being based on that fixed order.
+            // If the user reorders the tabs, the physical panes should probably match.
+            const panesOrder = {
+                'tasks': document.getElementById('tasks-pane'),
+                'dailies': document.getElementById('dailies-pane'),
+                'shopping': document.getElementById('shopping-pane')
+            };
+            db.settings.tabOrder.forEach(id => {
+                if (panesOrder[id]) slider.appendChild(panesOrder[id]);
+            });
+
+            // Update tab styles
+            db.settings.tabOrder.forEach(id => {
+                const btn = document.getElementById('tab-' + id);
+                if (btn) {
+                    btn.className = id === t ?
+                        'px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg' :
+                        'px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500';
+                }
+            });
+
+            // FAB update
             const inp = document.getElementById('fab-input');
-            if (t === 'tasks') {
-                const sec = db.taskSections.find(s => s.id === activeTaskSection);
-                inp.placeholder = `Add to ${sec ? sec.title : 'Tasks'}...`;
-            } else {
-                inp.placeholder = `Add to ${activeShopCat}...`;
-            }
+            const activeList = tab === 'shopping' ? db.shopCategories : (tab === 'dailies' ? db.dailySections : db.taskSections);
+            const activeId = tab === 'shopping' ? activeShopCat : (tab === 'dailies' ? activeDailySection : activeTaskSection);
+            const sec = activeList.find(s => s.id === activeId);
+
+            inp.placeholder = `Add to ${sec ? sec.title : tab.charAt(0).toUpperCase() + tab.slice(1)}...`;
 
             document.getElementById('fab-outer').style.display = '';
             render(false);
+            updateTabVisibility();
             updateFabColor();
+        }
+
+        function initTabSortable() {
+            const nav = document.getElementById('tab-nav');
+            if (nav._sortable) nav._sortable.destroy();
+            nav._sortable = Sortable.create(nav, {
+                animation: 200,
+                onEnd: () => {
+                    db.settings.tabOrder = Array.from(nav.children).map(btn => btn.dataset.id);
+                    saveLocal();
+                    pushToCloud();
+                    switchTab(tab); // Refresh slider position
+                }
+            });
         }
 
         // REVERT: Render with animation enabled (default)
@@ -1631,6 +1981,138 @@
         function closeModal() {
             document.getElementById('modal-overlay').classList.remove('active');
         }
+
+        // Options Menu (Hamburger)
+        function addGenericMenuOption(m, label, enabled, color, cb) {
+            const opt = document.createElement('button');
+            opt.className = 'menu-opt';
+            opt.style.color = '#ffffff';
+            const statusCol = enabled ? '#3b82f6' : '#71717a';
+            opt.innerHTML = `<span>${label}</span><span class="text-[10px] font-black tracking-tighter ${enabled ? '' : 'opacity-40'}" style="color:${statusCol}">${enabled ? 'ON' : 'OFF'}</span>`;
+            opt.onclick = (e) => { e.stopPropagation(); cb(); };
+            m.appendChild(opt);
+        }
+
+        function toggleOptionsMenu(e) {
+            e.stopPropagation();
+            const m = document.getElementById('fab-menu'); // Reuse fab-menu style
+            m.innerHTML = '';
+
+            const tasksEnabled = db.settings.tabs.tasks;
+            const dailiesEnabled = db.settings.tabs.dailies;
+            const shopEnabled = db.settings.tabs.shopping;
+
+            addGenericMenuOption(m, "Tasks", tasksEnabled, '#3b82f6', () => {
+                // Prevent disabling all tabs
+                if (tasksEnabled && !dailiesEnabled && !shopEnabled) {
+                    alert("At least one tab must be enabled.");
+                    return;
+                }
+                db.settings.tabs.tasks = !tasksEnabled;
+                if (!db.settings.tabs.tasks && tab === 'tasks') switchTab(db.settings.tabOrder.find(t => db.settings.tabs[t]));
+                updateTabVisibility();
+                saveLocal(); pushToCloud();
+                toggleOptionsMenu(e); // Refresh menu
+            });
+
+            addGenericMenuOption(m, "Dailies", dailiesEnabled, '#10b981', () => {
+                if (dailiesEnabled && !tasksEnabled && !shopEnabled) {
+                    alert("At least one tab must be enabled.");
+                    return;
+                }
+                db.settings.tabs.dailies = !dailiesEnabled;
+                if (!db.settings.tabs.dailies && tab === 'dailies') switchTab(db.settings.tabOrder.find(t => db.settings.tabs[t]));
+                updateTabVisibility();
+                saveLocal(); pushToCloud();
+                toggleOptionsMenu(e);
+            });
+
+            addGenericMenuOption(m, "Shopping", shopEnabled, '#f59e0b', () => {
+                if (shopEnabled && !tasksEnabled && !dailiesEnabled) {
+                    alert("At least one tab must be enabled.");
+                    return;
+                }
+                db.settings.tabs.shopping = !shopEnabled;
+                if (!db.settings.tabs.shopping && tab === 'shopping') switchTab(db.settings.tabOrder.find(t => db.settings.tabs[t]));
+                updateTabVisibility();
+                saveLocal(); pushToCloud();
+                toggleOptionsMenu(e); // Refresh menu
+            });
+
+            const div = document.createElement('div'); div.className = 'menu-divider'; m.appendChild(div);
+
+            // Help & Tutorial
+            const hOpt = document.createElement('button');
+            hOpt.className = 'menu-opt';
+            hOpt.style.color = '#ffffff';
+            hOpt.innerHTML = `<span>Help & Tutorial</span><span class="text-[10px] opacity-40 font-black">?</span>`;
+            hOpt.onclick = (e) => { e.stopPropagation(); m.classList.remove('active'); openHelp(); };
+            m.appendChild(hOpt);
+
+            // Day Reset Time
+            const rOpt = document.createElement('button');
+            rOpt.className = 'menu-opt';
+            rOpt.style.color = '#ffffff';
+            const hr = db.settings.resetTime || 0;
+            const displayHr = hr === 0 ? "12 AM" : (hr < 12 ? hr + " AM" : (hr === 12 ? "12 PM" : (hr - 12) + " PM"));
+            rOpt.innerHTML = `<span>Day Reset Time</span><span class="text-[10px] font-black underline" style="color:#3b82f6">${displayHr}</span>`;
+            rOpt.onclick = (e) => {
+                e.stopPropagation();
+                showPrompt("Reset Hour (0-23)", String(hr), (v) => {
+                    const n = parseInt(v);
+                    if (!isNaN(n) && n >= 0 && n <= 23) {
+                        db.settings.resetTime = n;
+                        saveLocal(); pushToCloud(); toggleOptionsMenu(e);
+                    }
+                });
+            };
+            m.appendChild(rOpt);
+
+            // Sync ID Option
+            const sOpt = document.createElement('button');
+            sOpt.className = 'menu-opt';
+            sOpt.style.color = '#ffffff';
+            sOpt.innerHTML = `<span>Sync ID</span><span class="text-[10px] font-black underline" style="color:#3b82f6">${syncID || 'None'}</span>`;
+            sOpt.onclick = (e) => { e.stopPropagation(); promptSyncID(); };
+            m.appendChild(sOpt);
+
+            m.classList.add('active');
+
+            // Click away to close
+            const closeHandler = (e) => {
+                if (!m.contains(e.target) && e.target.id !== 'menu-btn' && !e.target.closest('#menu-btn')) {
+                    m.classList.remove('active');
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeHandler), 10);
+        }
+
+        function openHelp() {
+            const m = document.getElementById('help-modal');
+            m.classList.add('active');
+            m.querySelector('div').classList.remove('scale-95');
+            m.querySelector('div').classList.add('scale-100');
+        }
+
+        function closeHelp() {
+            const m = document.getElementById('help-modal');
+            m.querySelector('div').classList.remove('scale-100');
+            m.querySelector('div').classList.add('scale-95');
+            m.classList.remove('active');
+        }
+
+
+
+        function updateTabVisibility() {
+            const tB = document.getElementById('tab-tasks');
+            const dB = document.getElementById('tab-dailies');
+            const sB = document.getElementById('tab-shopping');
+
+            tB.style.display = db.settings.tabs.tasks ? '' : 'none';
+            dB.style.display = db.settings.tabs.dailies ? '' : 'none';
+            sB.style.display = db.settings.tabs.shopping ? '' : 'none';
+        }
         function promptSyncID() {
             showPrompt("Sync ID", syncID || "", (id) => {
                 if (id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); }
@@ -1664,6 +2146,8 @@
                     const uid = Math.random(); animateUID = uid;
                     if (tab === 'shopping') {
                         db.shopping.push({ text: v, done: false, uid: uid, cat: activeShopCat || 'misc' });
+                    } else if (tab === 'dailies') {
+                        db.dailies.unshift({ text: v, done: false, uid: uid, section: activeDailySection, interval: 'daily' });
                     } else {
                         // Use activeTaskSection (which is now an ID)
                         db.tasks.unshift({ text: v, done: false, uid: uid, section: activeTaskSection });
@@ -1679,7 +2163,7 @@
         let editingSectionColor = '#ffffff';
 
         function openSectionEdit(secId) {
-            const list = tab === 'tasks' ? db.taskSections : db.shopCategories;
+            const list = tab === 'tasks' ? db.taskSections : (tab === 'dailies' ? db.dailySections : db.shopCategories);
             const sec = list.find(s => s.id === secId);
             if (!sec) return;
 
@@ -1696,6 +2180,14 @@
             });
 
             document.getElementById('edit-sec-modal').classList.add('active');
+
+            const intervalCont = document.getElementById('edit-sec-interval-container');
+            if (tab === 'dailies') {
+                intervalCont.classList.remove('hidden');
+                document.getElementById('edit-sec-interval').value = sec.interval || 'daily';
+            } else {
+                intervalCont.classList.add('hidden');
+            }
 
             // Setup button handlers
             document.getElementById('save-sec-btn').onclick = saveSection;
@@ -1719,26 +2211,29 @@
         }
 
         function saveSection() {
-            const list = tab === 'tasks' ? db.taskSections : db.shopCategories;
+            const list = tab === 'tasks' ? db.taskSections : (tab === 'dailies' ? db.dailySections : db.shopCategories);
             const sec = list.find(s => s.id === editingSectionId);
             if (sec) {
                 sec.title = document.getElementById('edit-sec-name').value.trim() || sec.title;
                 sec.color = editingSectionColor;
+                if (tab === 'dailies') {
+                    sec.interval = document.getElementById('edit-sec-interval').value;
+                }
                 pushToCloud(); render();
             }
             closeEditModal();
         }
 
         function deleteSection() {
-            const list = tab === 'tasks' ? db.taskSections : db.shopCategories;
+            const list = tab === 'tasks' ? db.taskSections : (tab === 'dailies' ? db.dailySections : db.shopCategories);
             if (list.length <= 1) {
                 alert("Can't delete the last section!");
                 return;
             }
 
             // Check if section is empty
-            const items = tab === 'tasks' ? db.tasks : db.shopping;
-            const hasItems = items.some(i => (tab === 'tasks' ? i.section : i.cat) === editingSectionId);
+            const items = tab === 'tasks' ? db.tasks : (tab === 'dailies' ? db.dailies : db.shopping);
+            const hasItems = items.some(i => (tab === 'tasks' ? i.section : (tab === 'dailies' ? i.section : i.cat)) === editingSectionId);
 
             const doDelete = () => {
                 const defaultId = list[0].id;
@@ -1746,6 +2241,10 @@
                     db.tasks.forEach(t => { if (t.section === editingSectionId) t.section = defaultId; });
                     db.taskSections = db.taskSections.filter(s => s.id !== editingSectionId);
                     if (activeTaskSection === editingSectionId) activeTaskSection = defaultId;
+                } else if (tab === 'dailies') {
+                    db.dailies.forEach(d => { if (d.section === editingSectionId) d.section = defaultId; });
+                    db.dailySections = db.dailySections.filter(s => s.id !== editingSectionId);
+                    if (activeDailySection === editingSectionId) activeDailySection = defaultId;
                 } else {
                     db.shopping.forEach(i => { if (i.cat === editingSectionId) i.cat = defaultId; });
                     db.shopCategories = db.shopCategories.filter(c => c.id !== editingSectionId);
@@ -1756,7 +2255,7 @@
             };
 
             if (hasItems) {
-                const type = tab === 'tasks' ? 'section' : 'category';
+                const type = (tab === 'tasks' || tab === 'dailies') ? 'section' : 'category';
                 showConfirm(`Delete this ${type}? Items will move to the first one.`, doDelete);
             } else {
                 doDelete();
@@ -1771,7 +2270,7 @@
         // Section Reordering
         function initSectionSortable() {
             const isT = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-            const listC = tab === 'tasks' ? document.getElementById('list-content') : document.getElementById('shop-container');
+            const listC = tab === 'tasks' ? document.getElementById('list-content') : (tab === 'dailies' ? document.getElementById('dailies-content') : document.getElementById('shop-container'));
             if (!listC) return;
 
             if (listC._sortable) listC._sortable.destroy();
@@ -1791,11 +2290,12 @@
                     const newOrder = [];
                     listC.querySelectorAll('.section-block').forEach(el => {
                         const secId = el.getAttribute('data-sec-id');
-                        const list = tab === 'tasks' ? db.taskSections : db.shopCategories;
+                        const list = tab === 'tasks' ? db.taskSections : (tab === 'dailies' ? db.dailySections : db.shopCategories);
                         const sec = list.find(s => s.id === secId);
                         if (sec) newOrder.push(sec);
                     });
                     if (tab === 'tasks') db.taskSections = newOrder;
+                    else if (tab === 'dailies') db.dailySections = newOrder;
                     else db.shopCategories = newOrder;
                     saveLocal(); pushToCloud();
                 }
@@ -1815,10 +2315,10 @@
         function expandInput() {
             document.getElementById('fab-container').classList.add('expanded');
             const inp = document.getElementById('fab-input');
-            const list = tab === 'shopping' ? db.shopCategories : db.taskSections;
-            const activeId = tab === 'shopping' ? activeShopCat : activeTaskSection;
+            const list = tab === 'shopping' ? db.shopCategories : (tab === 'dailies' ? db.dailySections : db.taskSections);
+            const activeId = tab === 'shopping' ? activeShopCat : (tab === 'dailies' ? activeDailySection : activeTaskSection);
             const sec = list.find(s => s.id === activeId);
-            inp.placeholder = `Add to ${sec ? sec.title : (tab === 'shopping' ? 'Items' : 'Tasks')}...`;
+            inp.placeholder = `Add to ${sec ? sec.title : (tab === 'shopping' ? 'Items' : tab)}...`;
             updateFabColor();
             setTimeout(() => { inp.focus(); inp.click(); }, 100);
         }
@@ -1827,8 +2327,8 @@
             const icon = document.getElementById('fab-icon');
             if (!icon) return;
             let color = '#3b82f6'; // Default blue
-            const list = tab === 'tasks' ? db.taskSections : db.shopCategories;
-            const activeId = tab === 'tasks' ? activeTaskSection : activeShopCat;
+            const list = tab === 'tasks' ? db.taskSections : (tab === 'dailies' ? db.dailySections : db.shopCategories);
+            const activeId = tab === 'tasks' ? activeTaskSection : (tab === 'dailies' ? activeDailySection : activeShopCat);
             const sec = list.find(s => s.id === activeId);
             if (sec && sec.color) color = sec.color;
             icon.setAttribute('stroke', color);
@@ -1838,7 +2338,16 @@
             window.onkeydown = (e) => {
                 if (e.key === 'Escape') return collapseInput();
                 if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true' || e.ctrlKey || e.metaKey) return;
-                if (e.key === 'ArrowLeft') return switchTab('tasks'); if (e.key === 'ArrowRight') return switchTab('shopping');
+                if (e.key === 'ArrowLeft') {
+                    const idx = db.settings.tabOrder.indexOf(tab);
+                    const prev = db.settings.tabOrder[idx - 1];
+                    if (prev && db.settings.tabs[prev]) return switchTab(prev);
+                }
+                if (e.key === 'ArrowRight') {
+                    const idx = db.settings.tabOrder.indexOf(tab);
+                    const next = db.settings.tabOrder[idx + 1];
+                    if (next && db.settings.tabs[next]) return switchTab(next);
+                }
                 if (e.key.length === 1) { expandInput(); document.getElementById('fab-input').value = e.key; }
             };
             document.getElementById('fab-input').onkeypress = (e) => {
@@ -1848,6 +2357,8 @@
                         const uid = Math.random(); animateUID = uid;
                         if (tab === 'shopping') {
                             db.shopping.push({ text: v, done: false, uid: uid, cat: activeShopCat || 'misc' });
+                        } else if (tab === 'dailies') {
+                            db.dailies.unshift({ text: v, done: false, uid: uid, section: activeDailySection, interval: 'daily' });
                         } else {
                             db.tasks.unshift({ text: v, done: false, uid: uid, section: activeTaskSection });
                         }
