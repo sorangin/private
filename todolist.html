@@ -1996,13 +1996,37 @@
         function showConfirm(msg, cb) {
             document.getElementById('modal-msg').innerText = msg;
             const btn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.querySelector('.btn-cancel');
+
+            cancelBtn.style.display = ''; // Show cancel
+            btn.innerText = "Delete";
+            btn.className = "modal-btn btn-confirm"; // Reset class if needed
+
             btn.onclick = () => { cb(); closeModal(); };
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+        function showAlert(msg) {
+            document.getElementById('modal-msg').innerText = msg;
+            const btn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.querySelector('.btn-cancel');
+
+            cancelBtn.style.display = 'none'; // Hide cancel
+            btn.innerText = "OK";
+            btn.className = "modal-btn btn-confirm"; // Keep style or make neutral
+
+            btn.onclick = () => { closeModal(); };
             document.getElementById('modal-overlay').classList.add('active');
         }
         function closeModal() {
             document.getElementById('modal-overlay').classList.remove('active');
+            // Reset state slightly after transition if desired, but not strictly necessary for simple modal
+            setTimeout(() => {
+                const cancelBtn = document.querySelector('.btn-cancel');
+                if (cancelBtn) cancelBtn.style.display = '';
+            }, 200);
         }
 
+        // Options Menu (Hamburger)
         // Options Menu (Hamburger)
         function addGenericMenuOption(m, label, enabled, color, cb) {
             const opt = document.createElement('button');
@@ -2014,9 +2038,7 @@
             m.appendChild(opt);
         }
 
-        function toggleOptionsMenu(e) {
-            e.stopPropagation();
-            const m = document.getElementById('fab-menu'); // Reuse fab-menu style
+        function renderOptionsMenu(m) {
             m.innerHTML = '';
 
             const tasksEnabled = db.settings.tabs.tasks;
@@ -2026,38 +2048,38 @@
             addGenericMenuOption(m, "Tasks", tasksEnabled, '#3b82f6', () => {
                 // Prevent disabling all tabs
                 if (tasksEnabled && !dailiesEnabled && !shopEnabled) {
-                    alert("At least one tab must be enabled.");
+                    showAlert("At least one tab must be enabled.");
                     return;
                 }
                 db.settings.tabs.tasks = !tasksEnabled;
                 if (!db.settings.tabs.tasks && tab === 'tasks') switchTab(db.settings.tabOrder.find(t => db.settings.tabs[t]));
                 updateTabVisibility();
                 saveLocal(); pushToCloud();
-                toggleOptionsMenu(e); // Refresh menu
+                renderOptionsMenu(m); // In-place refresh
             });
 
             addGenericMenuOption(m, "Dailies", dailiesEnabled, '#10b981', () => {
                 if (dailiesEnabled && !tasksEnabled && !shopEnabled) {
-                    alert("At least one tab must be enabled.");
+                    showAlert("At least one tab must be enabled.");
                     return;
                 }
                 db.settings.tabs.dailies = !dailiesEnabled;
                 if (!db.settings.tabs.dailies && tab === 'dailies') switchTab(db.settings.tabOrder.find(t => db.settings.tabs[t]));
                 updateTabVisibility();
                 saveLocal(); pushToCloud();
-                toggleOptionsMenu(e);
+                renderOptionsMenu(m); // In-place refresh
             });
 
             addGenericMenuOption(m, "Shopping", shopEnabled, '#f59e0b', () => {
                 if (shopEnabled && !tasksEnabled && !dailiesEnabled) {
-                    alert("At least one tab must be enabled.");
+                    showAlert("At least one tab must be enabled.");
                     return;
                 }
                 db.settings.tabs.shopping = !shopEnabled;
                 if (!db.settings.tabs.shopping && tab === 'shopping') switchTab(db.settings.tabOrder.find(t => db.settings.tabs[t]));
                 updateTabVisibility();
                 saveLocal(); pushToCloud();
-                toggleOptionsMenu(e); // Refresh menu
+                renderOptionsMenu(m); // In-place refresh
             });
 
             const div = document.createElement('div'); div.className = 'menu-divider'; m.appendChild(div);
@@ -2083,7 +2105,7 @@
                     const n = parseInt(v);
                     if (!isNaN(n) && n >= 0 && n <= 23) {
                         db.settings.resetTime = n;
-                        saveLocal(); pushToCloud(); toggleOptionsMenu(e);
+                        saveLocal(); pushToCloud(); renderOptionsMenu(m);
                     }
                 });
             };
@@ -2096,17 +2118,38 @@
             sOpt.innerHTML = `<span>Sync ID</span><span class="text-[10px] font-black underline" style="color:#3b82f6">${syncID || 'None'}</span>`;
             sOpt.onclick = (e) => { e.stopPropagation(); promptSyncID(); };
             m.appendChild(sOpt);
+        }
 
-            m.classList.add('active');
+        let menuCloseHandler = null;
 
-            // Click away to close
-            const closeHandler = (e) => {
-                if (!m.contains(e.target) && e.target.id !== 'menu-btn' && !e.target.closest('#menu-btn')) {
-                    m.classList.remove('active');
-                    document.removeEventListener('click', closeHandler);
+        function toggleOptionsMenu(e) {
+            e.stopPropagation();
+            const m = document.getElementById('fab-menu'); // Reuse fab-menu style
+
+            if (m.classList.contains('active')) {
+                // Close it
+                m.classList.remove('active');
+                if (menuCloseHandler) {
+                    document.removeEventListener('click', menuCloseHandler);
+                    menuCloseHandler = null;
                 }
-            };
-            setTimeout(() => document.addEventListener('click', closeHandler), 10);
+            } else {
+                // Open it
+                renderOptionsMenu(m);
+                m.classList.add('active');
+
+                // Click away to close
+                if (menuCloseHandler) document.removeEventListener('click', menuCloseHandler);
+                menuCloseHandler = (evt) => {
+                    // Check if click is inside the menu OR on the toggle button
+                    if (!m.contains(evt.target) && evt.target.id !== 'menu-btn' && !evt.target.closest('#menu-btn')) {
+                        m.classList.remove('active');
+                        document.removeEventListener('click', menuCloseHandler);
+                        menuCloseHandler = null;
+                    }
+                };
+                setTimeout(() => document.addEventListener('click', menuCloseHandler), 10);
+            }
         }
 
         function openHelp() {
