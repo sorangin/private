@@ -1077,20 +1077,38 @@
                 if (isDragging) return;
                 let dx = e.touches[0].clientX - panStartX, dy = e.touches[0].clientY - panStartY;
                 if (!isPanning && Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy)) {
-                    // Only allow panning if both tabs are enabled
-                    if (db.settings.tabs.tasks && db.settings.tabs.shopping) isPanning = true;
+                    // Only allow panning if we have multiple enabled tabs
+                    const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
+                    if (enabledTabs.length > 1) isPanning = true;
                 }
-                if (isPanning) { let b = tab === 'tasks' ? 0 : -window.innerWidth; slider.style.transform = `translateX(${b + dx}px)`; }
+                if (isPanning) {
+                    // Calculate relative offset based on index
+                    const idx = db.settings.tabOrder.indexOf(tab);
+                    const offset = idx * -window.innerWidth;
+                    slider.style.transform = `translateX(${offset + dx}px)`;
+                }
             }, { passive: true });
             vp.addEventListener('touchend', e => {
                 if (isDragging) return;
                 slider.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
                 if (isPanning) {
                     let dx = e.changedTouches[0].clientX - panStartX;
-                    if (Math.abs(dx) > 100) {
-                        const nextTab = dx > 0 ? 'tasks' : 'shopping';
-                        if (db.settings.tabs[nextTab]) switchTab(nextTab);
-                        else switchTab(tab);
+                    // Increased threshold to 80px for stability
+                    if (Math.abs(dx) > 80) {
+                        const idx = db.settings.tabOrder.indexOf(tab);
+                        if (dx > 0) {
+                            // Swipe Right -> Prev Tab
+                            let prev = idx - 1;
+                            while (prev >= 0 && !db.settings.tabs[db.settings.tabOrder[prev]]) prev--;
+                            if (prev >= 0) switchTab(db.settings.tabOrder[prev]);
+                            else switchTab(tab);
+                        } else {
+                            // Swipe Left -> Next Tab
+                            let next = idx + 1;
+                            while (next < db.settings.tabOrder.length && !db.settings.tabs[db.settings.tabOrder[next]]) next++;
+                            if (next < db.settings.tabOrder.length) switchTab(db.settings.tabOrder[next]);
+                            else switchTab(tab);
+                        }
                     } else switchTab(tab);
                 }
                 isPanning = false;
@@ -1913,8 +1931,11 @@
         function initTabSortable() {
             const nav = document.getElementById('tab-nav');
             if (nav._sortable) nav._sortable.destroy();
+            const isTouch = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
             nav._sortable = Sortable.create(nav, {
                 animation: 200,
+                delay: isTouch ? 200 : 0,
+                delayOnTouchOnly: true,
                 onEnd: () => {
                     db.settings.tabOrder = Array.from(nav.children).map(btn => btn.dataset.id);
                     saveLocal();
