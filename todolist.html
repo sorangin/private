@@ -1031,6 +1031,10 @@
                 const migrated = migrateDB(data.content);
                 db = migrated;
 
+                if (db.settings.lastDailyReset === undefined) db.settings.lastDailyReset = '';
+                if (db.settings.lastWeeklyReset === undefined) db.settings.lastWeeklyReset = '';
+                if (db.settings.lastMonthlyReset === undefined) db.settings.lastMonthlyReset = '';
+
                 renderTabOrder();
                 checkDailiesReset();
                 updateTabVisibility();
@@ -1337,40 +1341,66 @@
             }
         }
 
+        function getISOWeek(d) {
+            const date = new Date(d.getTime());
+            date.setHours(0, 0, 0, 0);
+            date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+            const week1 = new Date(date.getFullYear(), 0, 4);
+            return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+        }
+
         function checkDailiesReset() {
             const now = new Date();
             const resetHour = db.settings.resetTime || 0;
 
-            // Adjust "now" to the start of the reset day
+            // Adjust "now" to the start of the current "reset day" (effectively shifting timezone)
             const adjustedNow = new Date(now);
             adjustedNow.setHours(adjustedNow.getHours() - resetHour);
 
-            const todayStr = adjustedNow.toISOString().split('T')[0];
-            const lastReset = db.settings.lastResetDate;
+            const todayStr = adjustedNow.toISOString().split('T')[0]; // YYYY-MM-DD
+            const currentWeek = adjustedNow.getFullYear() + '-W' + getISOWeek(adjustedNow);
+            const currentMonth = adjustedNow.toISOString().slice(0, 7); // YYYY-MM
 
-            if (lastReset !== todayStr) {
+            let changed = false;
+
+            // DAILY RESET
+            if (db.settings.lastDailyReset !== todayStr) {
+                // Determine if we should maintain streaks or just reset
+                // For now, simpler: just uncheck all "daily" interval items
                 db.dailies.forEach(item => {
                     const sec = db.dailySections.find(s => s.id === item.section);
                     const interval = sec ? (sec.interval || 'daily') : 'daily';
+                    if (interval === 'daily') item.done = false;
+                });
+                db.settings.lastDailyReset = todayStr;
+                changed = true;
+            }
 
-                    if (interval === 'daily') {
+            // WEEKLY RESET
+            if (db.settings.lastWeeklyReset !== currentWeek) {
+                db.dailies.forEach(item => {
+                    const sec = db.dailySections.find(s => s.id === item.section);
+                    const interval = sec ? (sec.interval || 'daily') : 'daily';
+                    if (interval === 'weekly' || interval === 'bi-weekly') { // Treat bi-weekly as weekly for now unless specific logic needed
                         item.done = false;
-                    } else if (interval === 'weekly') {
-                        if (adjustedNow.getDay() === 1) item.done = false;
-                    } else if (interval === 'bi-weekly') {
-                        // Use a fixed Monday (e.g., Jan 5th 1970) as reference for bi-weekly parity
-                        const monday = new Date(adjustedNow);
-                        monday.setDate(monday.getDate() - (monday.getDay() || 7) + 1);
-                        const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-                        const weekIdx = Math.floor(monday.getTime() / msPerWeek);
-                        if (adjustedNow.getDay() === 1 && weekIdx % 2 === 0) item.done = false;
-                    } else if (interval === 'monthly') {
-                        if (adjustedNow.getDate() === 1) item.done = false;
-                    } else if (interval === 'yearly') {
-                        if (adjustedNow.getMonth() === 0 && adjustedNow.getDate() === 1) item.done = false;
                     }
                 });
-                db.settings.lastResetDate = todayStr;
+                db.settings.lastWeeklyReset = currentWeek;
+                changed = true;
+            }
+
+            // MONTHLY RESET
+            if (db.settings.lastMonthlyReset !== currentMonth) {
+                db.dailies.forEach(item => {
+                    const sec = db.dailySections.find(s => s.id === item.section);
+                    const interval = sec ? (sec.interval || 'daily') : 'daily';
+                    if (interval === 'monthly') item.done = false;
+                });
+                db.settings.lastMonthlyReset = currentMonth;
+                changed = true;
+            }
+
+            if (changed) {
                 saveLocal(); pushToCloud();
             }
         }
