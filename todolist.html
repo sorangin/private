@@ -166,16 +166,25 @@
         }
 
         .sortable-ghost {
-            opacity: 0 !important;
+            opacity: 0.3 !important;
+            background: #27272a !important;
+            border: 2px dashed #3f3f46 !important;
+        }
+
+        .sortable-chosen {
+            background: #18181b !important;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            transform: scale(1.02);
+            z-index: 50;
         }
 
         .sortable-drag {
-            opacity: 1 !important;
-            transform: scale(1.05);
-            z-index: 1000;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
-            border: 1px solid var(--accent) !important;
+            opacity: 0.9 !important;
+            transform: scale(1.1);
             cursor: grabbing;
+            z-index: 10000;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            border: 2px solid #3b82f6 !important;
         }
 
         #fab-outer {
@@ -373,7 +382,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.6);
-            z-index: 2200;
+            z-index: 20000;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -459,7 +468,7 @@
             flex-direction: column;
             gap: 4px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
-            z-index: 9999;
+            z-index: 10000;
             opacity: 0;
             pointer-events: none;
             transform: translateY(10px) scale(0.95);
@@ -613,7 +622,7 @@
 
     <!-- Help / Tutorial Modal -->
     <div id="help-modal" onclick="closeHelp()"
-        class="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300 bg-black/80 backdrop-blur-md">
+        class="fixed inset-0 z-[20000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300 bg-black/80 backdrop-blur-md">
         <div onclick="event.stopPropagation()"
             class="bg-[#161618] border border-[#2d2d30] rounded-3xl p-8 w-[90%] max-w-[450px] max-h-[85vh] overflow-y-auto scale-95 transition-all duration-300 shadow-2xl">
             <div class="flex items-center justify-between mb-6">
@@ -683,7 +692,7 @@
 
     <!-- Edit Section Modal -->
     <div id="edit-sec-modal" onclick="closeEditModal()"
-        class="fixed inset-0 z-[2100] flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 bg-black/60 backdrop-blur-sm">
+        class="fixed inset-0 z-[20000] flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 bg-black/60 backdrop-blur-sm">
         <div onclick="event.stopPropagation()"
             class="bg-[#161618] border border-[#2d2d30] rounded-2xl p-6 w-[85%] max-w-[320px] scale-90 transition-transform duration-200 shadow-2xl">
             <h3 class="text-white font-bold text-lg mb-4 text-center">Edit Section</h3>
@@ -919,7 +928,7 @@
                 resetTime: 0
             }
         };
-        let tab = 'tasks', syncID = localStorage.getItem('todo_sync_id'), isRemoteUpdate = false;
+        let tab = 'tasks', syncID = (localStorage.getItem('todo_sync_id') || '').toLowerCase().trim(), isRemoteUpdate = false;
         let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false, lastActionTime = 0, animateUID = 0;
 
         // Active selections
@@ -1081,9 +1090,14 @@
                 if (isDragging) return;
                 let dx = e.touches[0].clientX - panStartX, dy = e.touches[0].clientY - panStartY;
                 if (!isPanning && Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy)) {
-                    // Only allow panning if we have multiple enabled tabs
                     const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
-                    if (enabledTabs.length > 1) isPanning = true;
+                    const idx = enabledTabs.indexOf(tab);
+                    // Prevent swiping past boundaries
+                    if ((idx === 0 && dx > 0) || (idx === enabledTabs.length - 1 && dx < 0)) {
+                        // Don't pan if there's no page in that direction
+                    } else if (enabledTabs.length > 1) {
+                        isPanning = true;
+                    }
                 }
                 if (isPanning) {
                     // Calculate relative offset based on index
@@ -1808,7 +1822,8 @@
             const conf = {
                 animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
                 delay: isT ? 350 : 0, delayOnTouchOnly: true,
-                forceFallback: true, fallbackTolerance: 5,
+                forceFallback: true, fallbackTolerance: 3,
+                swapThreshold: 0.6, invertSwap: true,
                 filter: '.editable-text, button, .chk-box, .del', preventOnFilter: true,
                 onStart: (evt) => {
                     isDragging = true;
@@ -2023,14 +2038,14 @@
                 pushToCloud();
             });
         }
-        function showConfirm(msg, cb) {
+        function showConfirm(msg, cb, btnText = "Delete") {
             document.getElementById('modal-msg').innerText = msg;
             const btn = document.getElementById('modal-confirm-btn');
             const cancelBtn = document.querySelector('.btn-cancel');
 
             cancelBtn.style.display = ''; // Show cancel
-            btn.innerText = "Delete";
-            btn.className = "modal-btn btn-confirm"; // Reset class if needed
+            btn.innerText = btnText;
+            btn.className = `modal-btn btn-confirm ${btnText === 'Delete' ? '!bg-red-600' : '!bg-blue-600'}`;
 
             btn.onclick = () => { cb(); closeModal(); };
             document.getElementById('modal-overlay').classList.add('active');
@@ -2148,6 +2163,28 @@
             sOpt.innerHTML = `<span>Sync ID</span><span class="text-[10px] font-black underline" style="color:#3b82f6">${syncID || 'None'}</span>`;
             sOpt.onclick = (e) => { e.stopPropagation(); promptSyncID(); };
             m.appendChild(sOpt);
+
+            // Sync History
+            const history = getSyncHistory();
+            if (history.length > 0) {
+                const head = document.createElement('div');
+                head.className = 'text-[9px] uppercase tracking-widest font-black text-zinc-600 px-3 mt-2 mb-1';
+                head.innerText = 'Sync History';
+                m.appendChild(head);
+                history.forEach(id => {
+                    if (id === syncID) return;
+                    const hOpt = document.createElement('button');
+                    hOpt.className = 'menu-opt';
+                    hOpt.style.color = '#ffffff';
+                    hOpt.innerHTML = `<span>${id}</span><span class="text-[9px] opacity-40">Switch</span>`;
+                    hOpt.onclick = (e) => {
+                        e.stopPropagation();
+                        localStorage.setItem('todo_sync_id', id);
+                        window.location.reload();
+                    };
+                    m.appendChild(hOpt);
+                });
+            }
         }
 
         let menuCloseHandler = null;
@@ -2207,9 +2244,28 @@
             dB.style.display = db.settings.tabs.dailies ? '' : 'none';
             sB.style.display = db.settings.tabs.shopping ? '' : 'none';
         }
+        function getSyncHistory() {
+            try {
+                return JSON.parse(localStorage.getItem('todo_sync_history') || '[]');
+            } catch (e) { return []; }
+        }
+        function addToSyncHistory(id) {
+            if (!id) return;
+            id = id.toLowerCase().trim();
+            const history = getSyncHistory();
+            if (!history.includes(id)) {
+                history.push(id);
+                localStorage.setItem('todo_sync_history', JSON.stringify(history.slice(-5))); // Keep last 5
+            }
+        }
         function promptSyncID() {
             showPrompt("Sync ID", syncID || "", (id) => {
-                if (id) { localStorage.setItem('todo_sync_id', id.trim()); window.location.reload(); }
+                if (id) {
+                    id = id.toLowerCase().trim();
+                    localStorage.setItem('todo_sync_id', id);
+                    addToSyncHistory(id);
+                    window.location.reload();
+                }
             });
         }
         function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
