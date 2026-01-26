@@ -382,7 +382,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.6);
-            z-index: 20000;
+            z-index: 30000;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -622,7 +622,7 @@
 
     <!-- Help / Tutorial Modal -->
     <div id="help-modal" onclick="closeHelp()"
-        class="fixed inset-0 z-[20000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300 bg-black/80 backdrop-blur-md">
+        class="fixed inset-0 z-[30000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300 bg-black/80 backdrop-blur-md">
         <div onclick="event.stopPropagation()"
             class="bg-[#161618] border border-[#2d2d30] rounded-3xl p-8 w-[90%] max-w-[450px] max-h-[85vh] overflow-y-auto scale-95 transition-all duration-300 shadow-2xl">
             <div class="flex items-center justify-between mb-6">
@@ -888,8 +888,9 @@
             return `#${h(m(r))}${h(m(g))}${h(m(b))}`;
         }
 
+        let syncID = (localStorage.getItem('todo_sync_id') || '').toLowerCase().trim();
         let isOnline = navigator.onLine;
-        let pendingSync = localStorage.getItem('todo_pending_sync') === 'true';
+        let pendingSync = syncID ? (localStorage.getItem(`todo_pending_sync_${syncID}`) === 'true') : false;
 
         window.addEventListener('online', () => {
             isOnline = true;
@@ -932,7 +933,7 @@
                 resetTime: 0
             }
         };
-        let tab = 'tasks', syncID = (localStorage.getItem('todo_sync_id') || '').toLowerCase().trim(), isRemoteUpdate = false;
+        let tab = 'tasks', isRemoteUpdate = false;
         let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false, lastActionTime = 0, animateUID = 0;
 
         // Active selections
@@ -949,15 +950,34 @@
 
             const mergeArea = (listL, listR, delUnion) => {
                 const map = new Map();
-                // Use i.uid || i.id as key to support both items and sections
-                listR.forEach(i => { const key = i.uid || i.id; if (key) map.set(key, i); });
-                listL.forEach(i => {
+                // 1. Collect all valid items from both sides
+                const all = [...listR, ...listL];
+                all.forEach(i => {
                     const key = i.uid || i.id;
-                    if (!key) return;
+                    if (!key || delUnion.has(key)) return;
                     const existing = map.get(key);
-                    if (!existing || (i.m || 0) > (existing.m || 0)) map.set(key, i);
+                    if (!existing || (i.m || 0) > (existing.m || 0)) {
+                        map.set(key, i);
+                    }
                 });
-                return Array.from(map.values()).filter(i => !delUnion.has(i.uid || i.id));
+
+                // 2. Decide on order. Prefer the list that has the newest overall modification.
+                const maxL = Math.max(0, ...listL.map(i => i.m || 0));
+                const maxR = Math.max(0, ...listR.map(i => i.m || 0));
+                const preferredOrder = maxL >= maxR ? listL : listR;
+
+                const result = [];
+                const seen = new Set();
+                preferredOrder.forEach(i => {
+                    const key = i.uid || i.id;
+                    if (map.has(key)) {
+                        result.push(map.get(key));
+                        seen.add(key);
+                    }
+                });
+                // Add any orphans
+                map.forEach((value, key) => { if (!seen.has(key)) result.push(value); });
+                return result;
             };
 
             const delUnion = new Set([...l.deleted, ...r.deleted]);
@@ -1116,7 +1136,7 @@
 
             if (!isOnline) {
                 pendingSync = true;
-                localStorage.setItem('todo_pending_sync', 'true');
+                if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'true');
                 updateStatus(true);
                 return;
             }
@@ -1135,7 +1155,7 @@
                 if (error) {
                     console.warn("Push error:", error);
                     pendingSync = true;
-                    localStorage.setItem('todo_pending_sync', 'true');
+                    if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'true');
                     updateStatus(true);
                     return;
                 }
@@ -1144,13 +1164,13 @@
                 db = merged;
                 saveLocal();
                 pendingSync = false;
-                localStorage.setItem('todo_pending_sync', 'false');
+                if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'false');
                 updateStatus(true);
                 render(false);
             } catch (e) {
                 console.error("Sync exception:", e);
                 pendingSync = true;
-                localStorage.setItem('todo_pending_sync', 'true');
+                if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'true');
                 updateStatus(true);
             }
         }
@@ -1631,7 +1651,7 @@
             } else {
                 db.shopCategories.forEach(c => renderSection(shopC, c.title, c.id, c.color || '#ffffff', itemMap));
                 if (db.shopping.some(i => i.cat === 'trash')) {
-                    renderSection(shopC, 'Trash', 'trash', '#71717a', itemMap);
+                    renderSection(shopC, 'Trash', 'trash', '#71717a', itemMap, false);
                 }
             }
             saveLocal(); initSortable(); animateUID = 0;
@@ -1639,23 +1659,24 @@
             // Update FAB visual hint? Optional.
         }
 
-        function renderSection(p, l, k, color, itemMap) {
+        function renderSection(p, l, k, color, itemMap, draggable = true) {
             const items = db.shopping.filter(i => i.cat === k);
             const t = items.length;
             const active = items.filter(i => !i.done).length;
             const con = document.createElement('div');
-            con.className = 'section-block';
+            con.className = draggable ? 'section-block' : 'section-block-static';
             con.setAttribute('data-sec-id', k);
 
             let actionBtn = '';
             if (k === 'trash' && t > 0) {
-                actionBtn = `<button class="ml-auto md:ml-2 text-zinc-600 hover:text-red-500 transition-colors" onclick="emptyTrash()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`;
+                // Ensure button is very large and easy to click, and stop all propagation
+                actionBtn = `<button class="trash-btn ml-auto md:ml-2 text-zinc-600 hover:text-red-500 p-2 z-10" onclick="event.preventDefault(); event.stopPropagation(); emptyTrash();"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`;
             }
 
             const countDisplay = k === 'trash' ? `(${t})` : `(${active}/${t})`;
 
-            con.innerHTML = `<div class="section-header" style="color:${color}" data-sec-id="${k}" onclick="toggleCat('${k}', event)">
-                <div class="flex items-center flex-1 md:flex-initial">
+            con.innerHTML = `<div class="section-header ${!draggable ? 'no-drag' : ''}" style="color:${color}" data-sec-id="${k}">
+                <div class="flex items-center flex-1 md:flex-initial" onclick="toggleCat('${k}', event)">
                     <span class="chevron ${db.collapsedStates[k] ? 'is-collapsed' : ''}">▼</span>${l} 
                     <span class="ml-1 opacity-60">${countDisplay}</span>
                 </div>
@@ -1713,15 +1734,17 @@
             const count = items.length;
             const active = items.filter(i => !i.done).length;
 
-            secDiv.innerHTML = `<div class="section-header cursor-pointer hover:bg-white/5 transition-colors rounded-lg px-2 py-1 -mx-2" data-sec-id="${k}">
-                <span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${color}">▼</span>
-                <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${color}">${l}</span>
-                <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${active}/${count}</span>
+            secDiv.innerHTML = `<div class="section-header rounded-lg px-2 py-1 -mx-2" data-sec-id="${k}">
+                <div class="flex items-center flex-1" onclick="toggleCat('${k}', event)">
+                    <span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${color}">▼</span>
+                    <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${color}">${l}</span>
+                    <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${active}/${count}</span>
+                </div>
             </div>
             <div id="list-${k}" class="space-y-1.5 ${isCol ? 'collapsed-content' : ''}"></div>`;
 
             const hdr = secDiv.querySelector('.section-header');
-            hdr.onclick = () => toggleCat(k);
+            // onclick removed from hdr, moved to label div inside template
             hdr.oncontextmenu = (e) => { e.preventDefault(); openSectionEdit(k); };
 
             let secTimer = null;
@@ -1824,7 +1847,7 @@
                 };
             }
 
-            card.className = `item-card ${i.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-2 h-14 text-center'}`;
+            card.className = `group item-card ${i.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-2 h-14 text-center'}`;
             if (isShop && i.cat === 'trash') card.style.opacity = '0.35'; // Signficantly faded for trash
             else card.style.opacity = '';
 
@@ -1843,7 +1866,7 @@
                 const strike = i.done ? 'strikethrough' : '';
 
                 if (card.innerHTML === '' || card.getAttribute('data-last-done') !== String(i.done)) {
-                    card.innerHTML = `<div class="chk-box ${chkState}">${svg}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${strike}">${i.text}</span>`;
+                    card.innerHTML = `<div class="chk-box ${chkState}">${svg}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${strike}">${i.text}</span><button class="del ml-2 text-zinc-700 hover:text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>`;
                     const chk = card.querySelector('.chk-box');
                     const txt = card.querySelector('.editable-text');
 
@@ -1944,6 +1967,7 @@
 
                             if (changed) {
                                 // Important: move item to the top of its new container in the array
+                                item.m = Date.now(); // Tag move
                                 db[tab].splice(itemIdx, 1);
                                 db[tab].unshift(item);
                                 saveLocal(); pushToCloud(); render();
@@ -1952,10 +1976,16 @@
                         }
                     }
 
-                    // Get new order from DOM
-                    const allCards = Array.from(document.querySelectorAll('.item-card'));
-                    const listRef = [...db[tab]];
+                    // Get new order from tab-specific DOM containers
+                    let containers = [];
+                    if (tab === 'tasks') containers = Array.from(document.querySelectorAll('[id^="list-"]:not(#list-content), #archive-content'));
+                    else if (tab === 'dailies') containers = Array.from(document.querySelectorAll('#dailies-pane [id^="list-"]'));
+                    else containers = Array.from(document.querySelectorAll('#shopping-pane [id^="cat-"]'));
 
+                    const allCards = [];
+                    containers.forEach(c => allCards.push(...c.querySelectorAll('.item-card')));
+
+                    const listRef = [...db[tab]];
                     const newDbList = [];
                     allCards.forEach(el => {
                         const uid = el.getAttribute('data-uid');
@@ -1972,9 +2002,12 @@
                                     const secId = parent.id.replace('list-', '');
                                     item.section = secId;
                                 }
-                            } else {
+                            } else if (tab === 'shopping') {
                                 const nC = el.parentElement.getAttribute('data-cat');
                                 if (nC) item.cat = nC;
+                            } else if (tab === 'dailies') {
+                                const nS = el.parentElement.id.replace('list-', '');
+                                if (nS) item.section = nS;
                             }
                             newDbList.push(item);
                         }
@@ -2111,8 +2144,7 @@
             }
         }
         function toggleCat(k, e) {
-            // If clicking the button inside, don't toggle
-            if (e && e.target.tagName === 'BUTTON') return;
+            if (e) e.stopPropagation();
             db.collapsedStates[k] = !db.collapsedStates[k];
             render(); saveLocal(); pushToCloud();
         }
@@ -2369,8 +2401,20 @@
                 }
             });
         }
-        function saveLocal() { localStorage.setItem('todo_db', JSON.stringify(db)); }
-        function loadLocal() { const s = localStorage.getItem('todo_db'); if (s) db = JSON.parse(s); }
+        function saveLocal() { if (syncID) localStorage.setItem(`todo_db_${syncID}`, JSON.stringify(db)); }
+        function loadLocal() {
+            if (!syncID) return;
+            const s = localStorage.getItem(`todo_db_${syncID}`);
+            if (s) db = JSON.parse(s);
+            else {
+                // FALLBACK: If namespaced key is empty, check legacy key
+                const legacy = localStorage.getItem('todo_db');
+                if (legacy) {
+                    db = JSON.parse(legacy);
+                    // We don't delete legacy yet to be safe, but we'll save to namespaced from now on
+                }
+            }
+        }
 
         function showPrompt(msg, val, cb) {
             document.getElementById('prompt-msg').innerText = msg;
@@ -2531,8 +2575,10 @@
 
             listC._sortable = Sortable.create(listC, {
                 animation: 200,
-                handle: '.section-header',
+                handle: '.section-header:not(.no-drag)',
                 draggable: '.section-block',
+                filter: '.trash-btn, .del, .chk-box',
+                preventOnFilter: true,
                 delay: isT ? 150 : 0,
                 delayOnTouchOnly: true,
                 forceFallback: true,
@@ -2551,6 +2597,9 @@
                     if (tab === 'tasks') db.taskSections = newOrder;
                     else if (tab === 'dailies') db.dailySections = newOrder;
                     else db.shopCategories = newOrder;
+
+                    // Tag the section order change via a setting or by tagging a default section
+                    db.settings.m = Date.now();
                     saveLocal(); pushToCloud();
                 }
             });
