@@ -889,11 +889,14 @@
         }
 
         let isOnline = navigator.onLine;
-        let pendingSync = false;
+        let pendingSync = localStorage.getItem('todo_pending_sync') === 'true';
 
         window.addEventListener('online', () => {
             isOnline = true;
-            if (pendingSync) pushToCloud();
+            if (pendingSync) {
+                console.log("Back online, pushing pending changes...");
+                pushToCloud();
+            }
         });
         window.addEventListener('offline', () => {
             isOnline = false;
@@ -921,6 +924,7 @@
                 { id: 'Monthly', title: 'Monthly', interval: 'monthly', color: '#8b5cf6' }
             ],
             collapsedStates: { archive: false },
+            deleted: [], // Tombstones for deleted items
             settings: {
                 tabs: { tasks: true, shopping: true, dailies: true },
                 tabOrder: ['tasks', 'dailies', 'shopping'],
@@ -937,6 +941,39 @@
         let activeDailySection = 'Daily';
 
         // Unified Migration Logic
+        function mergeDB(local, remote) {
+            if (!remote) return migrateDB(local);
+            const l = migrateDB(local), r = migrateDB(remote);
+
+            const mergeArea = (listL, listR, delUnion) => {
+                const map = new Map();
+                // Add all remote items
+                listR.forEach(i => map.set(i.uid, i));
+                // Add local items if missing or newer
+                listL.forEach(i => {
+                    const existing = map.get(i.uid);
+                    if (!existing || (i.m || 0) > (existing.m || 0)) map.set(i.uid, i);
+                });
+                // Filter by combined deletions
+                return Array.from(map.values()).filter(i => !delUnion.has(i.uid));
+            };
+
+            const delUnion = new Set([...l.deleted, ...r.deleted]);
+
+            const merged = {
+                tasks: mergeArea(l.tasks, r.tasks, delUnion),
+                shopping: mergeArea(l.shopping, r.shopping, delUnion),
+                dailies: mergeArea(l.dailies, r.dailies, delUnion),
+                taskSections: mergeArea(l.taskSections, r.taskSections, delUnion),
+                shopCategories: mergeArea(l.shopCategories, r.shopCategories, delUnion),
+                dailySections: mergeArea(l.dailySections, r.dailySections, delUnion),
+                deleted: Array.from(delUnion).slice(-100), // Keep last 100 tombstones
+                collapsedStates: { ...r.collapsedStates, ...l.collapsedStates },
+                settings: (l.settings?.m || 0) > (r.settings?.m || 0) ? l.settings : r.settings
+            };
+            return merged;
+        }
+
         function migrateDB(data) {
             if (!data) data = {};
             if (!data.tasks) data.tasks = [];
@@ -988,6 +1025,10 @@
             if (!data.settings.tabs) data.settings.tabs = { tasks: true, shopping: true, dailies: true };
             if (!data.settings.tabOrder) data.settings.tabOrder = ['tasks', 'dailies', 'shopping'];
             if (data.settings.resetTime === undefined) data.settings.resetTime = 0;
+            if (data.settings.m === undefined) data.settings.m = 0;
+
+            // Deleted tombstones
+            if (!data.deleted) data.deleted = [];
 
             // Ensure active selections are valid
             if (!data.taskSections.some(s => s.id === activeTaskSection)) activeTaskSection = data.taskSections[0]?.id || 'Tasks';
@@ -1011,19 +1052,28 @@
         }
 
         async function init() {
-            if (syncID) { loadLocal(); await pullFromCloud(); subscribeRealtime(); } else { setTimeout(promptSyncID, 500); }
+            // Load local data first so the UI is immediate
+            loadLocal();
 
-            // Apply unified migration
+            // Render immediately with local data
             db = migrateDB(db);
-
-            // Determine initial tab
-            const firstTab = db.settings.tabOrder.find(t => db.settings.tabs[t]);
-            tab = firstTab || 'tasks';
-
-            checkDailiesReset();
+            const initialTab = db.settings.tabOrder.find(t => db.settings.tabs[t]) || 'tasks';
+            tab = initialTab;
             renderTabOrder();
             updateTabVisibility();
             switchTab(tab);
+            render(false);
+
+            if (syncID) {
+                if (pendingSync && isOnline) {
+                    await pushToCloud();
+                } else {
+                    await pullFromCloud();
+                }
+                subscribeRealtime();
+            } else {
+                setTimeout(promptSyncID, 500);
+            }
             setupInputLogic(); window.addEventListener('focus', pullFromCloud); setupSwipe(); setupFabGestures(); setupMenuTouch();
             initTabSortable();
             document.getElementById('archive-header-row').onclick = toggleArchive;
@@ -1034,20 +1084,19 @@
             if (!syncID || isRemoteUpdate || isDragging) return;
             const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
             if (data?.content) {
-                if (JSON.stringify(db) === JSON.stringify(data.content)) { updateStatus(true); return; }
+                // Perform smart merge
+                const merged = mergeDB(db, data.content);
+                const changed = JSON.stringify(db) !== JSON.stringify(merged);
+                db = merged;
 
-                // MIGRATION: Fix cloud data before using it
-                const migrated = migrateDB(data.content);
-                db = migrated;
-
-                if (db.settings.lastDailyReset === undefined) db.settings.lastDailyReset = '';
-                if (db.settings.lastWeeklyReset === undefined) db.settings.lastWeeklyReset = '';
-                if (db.settings.lastMonthlyReset === undefined) db.settings.lastMonthlyReset = '';
-
-                renderTabOrder();
-                checkDailiesReset();
-                updateTabVisibility();
-                render(); updateStatus(true);
+                if (changed) {
+                    saveLocal();
+                    renderTabOrder();
+                    checkDailiesReset();
+                    updateTabVisibility();
+                    render();
+                }
+                updateStatus(true);
             } else { await pushToCloud(); }
         }
 
@@ -1059,25 +1108,41 @@
 
             if (!isOnline) {
                 pendingSync = true;
+                localStorage.setItem('todo_pending_sync', 'true');
                 updateStatus(true);
                 return;
             }
 
             updateStatus(false);
             try {
-                const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: db }, { onConflict: 'sync_id' });
+                // 1. Pull latest from cloud
+                const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
+
+                // 2. Merge local changes with cloud data
+                const merged = mergeDB(db, data?.content);
+
+                // 3. Upsert merged state
+                const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: merged }, { onConflict: 'sync_id' });
+
                 if (error) {
-                    // Check if it's a network error (Supabase might return specific codes)
-                    console.warn("Sync error, will retry:", error);
+                    console.warn("Push error:", error);
                     pendingSync = true;
+                    localStorage.setItem('todo_pending_sync', 'true');
                     updateStatus(true);
                     return;
                 }
+
+                // Update local db with merged results (in case cloud had newer items)
+                db = merged;
+                saveLocal();
                 pendingSync = false;
+                localStorage.setItem('todo_pending_sync', 'false');
                 updateStatus(true);
+                render(false);
             } catch (e) {
-                console.error("Sync failed exception:", e);
+                console.error("Sync exception:", e);
                 pendingSync = true;
+                localStorage.setItem('todo_pending_sync', 'true');
                 updateStatus(true);
             }
         }
@@ -1785,7 +1850,7 @@
                     }
 
                     txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
-                    txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; saveLocal(); pushToCloud(); } };
+                    txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; db[tab][idx].m = Date.now(); saveLocal(); pushToCloud(); } };
                     card.setAttribute('data-last-done', i.done);
                 } else {
                     const txt = card.querySelector('.editable-text');
@@ -1810,7 +1875,7 @@
                     const txt = card.querySelector('.editable-text');
                     card.style.borderColor = i.done ? '' : borderCol + '88';
                     txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
-                    txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; saveLocal(); pushToCloud(); } };
+                    txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; db[tab][idx].m = Date.now(); saveLocal(); pushToCloud(); } };
                     card.setAttribute('data-last-done', i.done);
                     card.setAttribute('data-last-cat', i.cat);
                 }
@@ -1909,6 +1974,8 @@
 
                     // Update main database
                     db[tab] = newDbList;
+                    // Tag moved items with new timestamp
+                    db[tab].forEach(item => item.m = Date.now());
                     saveLocal(); pushToCloud();
 
                     // Delay render slightly to allow SortableJS to finish its animation
@@ -1996,6 +2063,7 @@
                 delayOnTouchOnly: true,
                 onEnd: () => {
                     db.settings.tabOrder = Array.from(nav.children).map(btn => btn.dataset.id);
+                    db.settings.m = Date.now();
                     saveLocal();
                     pushToCloud();
                     switchTab(tab); // Refresh slider position
@@ -2007,6 +2075,7 @@
         function toggle(idx) {
             if (idx > -1) {
                 db[tab][idx].done = !db[tab][idx].done;
+                db[tab][idx].m = Date.now();
                 if (db[tab][idx].done) db[tab][idx].doneAt = Date.now();
                 render();
                 pushToCloud();
@@ -2014,17 +2083,20 @@
         }
         function remove(idx) {
             if (idx > -1) {
+                const item = db[tab][idx];
                 if (tab === 'shopping') {
-                    if (db.shopping[idx].cat === 'trash') {
-                        // Restore logic
-                        db.shopping[idx].cat = db.shopping[idx].origCat || 'misc';
-                        delete db.shopping[idx].origCat;
+                    if (item.cat === 'trash') {
+                        // Permanent delete (into tombstones)
+                        if (item.uid) db.deleted.push(item.uid);
+                        db.shopping.splice(idx, 1);
                     } else {
                         // Trash logic
-                        db.shopping[idx].origCat = db.shopping[idx].cat;
-                        db.shopping[idx].cat = 'trash';
+                        item.origCat = item.cat;
+                        item.cat = 'trash';
+                        item.m = Date.now();
                     }
                 } else {
+                    if (item.uid) db.deleted.push(item.uid);
                     db[tab].splice(idx, 1);
                 }
                 render(); saveLocal(); pushToCloud();
@@ -2039,6 +2111,7 @@
         function toggleArchive() { db.collapsedStates.archive = !db.collapsedStates.archive; render(); saveLocal(); pushToCloud(); }
         function wipeCompleted() {
             showConfirm('Delete all completed tasks?', () => {
+                db.tasks.forEach(t => { if (t.done && t.uid) db.deleted.push(t.uid); });
                 db.tasks = db.tasks.filter(t => !t.done);
                 render();
                 saveLocal();
@@ -2047,6 +2120,7 @@
         }
         function emptyTrash() {
             showConfirm('Empty Trash?', () => {
+                db.shopping.forEach(i => { if (i.cat === 'trash' && i.uid) db.deleted.push(i.uid); });
                 db.shopping = db.shopping.filter(i => i.cat !== 'trash');
                 render();
                 saveLocal();
@@ -2113,6 +2187,7 @@
                 }
                 db.settings.tabs.tasks = !tasksEnabled;
                 if (!db.settings.tabs.tasks && tab === 'tasks') switchTab(db.settings.tabOrder.find(t => db.settings.tabs[t]));
+                db.settings.m = Date.now();
                 updateTabVisibility();
                 saveLocal(); pushToCloud();
                 renderOptionsMenu(m); // In-place refresh
@@ -2125,6 +2200,7 @@
                 }
                 db.settings.tabs.dailies = !dailiesEnabled;
                 if (!db.settings.tabs.dailies && tab === 'dailies') switchTab(db.settings.tabOrder.find(t => db.settings.tabs[t]));
+                db.settings.m = Date.now();
                 updateTabVisibility();
                 saveLocal(); pushToCloud();
                 renderOptionsMenu(m); // In-place refresh
@@ -2137,6 +2213,7 @@
                 }
                 db.settings.tabs.shopping = !shopEnabled;
                 if (!db.settings.tabs.shopping && tab === 'shopping') switchTab(db.settings.tabOrder.find(t => db.settings.tabs[t]));
+                db.settings.m = Date.now();
                 updateTabVisibility();
                 saveLocal(); pushToCloud();
                 renderOptionsMenu(m); // In-place refresh
@@ -2165,6 +2242,7 @@
                     const n = parseInt(v);
                     if (!isNaN(n) && n >= 0 && n <= 23) {
                         db.settings.resetTime = n;
+                        db.settings.m = Date.now();
                         saveLocal(); pushToCloud(); renderOptionsMenu(m);
                     }
                 });
@@ -2308,14 +2386,13 @@
             if (c.classList.contains('expanded')) {
                 const i = document.getElementById('fab-input'), v = i.value.trim();
                 if (v) {
-                    const uid = Math.random(); animateUID = uid;
+                    const uid = Math.random(), m = Date.now(); animateUID = uid;
                     if (tab === 'shopping') {
-                        db.shopping.push({ text: v, done: false, uid: uid, cat: activeShopCat || 'misc' });
+                        db.shopping.push({ text: v, done: false, uid: uid, m: m, cat: activeShopCat || 'misc' });
                     } else if (tab === 'dailies') {
-                        db.dailies.unshift({ text: v, done: false, uid: uid, section: activeDailySection, interval: 'daily' });
+                        db.dailies.unshift({ text: v, done: false, uid: uid, m: m, section: activeDailySection, interval: 'daily' });
                     } else {
-                        // Use activeTaskSection (which is now an ID)
-                        db.tasks.unshift({ text: v, done: false, uid: uid, section: activeTaskSection });
+                        db.tasks.unshift({ text: v, done: false, uid: uid, m: m, section: activeTaskSection });
                     }
                     render(false); saveLocal(); pushToCloud(); i.value = '';
                 }
@@ -2381,10 +2458,11 @@
             if (sec) {
                 sec.title = document.getElementById('edit-sec-name').value.trim() || sec.title;
                 sec.color = editingSectionColor;
+                sec.m = Date.now();
                 if (tab === 'dailies') {
                     sec.interval = document.getElementById('edit-sec-interval').value;
                 }
-                pushToCloud(); render();
+                saveLocal(); pushToCloud(); render();
             }
             closeEditModal();
         }
@@ -2403,19 +2481,22 @@
             const doDelete = () => {
                 const defaultId = list[0].id;
                 if (tab === 'tasks') {
-                    db.tasks.forEach(t => { if (t.section === editingSectionId) t.section = defaultId; });
+                    db.tasks.forEach(t => { if (t.section === editingSectionId) { t.section = defaultId; t.m = Date.now(); } });
+                    if (editingSectionId) db.deleted.push(editingSectionId);
                     db.taskSections = db.taskSections.filter(s => s.id !== editingSectionId);
                     if (activeTaskSection === editingSectionId) activeTaskSection = defaultId;
                 } else if (tab === 'dailies') {
-                    db.dailies.forEach(d => { if (d.section === editingSectionId) d.section = defaultId; });
+                    db.dailies.forEach(d => { if (d.section === editingSectionId) { d.section = defaultId; d.m = Date.now(); } });
+                    if (editingSectionId) db.deleted.push(editingSectionId);
                     db.dailySections = db.dailySections.filter(s => s.id !== editingSectionId);
                     if (activeDailySection === editingSectionId) activeDailySection = defaultId;
                 } else {
-                    db.shopping.forEach(i => { if (i.cat === editingSectionId) i.cat = defaultId; });
+                    db.shopping.forEach(i => { if (i.cat === editingSectionId) { i.cat = defaultId; i.m = Date.now(); } });
+                    if (editingSectionId) db.deleted.push(editingSectionId);
                     db.shopCategories = db.shopCategories.filter(c => c.id !== editingSectionId);
                     if (activeShopCat === editingSectionId) activeShopCat = defaultId;
                 }
-                pushToCloud(); render();
+                saveLocal(); pushToCloud(); render();
                 closeEditModal();
             };
 
@@ -2519,13 +2600,13 @@
                 if (e.key === 'Enter') {
                     const v = e.target.value.trim();
                     if (v) {
-                        const uid = Math.random(); animateUID = uid;
+                        const uid = Math.random(), m = Date.now(); animateUID = uid;
                         if (tab === 'shopping') {
-                            db.shopping.push({ text: v, done: false, uid: uid, cat: activeShopCat || 'misc' });
+                            db.shopping.push({ text: v, done: false, uid: uid, m: m, cat: activeShopCat || 'misc' });
                         } else if (tab === 'dailies') {
-                            db.dailies.unshift({ text: v, done: false, uid: uid, section: activeDailySection, interval: 'daily' });
+                            db.dailies.unshift({ text: v, done: false, uid: uid, m: m, section: activeDailySection, interval: 'daily' });
                         } else {
-                            db.tasks.unshift({ text: v, done: false, uid: uid, section: activeTaskSection });
+                            db.tasks.unshift({ text: v, done: false, uid: uid, m: m, section: activeTaskSection });
                         }
                         render(false); saveLocal(); pushToCloud();
                     }
