@@ -1053,23 +1053,36 @@
 
         async function pushToCloud() {
             if (!syncID || isRemoteUpdate) return;
+
+            // Always save local state before attempting any push
+            saveLocal();
+
             if (!isOnline) {
                 pendingSync = true;
                 updateStatus(true);
                 return;
             }
+
             updateStatus(false);
             try {
                 const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: db }, { onConflict: 'sync_id' });
-                if (error) throw error;
+                if (error) {
+                    // Check if it's a network error (Supabase might return specific codes)
+                    console.warn("Sync error, will retry:", error);
+                    pendingSync = true;
+                    updateStatus(true);
+                    return;
+                }
                 pendingSync = false;
                 updateStatus(true);
             } catch (e) {
-                console.error("Sync failed:", e);
+                console.error("Sync failed exception:", e);
                 pendingSync = true;
                 updateStatus(true);
             }
         }
+
+
 
         function subscribeRealtime() {
             supabaseClient.channel('changes').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, payload => {
@@ -2014,7 +2027,7 @@
                 } else {
                     db[tab].splice(idx, 1);
                 }
-                render(); pushToCloud();
+                render(); saveLocal(); pushToCloud();
             }
         }
         function toggleCat(k, e) {
@@ -2028,6 +2041,7 @@
             showConfirm('Delete all completed tasks?', () => {
                 db.tasks = db.tasks.filter(t => !t.done);
                 render();
+                saveLocal();
                 pushToCloud();
             });
         }
@@ -2035,6 +2049,7 @@
             showConfirm('Empty Trash?', () => {
                 db.shopping = db.shopping.filter(i => i.cat !== 'trash');
                 render();
+                saveLocal();
                 pushToCloud();
             });
         }
@@ -2302,7 +2317,7 @@
                         // Use activeTaskSection (which is now an ID)
                         db.tasks.unshift({ text: v, done: false, uid: uid, section: activeTaskSection });
                     }
-                    render(false); pushToCloud(); i.value = '';
+                    render(false); saveLocal(); pushToCloud(); i.value = '';
                 }
                 collapseInput();
             } else { expandInput(); }
@@ -2512,7 +2527,7 @@
                         } else {
                             db.tasks.unshift({ text: v, done: false, uid: uid, section: activeTaskSection });
                         }
-                        render(false); pushToCloud();
+                        render(false); saveLocal(); pushToCloud();
                     }
                     e.target.value = ''; collapseInput();
                 }
