@@ -942,20 +942,22 @@
 
         // Unified Migration Logic
         function mergeDB(local, remote) {
-            if (!remote) return migrateDB(local);
-            const l = migrateDB(local), r = migrateDB(remote);
+            if (!remote) return migrateDB(local, true);
+            // DO NOT update globals during merge
+            const l = migrateDB(JSON.parse(JSON.stringify(local)), false);
+            const r = migrateDB(JSON.parse(JSON.stringify(remote)), false);
 
             const mergeArea = (listL, listR, delUnion) => {
                 const map = new Map();
-                // Add all remote items
-                listR.forEach(i => map.set(i.uid, i));
-                // Add local items if missing or newer
+                // Use i.uid || i.id as key to support both items and sections
+                listR.forEach(i => { const key = i.uid || i.id; if (key) map.set(key, i); });
                 listL.forEach(i => {
-                    const existing = map.get(i.uid);
-                    if (!existing || (i.m || 0) > (existing.m || 0)) map.set(i.uid, i);
+                    const key = i.uid || i.id;
+                    if (!key) return;
+                    const existing = map.get(key);
+                    if (!existing || (i.m || 0) > (existing.m || 0)) map.set(key, i);
                 });
-                // Filter by combined deletions
-                return Array.from(map.values()).filter(i => !delUnion.has(i.uid));
+                return Array.from(map.values()).filter(i => !delUnion.has(i.uid || i.id));
             };
 
             const delUnion = new Set([...l.deleted, ...r.deleted]);
@@ -967,14 +969,14 @@
                 taskSections: mergeArea(l.taskSections, r.taskSections, delUnion),
                 shopCategories: mergeArea(l.shopCategories, r.shopCategories, delUnion),
                 dailySections: mergeArea(l.dailySections, r.dailySections, delUnion),
-                deleted: Array.from(delUnion).slice(-100), // Keep last 100 tombstones
+                deleted: Array.from(delUnion).slice(-100),
                 collapsedStates: { ...r.collapsedStates, ...l.collapsedStates },
                 settings: (l.settings?.m || 0) > (r.settings?.m || 0) ? l.settings : r.settings
             };
             return merged;
         }
 
-        function migrateDB(data) {
+        function migrateDB(data, updateGlobals = true) {
             if (!data) data = {};
             if (!data.tasks) data.tasks = [];
             if (!data.shopping) data.shopping = [];
@@ -997,6 +999,10 @@
                 data.dailies.forEach(d => { if (d.section === 'Dailies' || !d.section) d.section = 'Daily'; });
             }
             data.dailySections = data.dailySections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff', interval: 'daily' } : s);
+
+            // Ensure every item has a UID (Critical for Merging)
+            const ensureUID = (list) => list.forEach(i => { if (!i.uid) i.uid = Math.random(); });
+            ensureUID(data.tasks); ensureUID(data.shopping); ensureUID(data.dailies);
 
             // Daily Items Migration
             data.dailies.forEach(d => {
@@ -1031,9 +1037,11 @@
             if (!data.deleted) data.deleted = [];
 
             // Ensure active selections are valid
-            if (!data.taskSections.some(s => s.id === activeTaskSection)) activeTaskSection = data.taskSections[0]?.id || 'Tasks';
-            if (!data.shopCategories.some(c => c.id === activeShopCat)) activeShopCat = data.shopCategories[0]?.id || 'misc';
-            if (!data.dailySections.some(s => s.id === activeDailySection)) activeDailySection = data.dailySections[0]?.id || 'Daily';
+            if (updateGlobals) {
+                if (!data.taskSections.some(s => s.id === activeTaskSection)) activeTaskSection = data.taskSections[0]?.id || 'Tasks';
+                if (!data.shopCategories.some(c => c.id === activeShopCat)) activeShopCat = data.shopCategories[0]?.id || 'misc';
+                if (!data.dailySections.some(s => s.id === activeDailySection)) activeDailySection = data.dailySections[0]?.id || 'Daily';
+            }
 
             return data;
         }
