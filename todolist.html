@@ -84,12 +84,54 @@
             padding-bottom: 4px;
         }
 
+        .task-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 6px;
+            min-height: 50px;
+            padding-bottom: 4px;
+        }
+
+        @media (min-width: 768px) {
+            .task-grid {
+                grid-template-columns: repeat(var(--cols, 1), auto);
+                width: fit-content;
+                max-width: 100%;
+                justify-content: start;
+            }
+
+            .cols-wrapper {
+                display: flex;
+                gap: 30px;
+                align-items: start;
+                width: fit-content;
+                max-width: 100%;
+            }
+
+            .main-col {
+                display: flex;
+                flex-direction: column;
+                gap: 0;
+                /* Gaps handled by section margins */
+                flex: 0 0 auto;
+            }
+        }
+
+        .section-block {
+            display: block;
+            width: fit-content;
+            min-width: 260px;
+            break-inside: avoid;
+            margin-bottom: 2.5rem;
+        }
+
         .section-header {
             font-size: 10px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            margin-bottom: 10px;
+            margin-top: 0.5rem;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
             cursor: pointer;
@@ -563,7 +605,7 @@
     <div id="viewport">
         <div id="view-slider">
             <main id="tasks-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
-                <div id="list-content" class="space-y-6 mt-2"></div>
+                <div id="list-content" class="cols-wrapper mt-2"></div>
                 <!-- Archive Area now appended dynamically or kept at bottom -->
                 <section id="archive-area" class="hidden mt-6 pt-4 border-t border-zinc-900">
                     <div id="archive-header-row"
@@ -590,7 +632,7 @@
                 <div id="shop-container" class="mt-2 space-y-6"></div>
             </main>
             <main id="dailies-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
-                <div id="dailies-content" class="space-y-6 mt-2"></div>
+                <div id="dailies-content" class="cols-wrapper mt-2"></div>
             </main>
         </div>
     </div>
@@ -886,6 +928,17 @@
             const m = (c) => Math.round(c + (255 - c) * amount);
             const h = (c) => c.toString(16).padStart(2, '0');
             return `#${h(m(r))}${h(m(g))}${h(m(b))}`;
+        }
+
+        function updateGridColumns(container, items) {
+            if (!container || !items) return;
+            const maxLen = Math.max(0, ...items.map(i => (i.text || '').length));
+            let cols = 1;
+            if (items.length > 1) {
+                if (maxLen < 20) cols = 3;
+                else if (maxLen < 35) cols = 2;
+            }
+            container.style.setProperty('--cols', cols);
         }
 
         let syncID = (localStorage.getItem('todo_sync_id') || '').toLowerCase().trim();
@@ -1552,13 +1605,18 @@
                 db.taskSections = db.taskSections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff' } : s);
 
                 // Render each section
+                listC.innerHTML = '<div id="list-col-1" class="main-col"></div><div id="list-col-2" class="main-col"></div>';
+                const col1 = listC.querySelector('#list-col-1');
+                const col2 = listC.querySelector('#list-col-2');
+
                 db.taskSections.forEach((sec, secIdx) => {
+                    const targetCol = (secIdx % 2 === 0) ? col1 : col2;
                     const secId = sec.id;
                     const secTitle = sec.title;
                     const secColor = sec.color || '#ffffff';
 
                     const secDiv = document.createElement('div');
-                    secDiv.className = 'section-block mb-4';
+                    secDiv.className = 'section-block';
                     secDiv.setAttribute('data-sec-id', secId);
 
                     const isCol = db.collapsedStates[secId];
@@ -1569,7 +1627,7 @@
                         <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${secColor}">${secTitle}</span>
                         <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${count}</span>
                     </div>
-                    <div id="list-${secId}" class="space-y-1.5 ${isCol ? 'collapsed-content' : ''}"></div>`;
+                    <div id="list-${secId}" class="task-grid ${isCol ? 'collapsed-content' : ''}"></div>`;
 
                     // Attach click for collapse
                     secDiv.querySelector('.section-header').onclick = (e) => {
@@ -1624,7 +1682,7 @@
                     hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cancelSecPress(); });
 
 
-                    listC.appendChild(secDiv);
+                    targetCol.appendChild(secDiv);
 
                     const cont = secDiv.querySelector(`[id^="list-"]`);
 
@@ -1633,19 +1691,26 @@
                     const items = list.filter(i => !i.done && (i.section === secId || (isDefault && !i.section)));
 
                     items.forEach(i => buildItem(cont, i, itemMap));
+                    updateGridColumns(cont, items);
                 });
 
                 const comp = list.filter(i => i.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+                archC.classList.add('task-grid');
                 comp.forEach(i => buildItem(archC, i, itemMap));
+                updateGridColumns(archC, comp);
 
                 if (comp.length === 0) archiveArea.classList.add('hidden');
 
                 // Make section blocks sortable
                 initSectionSortable();
             } else if (tab === 'dailies') {
+                dailyC.innerHTML = '<div id="daily-col-1" class="main-col"></div><div id="daily-col-2" class="main-col"></div>';
+                const col1 = dailyC.querySelector('#daily-col-1');
+                const col2 = dailyC.querySelector('#daily-col-2');
+
                 db.dailySections.forEach((sec, secIdx) => {
-                    const secId = sec.id;
-                    renderDailiesSection(dailyC, sec.title, secId, sec.color || '#ffffff', itemMap, secIdx === 0);
+                    const targetCol = (secIdx % 2 === 0) ? col1 : col2;
+                    renderDailiesSection(targetCol, sec.title, sec.id, sec.color || '#ffffff', itemMap, secIdx === 0);
                 });
                 initSectionSortable();
             } else {
@@ -1726,7 +1791,7 @@
 
         function renderDailiesSection(p, l, k, color, itemMap, isDefault) {
             const secDiv = document.createElement('div');
-            secDiv.className = 'section-block mb-4';
+            secDiv.className = 'section-block';
             secDiv.setAttribute('data-sec-id', k);
 
             const isCol = db.collapsedStates[k];
@@ -1741,7 +1806,7 @@
                     <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${active}/${count}</span>
                 </div>
             </div>
-            <div id="list-${k}" class="space-y-1.5 ${isCol ? 'collapsed-content' : ''}"></div>`;
+            <div id="list-${k}" class="task-grid ${isCol ? 'collapsed-content' : ''}"></div>`;
 
             const hdr = secDiv.querySelector('.section-header');
             // onclick removed from hdr, moved to label div inside template
@@ -1782,6 +1847,7 @@
 
             const cont = secDiv.querySelector(`[id^="list-"]`);
             items.forEach(i => buildItem(cont, i, itemMap));
+            updateGridColumns(cont, items);
         }
 
         function buildItem(p, i, itemMap) {
@@ -2568,40 +2634,60 @@
         // Section Reordering
         function initSectionSortable() {
             const isT = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-            const listC = tab === 'tasks' ? document.getElementById('list-content') : (tab === 'dailies' ? document.getElementById('dailies-content') : document.getElementById('shop-container'));
-            if (!listC) return;
+            const parent = tab === 'tasks' ? document.getElementById('list-content') : (tab === 'dailies' ? document.getElementById('dailies-content') : document.getElementById('shop-container'));
+            if (!parent) return;
 
-            if (listC._sortable) listC._sortable.destroy();
+            const cols = parent.querySelectorAll('.main-col');
+            const containers = cols.length > 0 ? Array.from(cols) : [parent];
 
-            listC._sortable = Sortable.create(listC, {
-                animation: 200,
-                handle: '.section-header:not(.no-drag)',
-                draggable: '.section-block',
-                filter: '.trash-btn, .del, .chk-box',
-                preventOnFilter: true,
-                delay: isT ? 150 : 0,
-                delayOnTouchOnly: true,
-                forceFallback: true,
-                fallbackTolerance: 5,
-                ghostClass: 'sortable-ghost',
-                onStart: () => { window.isDraggingSectionGlobal = true; },
-                onEnd: () => {
-                    window.isDraggingSectionGlobal = false;
-                    const newOrder = [];
-                    listC.querySelectorAll('.section-block').forEach(el => {
-                        const secId = el.getAttribute('data-sec-id');
-                        const list = tab === 'tasks' ? db.taskSections : (tab === 'dailies' ? db.dailySections : db.shopCategories);
-                        const sec = list.find(s => s.id === secId);
-                        if (sec) newOrder.push(sec);
-                    });
-                    if (tab === 'tasks') db.taskSections = newOrder;
-                    else if (tab === 'dailies') db.dailySections = newOrder;
-                    else db.shopCategories = newOrder;
+            containers.forEach(el => {
+                if (el._sortable) el._sortable.destroy();
+                el._sortable = Sortable.create(el, {
+                    group: 'sections-group',
+                    animation: 200,
+                    handle: '.section-header:not(.no-drag)',
+                    draggable: '.section-block',
+                    filter: '.trash-btn, .del, .chk-box',
+                    preventOnFilter: true,
+                    delay: isT ? 150 : 0,
+                    delayOnTouchOnly: true,
+                    forceFallback: true,
+                    fallbackTolerance: 5,
+                    ghostClass: 'sortable-ghost',
+                    onStart: () => { window.isDraggingSectionGlobal = true; },
+                    onEnd: () => {
+                        window.isDraggingSectionGlobal = false;
+                        // To get the new overall order, we need to look at both columns if they exist
+                        const newOrder = [];
+                        // We decide the order is Col1 then Col2. Or we could interleave. 
+                        // Col1 then Col2 is predictable for the user.
+                        const allCols = parent.querySelectorAll('.main-col');
+                        if (allCols.length > 0) {
+                            allCols.forEach(c => {
+                                c.querySelectorAll('.section-block').forEach(el => {
+                                    const secId = el.getAttribute('data-sec-id');
+                                    const list = tab === 'tasks' ? db.taskSections : (tab === 'dailies' ? db.dailySections : db.shopCategories);
+                                    const sec = list.find(s => s.id === secId);
+                                    if (sec) newOrder.push(sec);
+                                });
+                            });
+                        } else {
+                            parent.querySelectorAll('.section-block').forEach(el => {
+                                const secId = el.getAttribute('data-sec-id');
+                                const list = tab === 'tasks' ? db.taskSections : (tab === 'dailies' ? db.dailySections : db.shopCategories);
+                                const sec = list.find(s => s.id === secId);
+                                if (sec) newOrder.push(sec);
+                            });
+                        }
 
-                    // Tag the section order change via a setting or by tagging a default section
-                    db.settings.m = Date.now();
-                    saveLocal(); pushToCloud();
-                }
+                        if (tab === 'tasks') db.taskSections = newOrder;
+                        else if (tab === 'dailies') db.dailySections = newOrder;
+                        else db.shopCategories = newOrder;
+
+                        db.settings.m = Date.now();
+                        saveLocal(); pushToCloud();
+                    }
+                });
             });
         }
 
