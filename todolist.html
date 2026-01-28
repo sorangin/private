@@ -147,44 +147,36 @@
             width: 100%;
         }
 
-        .sync-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
+        /* Sync Status on Menu Button */
+        #menu-btn.status-online {
+            color: #32a505 !important;
+            filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.4));
         }
 
-        .status-online {
-            background-color: #10b981;
-            box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+        #menu-btn.status-offline {
+            color: #ef4444 !important;
+            filter: none;
         }
 
-        .status-offline {
-            background-color: #71717a;
-            box-shadow: none;
-        }
-
-        .status-syncing {
-            background-color: #3b82f6;
-            box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+        #menu-btn.status-syncing {
+            color: #3b82f6 !important;
             animation: pulse-sync 1.5s infinite;
         }
 
         @keyframes pulse-sync {
             0% {
-                transform: scale(1);
                 opacity: 1;
+                transform: scale(1);
             }
 
             50% {
-                transform: scale(1.3);
-                opacity: 0.7;
+                opacity: 0.6;
+                transform: scale(1.1);
             }
 
             100% {
-                transform: scale(1);
                 opacity: 1;
+                transform: scale(1);
             }
         }
 
@@ -831,25 +823,23 @@
 </head>
 
 <body>
-    <header style="view-transition-name: main-header"
-        class="flex justify-between items-center px-2 md:px-4 py-2 flex-shrink-0">
-        <div class="flex items-center gap-3">
-            <button id="menu-btn" onclick="toggleOptionsMenu(event)"
-                class="text-zinc-500 hover:text-white transition-colors">
-                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+    <header style="view-transition-name: main-header" class="flex justify-between items-center px-4 py-2 flex-shrink-0">
+        <div class="flex items-center gap-4">
+            <button id="menu-btn" onclick="toggleOptionsMenu(event)" class="transition-all duration-300">
+                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                     <path d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
             </button>
             <nav style="view-transition-name: main-tabs" id="tab-nav"
-                class="flex gap-0.5 md:gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/5">
+                class="flex gap-1.5 md:gap-2 bg-zinc-900/80 p-1.5 rounded-xl border border-white/5">
                 <button onclick="switchTab('tasks')" id="tab-tasks" data-id="tasks"
-                    class="px-2.5 md:px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
+                    class="px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Tasks</button>
                 <button onclick="switchTab('dailies')" id="tab-dailies" data-id="dailies"
-                    class="px-2.5 md:px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Dailies</button>
+                    class="px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Dailies</button>
                 <button onclick="switchTab('shopping')" id="tab-shopping" data-id="shopping"
-                    class="px-2.5 md:px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
+                    class="px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
                 <button onclick="switchTab('notes')" id="tab-notes" data-id="notes"
-                    class="px-2.5 md:px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center">
+                    class="px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -860,9 +850,6 @@
                     </svg>
                 </button>
             </nav>
-        </div>
-        <div class="flex flex-col items-end">
-            <div id="sync-status" class="sync-dot status-offline" title="Offline"></div>
         </div>
     </header>
 
@@ -1446,6 +1433,9 @@
             db.settings.tabOrder.forEach(id => {
                 const b = btns[id];
                 if (b) {
+                    b.className = id === tab ?
+                        'px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg transition-all' :
+                        'px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500 transition-all';
                     nav.appendChild(b);
                 }
             });
@@ -2563,8 +2553,8 @@
                 const btn = document.getElementById('tab-' + id);
                 if (btn) {
                     btn.className = id === t ?
-                        'px-2.5 md:px-5 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg transition-all' :
-                        'px-2.5 md:px-5 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500 transition-all';
+                        'px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white shadow-lg transition-all' :
+                        'px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase text-zinc-500 transition-all';
                 }
             });
 
@@ -3253,9 +3243,9 @@
         function handleBgClick(e) { if (e.target.id.includes('-pane')) collapseInput(); }
 
         function updateStatus(ok) {
-            const s = document.getElementById('sync-status');
+            const s = document.getElementById('menu-btn');
             if (!s) return;
-            s.className = 'sync-dot ' + (ok ? (pendingSync ? 'status-syncing' : 'status-online') : 'status-offline');
+            s.className = (ok ? (pendingSync ? 'status-syncing' : 'status-online') : 'status-offline') + ' transition-all duration-300';
             s.title = ok ? (pendingSync ? 'Syncing...' : 'Online') : 'Offline';
         }
         init();
