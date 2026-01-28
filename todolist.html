@@ -148,9 +148,14 @@
         }
 
         /* Sync Status on Menu Button */
+        #menu-btn {
+            color: #71717a;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         #menu-btn.status-online {
-            color: #32a505 !important;
-            filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.4));
+            color: #71717a !important;
+            filter: none;
         }
 
         #menu-btn.status-offline {
@@ -161,6 +166,11 @@
         #menu-btn.status-syncing {
             color: #3b82f6 !important;
             animation: pulse-sync 1.5s infinite;
+        }
+
+        /* Hover must come last to override status colors */
+        #menu-btn:hover {
+            color: #ffffff !important;
         }
 
         @keyframes pulse-sync {
