@@ -94,9 +94,8 @@
 
         @media (min-width: 768px) {
             .task-grid {
-                grid-template-columns: repeat(var(--cols, 1), auto);
-                width: fit-content;
-                max-width: 100%;
+                grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
+                width: 100%;
                 justify-content: start;
             }
 
@@ -113,16 +112,39 @@
                 flex-direction: column;
                 gap: 0;
                 /* Gaps handled by section margins */
-                flex: 0 0 auto;
+                flex: 1 1 0px;
+                min-width: 0;
+                max-width: 600px;
+                min-height: 100px;
+                /* Ensure drop target */
+            }
+
+            #list-content {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 30px;
+                align-items: flex-start;
+            }
+
+            #dailies-content {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 30px;
+                align-items: flex-start;
             }
         }
 
         .section-block {
             display: block;
-            width: fit-content;
+            width: 100%;
             min-width: 260px;
             break-inside: avoid;
             margin-bottom: 2.5rem;
+        }
+
+        #shopping-pane .section-block,
+        #shopping-pane .section-block-static {
+            width: 100%;
         }
 
         .section-header {
@@ -136,6 +158,8 @@
             align-items: center;
             cursor: pointer;
             padding: 4px 8px;
+            position: relative;
+            z-index: 20;
         }
 
         .item-card {
@@ -202,6 +226,153 @@
             cursor: text;
         }
 
+        /* Notes Sidebar Styles */
+        .view-pane-flex {
+            display: block;
+        }
+
+        @media (min-width: 768px) {
+            .view-pane-flex {
+                display: flex;
+                gap: 40px;
+                align-items: stretch;
+                min-height: calc(100vh - 120px);
+            }
+
+            .list-content-side {
+                flex: 1;
+                min-width: 0;
+                position: relative;
+                z-index: 1;
+                /* Prevent sidebar overlap blocking clicks */
+                padding-bottom: 2rem;
+            }
+
+            .notes-wrapper {
+                width: 320px;
+                flex: 0 0 320px;
+                position: relative;
+                align-self: stretch;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .notes-sidebar {
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                background: #0c0c0d;
+                border-left: 1px solid #1c1c1e;
+                padding: 1rem;
+                display: flex;
+                flex-direction: column;
+                transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                z-index: 50;
+            }
+
+            .notes-sidebar.expanded {
+                width: 100vw;
+                z-index: 9999;
+                padding: 2rem;
+                /* Right anchor ensures leftward expansion */
+            }
+
+            .notes-edge-trigger {
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 40px;
+                z-index: 60;
+                background: transparent;
+            }
+
+            .notes-expand-btn {
+                position: absolute;
+                left: -12px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 24px;
+                height: 48px;
+                background: #1c1c1e;
+                border: 1px solid #2d2d30;
+                border-radius: 6px 0 0 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                opacity: 0;
+                transition: opacity 0.2s;
+                color: #71717a;
+                z-index: 70;
+                pointer-events: none;
+                /* Block clicks unless visible */
+            }
+
+            .notes-edge-trigger:hover~.notes-expand-btn,
+            .notes-expand-btn:hover {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .notes-sidebar.expanded .notes-expand-btn {
+                display: none;
+            }
+
+            .notes-close-btn {
+                position: absolute;
+                top: 2rem;
+                right: 2rem;
+                width: 40px;
+                height: 40px;
+                background: #1c1c1e;
+                border: 1px solid #2d2d30;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                color: #ffffff;
+                z-index: 10001;
+                transition: opacity 0.3s ease, transform 0.2s, background 0.2s;
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .notes-close-btn:hover {
+                background: #27272a;
+                transform: scale(1.1);
+            }
+
+            .notes-sidebar.expanded .notes-close-btn {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
+
+        @media (max-width: 767px) {
+
+            .notes-wrapper,
+            .notes-sidebar {
+                display: none;
+            }
+        }
+
+        .notes-textarea {
+            width: 100%;
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #d1d1d6;
+            font-size: 13px;
+            line-height: 1.6;
+            resize: none;
+            font-family: inherit;
+        }
+
         .strikethrough {
             text-decoration: line-through;
             opacity: 0.6;
@@ -223,8 +394,8 @@
         .sortable-drag {
             opacity: 0.9 !important;
             transform: scale(1.1);
-            cursor: grabbing;
-            z-index: 10000;
+            cursor: grabbing !important;
+            z-index: 10000 !important;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             border: 2px solid #3b82f6 !important;
         }
@@ -605,28 +776,34 @@
     <div id="viewport">
         <div id="view-slider">
             <main id="tasks-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
-                <div id="list-content" class="cols-wrapper mt-2"></div>
-                <!-- Archive Area now appended dynamically or kept at bottom -->
-                <section id="archive-area" class="hidden mt-6 pt-4 border-t border-zinc-900">
-                    <div id="archive-header-row"
-                        class="flex justify-between md:justify-start items-center mb-4 cursor-pointer group px-2 md:gap-3">
-                        <div class="flex items-center gap-2 text-zinc-600">
-                            <svg class="chevron" width="12" height="12" fill="none" viewBox="0 0 24 24"
-                                stroke="currentColor" stroke-width="3">
-                                <path d="M19 9l-7 7-7-7" />
-                            </svg>
-                            <p class="text-[9px] uppercase tracking-widest font-bold">Completed</p>
-                        </div>
-                        <button id="wipe-btn" class="text-zinc-800 hover:text-red-500 transition-colors">
-                            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                stroke-width="2">
-                                <path
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                        </button>
+                <div class="view-pane-flex">
+                    <div class="list-content-side">
+                        <div id="list-content" class="cols-wrapper mt-2"></div>
+                        <!-- Archive Area now appended dynamically or kept at bottom -->
+                        <section id="archive-area" class="hidden mt-6 pt-4 border-t border-zinc-900">
+                            <div id="archive-header-row"
+                                class="flex items-center justify-between px-2 py-1 rounded-lg cursor-pointer hover:bg-white/5 transition"
+                                onclick="toggleArchive()">
+                                <div class="flex items-center">
+                                    <span id="archive-chevron" class="chevron mr-2 text-zinc-600">▼</span>
+                                    <span
+                                        class="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Completed</span>
+                                </div>
+                                <button onclick="wipeCompleted(event)" id="wipe-btn" class="trash-icon-btn p-1">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path
+                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="archive-content" class="space-y-1.5"></div>
+                        </section>
                     </div>
-                    <div id="archive-content" class="space-y-1.5"></div>
-                </section>
+                    <div class="notes-wrapper">
+                        <div class="notes-sidebar"></div>
+                    </div>
+                </div>
             </main>
             <main id="shopping-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
                 <div id="shop-container" class="mt-2 space-y-6"></div>
@@ -706,6 +883,29 @@
                 it!</button>
         </div>
     </div>
+
+    <!-- Mobile Notes Modal -->
+    <div id="mobile-notes-modal"
+        class="fixed inset-0 z-[30000] flex flex-col bg-[#0c0c0d] pointer-events-none opacity-0 transition-all duration-300">
+        <div class="flex items-center justify-between p-4 border-b border-zinc-800">
+            <h2 class="text-lg font-bold text-white">Notes</h2>
+            <button onclick="closeMobileNotes()" class="text-zinc-500 hover:text-white transition-colors p-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <textarea class="notes-textarea flex-1 p-4" placeholder=""></textarea>
+    </div>
+
+    <style>
+        #mobile-notes-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    </style>
 
     <!-- Custom Prompt Modal -->
     <div id="prompt-modal-overlay" class="modal-overlay" onclick="closePrompt()">
@@ -984,7 +1184,9 @@
                 tabOrder: ['tasks', 'dailies', 'shopping'],
                 lastResetDate: null,
                 resetTime: 0
-            }
+            },
+            notes: "",
+            notesM: 0
         };
         let tab = 'tasks', isRemoteUpdate = false;
         let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false, lastActionTime = 0, animateUID = 0;
@@ -1044,8 +1246,17 @@
                 dailySections: mergeArea(l.dailySections, r.dailySections, delUnion),
                 deleted: Array.from(delUnion).slice(-100),
                 collapsedStates: { ...r.collapsedStates, ...l.collapsedStates },
-                settings: (l.settings?.m || 0) > (r.settings?.m || 0) ? l.settings : r.settings
+                settings: (l.settings?.m || 0) > (r.settings?.m || 0) ? l.settings : r.settings,
+                notes: (l.settings?.m || 0) > (r.settings?.m || 0) ? l.notes : r.notes // Use settings timestamp as proxy for notes freshness for now, or just prefer local
             };
+            // Better notes merge: if notes exist on both, pick the one from the side with the newest overall modification
+            const latestM = Math.max(l.settings?.m || 0, r.settings?.m || 0);
+            merged.notes = (l.settings?.m || 0) >= (r.settings?.m || 0) ? (l.notes || "") : (r.notes || "");
+            // Better notes merge: use independent timestamp
+            const lNm = l.notesM || l.settings?.m || 0;
+            const rNm = r.notesM || r.settings?.m || 0;
+            merged.notes = lNm >= rNm ? (l.notes || "") : (r.notes || "");
+            merged.notesM = Math.max(lNm, rNm);
             return merged;
         }
 
@@ -1098,6 +1309,9 @@
             data.taskSections.forEach(s => { if (data.collapsedStates[s.id] === undefined) data.collapsedStates[s.id] = false; });
             data.shopCategories.forEach(c => { if (data.collapsedStates[c.id] === undefined) data.collapsedStates[c.id] = false; });
             data.dailySections.forEach(s => { if (data.collapsedStates[s.id] === undefined) data.collapsedStates[s.id] = false; });
+
+            if (data.notes === undefined) data.notes = "";
+            if (data.notesM === undefined) data.notesM = data.settings?.m || 0;
 
             // Settings & Tabs
             if (!data.settings) data.settings = { tabs: { tasks: true, shopping: true, dailies: true }, tabOrder: ['tasks', 'dailies', 'shopping'], resetTime: 0 };
@@ -1162,7 +1376,7 @@
         }
 
         async function pullFromCloud() {
-            if (!syncID || isRemoteUpdate || isDragging) return;
+            if (!syncID || isRemoteUpdate || isDragging || window.isDraggingSectionGlobal) return;
             const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
             if (data?.content) {
                 // Perform smart merge
@@ -1588,7 +1802,24 @@
             listC.innerHTML = ''; archC.innerHTML = ''; shopC.innerHTML = ''; dailyC.innerHTML = '';
 
             const list = db[tab] || [];
-            list.forEach(i => { if (!i.uid) i.uid = Math.random(); if (tab === 'shopping' && !i.cat) i.cat = 'misc'; });
+
+            // Deduplicate items by UID to prevent double-rendering bugs
+            const seenUids = new Set();
+            const deduplicated = [];
+            list.forEach(i => {
+                if (!i.uid) i.uid = Math.random();
+                const uidStr = String(i.uid);
+                if (!seenUids.has(uidStr)) {
+                    seenUids.add(uidStr);
+                    deduplicated.push(i);
+                }
+            });
+            if (deduplicated.length !== list.length) {
+                db[tab] = deduplicated;
+            }
+
+            const renderList = deduplicated;
+            renderList.forEach(i => { if (tab === 'shopping' && !i.cat) i.cat = 'misc'; });
 
             if (tab === 'tasks') {
                 const archiveArea = document.getElementById('archive-area');
@@ -1605,12 +1836,18 @@
                 db.taskSections = db.taskSections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff' } : s);
 
                 // Render each section
-                listC.innerHTML = '<div id="list-col-1" class="main-col"></div><div id="list-col-2" class="main-col"></div>';
-                const col1 = listC.querySelector('#list-col-1');
-                const col2 = listC.querySelector('#list-col-2');
+                listC.innerHTML = '<div id="task-col-1" class="main-col"></div><div id="task-col-2" class="main-col"></div>';
+                const col1 = listC.querySelector('#task-col-1');
+                const col2 = listC.querySelector('#task-col-2');
+                const colArr = [col1, col2];
 
                 db.taskSections.forEach((sec, secIdx) => {
-                    const targetCol = (secIdx % 2 === 0) ? col1 : col2;
+                    let targetCol;
+                    if (sec.col !== undefined && sec.col < colArr.length) {
+                        targetCol = colArr[sec.col];
+                    } else {
+                        targetCol = colArr[secIdx % 2];
+                    }
                     const secId = sec.id;
                     const secTitle = sec.title;
                     const secColor = sec.color || '#ffffff';
@@ -1620,9 +1857,9 @@
                     secDiv.setAttribute('data-sec-id', secId);
 
                     const isCol = db.collapsedStates[secId];
-                    const count = list.filter(i => !i.done && (i.section === secId || (!i.section && secIdx === 0))).length;
+                    const count = renderList.filter(i => !i.done && (i.section === secId || (!i.section && secIdx === 0))).length;
 
-                    secDiv.innerHTML = `<div class="section-header cursor-pointer hover:bg-white/5 transition-colors rounded-lg px-2 py-1 -mx-2" data-sec-id="${secId}">
+                    secDiv.innerHTML = `<div class="section-header cursor-pointer hover:bg-white/5 transition-colors rounded-lg px-2 py-1" data-sec-id="${secId}">
                         <span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${secColor}">▼</span>
                         <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${secColor}">${secTitle}</span>
                         <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${count}</span>
@@ -1688,40 +1925,115 @@
 
                     // Filter items for this section
                     const isDefault = secIdx === 0;
-                    const items = list.filter(i => !i.done && (i.section === secId || (isDefault && !i.section)));
+                    const items = renderList.filter(i => !i.done && (i.section === secId || (isDefault && !i.section)));
 
                     items.forEach(i => buildItem(cont, i, itemMap));
                     updateGridColumns(cont, items);
                 });
 
-                const comp = list.filter(i => i.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+                const comp = renderList.filter(i => i.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
                 archC.classList.add('task-grid');
                 comp.forEach(i => buildItem(archC, i, itemMap));
                 updateGridColumns(archC, comp);
 
                 if (comp.length === 0) archiveArea.classList.add('hidden');
 
+                // Render Notes Sidebar
+                renderNotes();
+
                 // Make section blocks sortable
                 initSectionSortable();
             } else if (tab === 'dailies') {
-                dailyC.innerHTML = '<div id="daily-col-1" class="main-col"></div><div id="daily-col-2" class="main-col"></div>';
+                dailyC.innerHTML = '<div id="daily-col-1" class="main-col"></div><div id="daily-col-2" class="main-col"></div><div id="daily-col-3" class="main-col"></div>';
                 const col1 = dailyC.querySelector('#daily-col-1');
                 const col2 = dailyC.querySelector('#daily-col-2');
+                const col3 = dailyC.querySelector('#daily-col-3');
+                const colArr = [col1, col2, col3];
 
                 db.dailySections.forEach((sec, secIdx) => {
-                    const targetCol = (secIdx % 2 === 0) ? col1 : col2;
+                    let targetCol;
+                    if (sec.col !== undefined && sec.col < colArr.length) {
+                        targetCol = colArr[sec.col];
+                    } else {
+                        targetCol = colArr[secIdx % 3];
+                    }
                     renderDailiesSection(targetCol, sec.title, sec.id, sec.color || '#ffffff', itemMap, secIdx === 0);
                 });
+
                 initSectionSortable();
-            } else {
-                db.shopCategories.forEach(c => renderSection(shopC, c.title, c.id, c.color || '#ffffff', itemMap));
-                if (db.shopping.some(i => i.cat === 'trash')) {
-                    renderSection(shopC, 'Trash', 'trash', '#71717a', itemMap, false);
-                }
+            } else if (tab === 'shopping') {
+                shopC.innerHTML = '';
+                renderShop(shopC, itemMap);
+                initSectionSortable();
             }
             saveLocal(); initSortable(); animateUID = 0;
 
             // Update FAB visual hint? Optional.
+        }
+
+        function renderNotes() {
+            const sidebars = document.querySelectorAll('.notes-sidebar');
+            sidebars.forEach(sidebar => {
+                sidebar.innerHTML = `
+                    <div class="notes-edge-trigger"></div>
+                    <button class="notes-expand-btn" title="Expand">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+                    <button class="notes-close-btn" title="Close">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                    <textarea class="notes-textarea" placeholder="">${db.notes || ''}</textarea>
+                `;
+
+                const expandBtn = sidebar.querySelector('.notes-expand-btn');
+                const closeBtn = sidebar.querySelector('.notes-close-btn');
+
+                expandBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    sidebar.classList.add('expanded');
+                };
+
+                closeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    sidebar.classList.remove('expanded');
+                };
+
+                // Make expand button follow mouse Y position
+                sidebar.addEventListener('mousemove', (e) => {
+                    if (sidebar.classList.contains('expanded')) return;
+                    const rect = sidebar.getBoundingClientRect();
+                    const y = e.clientY - rect.top;
+                    const minY = 40;
+                    const maxY = rect.height - 40;
+                    const clampedY = Math.max(minY, Math.min(maxY, y));
+                    expandBtn.style.top = clampedY + 'px';
+                    expandBtn.style.transform = 'translateY(-50%)';
+                });
+
+                const textarea = sidebar.querySelector('.notes-textarea');
+                textarea.oninput = (e) => {
+                    db.notes = e.target.value;
+                    db.notesM = Date.now();
+                    db.settings.m = Date.now();
+                    saveLocal();
+                    // Debounce cloud push
+                    if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
+                    window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
+
+                };
+            });
+        }
+
+        function renderShop(container, itemMap) {
+            db.shopCategories.forEach(c => renderSection(container, c.title, c.id, c.color || '#ffffff', itemMap));
+            if (db.shopping.some(i => i.cat === 'trash')) {
+                renderSection(container, 'Trash', 'trash', '#71717a', itemMap, false);
+            }
         }
 
         function renderSection(p, l, k, color, itemMap, draggable = true) {
@@ -1799,7 +2111,7 @@
             const count = items.length;
             const active = items.filter(i => !i.done).length;
 
-            secDiv.innerHTML = `<div class="section-header rounded-lg px-2 py-1 -mx-2" data-sec-id="${k}">
+            secDiv.innerHTML = `<div class="section-header rounded-lg px-2 py-1" data-sec-id="${k}">
                 <div class="flex items-center flex-1" onclick="toggleCat('${k}', event)">
                     <span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${color}">▼</span>
                     <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${color}">${l}</span>
@@ -1995,7 +2307,9 @@
         function initSortable() {
             const isT = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
             const conf = {
+                group: { name: tab, pull: true, put: true },
                 animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
+                draggable: '.item-card',
                 delay: isT ? 350 : 0, delayOnTouchOnly: true,
                 forceFallback: true, fallbackTolerance: 3,
                 swapThreshold: 0.6, invertSwap: true,
@@ -2093,21 +2407,16 @@
             const itemEl = document.getElementById('archive-content');
 
             if (tab === 'tasks' || tab === 'dailies') {
-                // Scan for section item containers (list-SECTIONID)
-                document.querySelectorAll('[id^="list-"]').forEach(el => {
-                    // Skip archive - it has its own init
-                    if (el.id === 'list-content') return;
+                document.querySelectorAll('.task-grid, #archive-content').forEach(el => {
+                    // Skip parent containers if they somehow match
+                    if (el.id === 'list-content' || el.id === 'dailies-content') return;
                     Sortable.create(el, { ...conf, group: tab.charAt(0) });
                 });
-                if (tab === 'tasks') Sortable.create(document.getElementById('archive-content'), { ...conf, group: 't' });
             }
-            else {
-                db.shopCategories.forEach(c => {
-                    const el = document.getElementById('cat-' + c.id);
-                    if (el) Sortable.create(el, { ...conf, group: 's' });
+            else if (tab === 'shopping') {
+                document.querySelectorAll('.shopping-grid').forEach(el => {
+                    Sortable.create(el, { ...conf, group: 's' });
                 });
-                const trashEl = document.getElementById('cat-trash');
-                if (trashEl) Sortable.create(trashEl, { ...conf, group: 's' });
             }
             initSectionSortable();
         }
@@ -2327,6 +2636,14 @@
 
             const div = document.createElement('div'); div.className = 'menu-divider'; m.appendChild(div);
 
+            // Notes (Mobile Only)
+            const nOpt = document.createElement('button');
+            nOpt.className = 'menu-opt md:hidden';
+            nOpt.style.color = '#ffffff';
+            nOpt.innerHTML = `<span>Notes</span><span class="text-[10px] opacity-40 font-black">📝</span>`;
+            nOpt.onclick = (e) => { e.stopPropagation(); m.classList.remove('active'); openMobileNotes(); };
+            m.appendChild(nOpt);
+
             // Help & Tutorial
             const hOpt = document.createElement('button');
             hOpt.className = 'menu-opt';
@@ -2423,6 +2740,27 @@
             m.classList.add('active');
             m.querySelector('div').classList.remove('scale-95');
             m.querySelector('div').classList.add('scale-100');
+        }
+
+        function openMobileNotes() {
+            const m = document.getElementById('mobile-notes-modal');
+            const textarea = m.querySelector('.notes-textarea');
+            textarea.value = db.notes || '';
+            m.classList.add('active');
+            textarea.focus();
+
+            textarea.oninput = (e) => {
+                db.notes = e.target.value;
+                db.settings.m = Date.now();
+                saveLocal();
+                if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
+                window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
+            };
+        }
+
+        function closeMobileNotes() {
+            const m = document.getElementById('mobile-notes-modal');
+            m.classList.remove('active');
         }
 
         function closeHelp() {
@@ -2663,12 +3001,15 @@
                         // Col1 then Col2 is predictable for the user.
                         const allCols = parent.querySelectorAll('.main-col');
                         if (allCols.length > 0) {
-                            allCols.forEach(c => {
+                            allCols.forEach((c, colIdx) => {
                                 c.querySelectorAll('.section-block').forEach(el => {
                                     const secId = el.getAttribute('data-sec-id');
                                     const list = tab === 'tasks' ? db.taskSections : (tab === 'dailies' ? db.dailySections : db.shopCategories);
                                     const sec = list.find(s => s.id === secId);
-                                    if (sec) newOrder.push(sec);
+                                    if (sec) {
+                                        sec.col = colIdx;
+                                        newOrder.push(sec);
+                                    }
                                 });
                             });
                         } else {
@@ -2684,8 +3025,13 @@
                         else if (tab === 'dailies') db.dailySections = newOrder;
                         else db.shopCategories = newOrder;
 
-                        db.settings.m = Date.now();
+                        // Important: Bump 'm' timestamp for ALL sections to ensure this new order wins via mergeDB logic
+                        const now = Date.now();
+                        newOrder.forEach(s => s.m = now);
+
+                        db.settings.m = now;
                         saveLocal(); pushToCloud();
+                        setTimeout(() => render(false), 50);
                     }
                 });
             });
@@ -2726,7 +3072,7 @@
         function setupInputLogic() {
             window.onkeydown = (e) => {
                 if (e.key === 'Escape') return collapseInput();
-                if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true' || e.ctrlKey || e.metaKey) return;
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.contentEditable === 'true' || e.ctrlKey || e.metaKey) return;
                 if (e.key === 'ArrowLeft') {
                     const idx = db.settings.tabOrder.indexOf(tab);
                     const prev = db.settings.tabOrder[idx - 1];
