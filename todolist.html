@@ -62,7 +62,7 @@
 
         #view-slider {
             display: flex;
-            width: 300vw;
+            width: 400vw;
             height: 100%;
             will-change: transform;
         }
@@ -147,6 +147,65 @@
             width: 100%;
         }
 
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .status-online {
+            background-color: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+        }
+
+        .status-offline {
+            background-color: #71717a;
+            box-shadow: none;
+        }
+
+        .status-syncing {
+            background-color: #3b82f6;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+            animation: pulse-sync 1.5s infinite;
+        }
+
+        @keyframes pulse-sync {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.3);
+                opacity: 0.7;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .notes-mobile-content {
+            padding: 1rem;
+            height: calc(100vh - 140px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #mobile-notes-textarea {
+            flex: 1;
+            resize: none;
+            color: var(--text-main);
+            scrollbar-width: none;
+        }
+
+        #mobile-notes-textarea::-webkit-scrollbar {
+            display: none;
+        }
+
         .section-header {
             font-size: 10px;
             font-weight: 800;
@@ -224,6 +283,28 @@
             -webkit-user-select: text;
             pointer-events: auto;
             cursor: text;
+        }
+
+        .notes-mobile-content {
+            height: calc(100vh - 120px);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        @media (min-width: 768px) {
+            .notes-mobile-content {
+                padding: 40px;
+            }
+
+            #mobile-notes-textarea {
+                font-size: 15px !important;
+                padding: 40px !important;
+                background: rgba(255, 255, 255, 0.02) !important;
+                border: 1px solid rgba(255, 255, 255, 0.05) !important;
+                border-radius: 12px;
+            }
         }
 
         /* Notes Sidebar Styles */
@@ -766,10 +847,21 @@
                     class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Dailies</button>
                 <button onclick="switchTab('shopping')" id="tab-shopping" data-id="shopping"
                     class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all">Shopping</button>
+                <button onclick="switchTab('notes')" id="tab-notes" data-id="notes"
+                    class="px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </button>
             </nav>
         </div>
         <div class="flex flex-col items-end">
-            <div id="sync-status" class="sync-indicator status-offline">Offline</div>
+            <div id="sync-status" class="sync-dot status-offline" title="Offline"></div>
         </div>
     </header>
 
@@ -810,6 +902,13 @@
             </main>
             <main id="dailies-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
                 <div id="dailies-content" class="cols-wrapper mt-2"></div>
+            </main>
+            <main id="notes-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
+                <div class="notes-mobile-content mt-2">
+                    <textarea id="mobile-notes-textarea"
+                        class="w-full bg-transparent text-[14px] leading-relaxed outline-none min-height-[calc(100vh-180px)]"
+                        placeholder="Type notes here..."></textarea>
+                </div>
             </main>
         </div>
     </div>
@@ -1180,8 +1279,8 @@
             collapsedStates: { archive: false },
             deleted: [], // Tombstones for deleted items
             settings: {
-                tabs: { tasks: true, shopping: true, dailies: true },
-                tabOrder: ['tasks', 'dailies', 'shopping'],
+                tabs: { tasks: true, shopping: true, dailies: true, notes: true },
+                tabOrder: ['tasks', 'dailies', 'shopping', 'notes'],
                 lastResetDate: null,
                 resetTime: 0
             },
@@ -1314,9 +1413,11 @@
             if (data.notesM === undefined) data.notesM = data.settings?.m || 0;
 
             // Settings & Tabs
-            if (!data.settings) data.settings = { tabs: { tasks: true, shopping: true, dailies: true }, tabOrder: ['tasks', 'dailies', 'shopping'], resetTime: 0 };
-            if (!data.settings.tabs) data.settings.tabs = { tasks: true, shopping: true, dailies: true };
-            if (!data.settings.tabOrder) data.settings.tabOrder = ['tasks', 'dailies', 'shopping'];
+            if (!data.settings) data.settings = { tabs: { tasks: true, shopping: true, dailies: true, notes: true }, tabOrder: ['tasks', 'dailies', 'shopping', 'notes'], resetTime: 0 };
+            if (!data.settings.tabs) data.settings.tabs = { tasks: true, shopping: true, dailies: true, notes: true };
+            if (data.settings.tabs.notes === undefined) data.settings.tabs.notes = true;
+            if (!data.settings.tabOrder) data.settings.tabOrder = ['tasks', 'dailies', 'shopping', 'notes'];
+            if (!data.settings.tabOrder.includes('notes')) data.settings.tabOrder.push('notes');
             if (data.settings.resetTime === undefined) data.settings.resetTime = 0;
             if (data.settings.m === undefined) data.settings.m = 0;
 
@@ -1338,11 +1439,14 @@
             const btns = {
                 'tasks': document.getElementById('tab-tasks'),
                 'dailies': document.getElementById('tab-dailies'),
-                'shopping': document.getElementById('tab-shopping')
+                'shopping': document.getElementById('tab-shopping'),
+                'notes': document.getElementById('tab-notes')
             };
             db.settings.tabOrder.forEach(id => {
                 const b = btns[id];
-                if (b) nav.appendChild(b); // appendChild moves existing node
+                if (b) {
+                    nav.appendChild(b);
+                }
             });
         }
 
@@ -1357,6 +1461,8 @@
             renderTabOrder();
             updateTabVisibility();
             switchTab(tab);
+            const mobNotes = document.getElementById('mobile-notes-textarea');
+            if (mobNotes) mobNotes.value = db.notes || '';
             render(false);
 
             if (syncID) {
@@ -1473,8 +1579,8 @@
                     }
                 }
                 if (isPanning) {
-                    // Calculate relative offset based on index
-                    const idx = db.settings.tabOrder.indexOf(tab);
+                    const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
+                    const idx = enabledTabs.indexOf(tab);
                     const offset = idx * -window.innerWidth;
                     slider.style.transform = `translateX(${offset + dx}px)`;
                 }
@@ -1486,18 +1592,15 @@
                     let dx = e.changedTouches[0].clientX - panStartX;
                     // Increased threshold to 80px for stability
                     if (Math.abs(dx) > 80) {
-                        const idx = db.settings.tabOrder.indexOf(tab);
+                        const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
+                        const idx = enabledTabs.indexOf(tab);
                         if (dx > 0) {
-                            // Swipe Right -> Prev Tab
-                            let prev = idx - 1;
-                            while (prev >= 0 && !db.settings.tabs[db.settings.tabOrder[prev]]) prev--;
-                            if (prev >= 0) switchTab(db.settings.tabOrder[prev]);
+                            const prev = enabledTabs[idx - 1];
+                            if (prev) switchTab(prev);
                             else switchTab(tab);
                         } else {
-                            // Swipe Left -> Next Tab
-                            let next = idx + 1;
-                            while (next < db.settings.tabOrder.length && !db.settings.tabs[db.settings.tabOrder[next]]) next++;
-                            if (next < db.settings.tabOrder.length) switchTab(db.settings.tabOrder[next]);
+                            const next = enabledTabs[idx + 1];
+                            if (next) switchTab(next);
                             else switchTab(tab);
                         }
                     } else switchTab(tab);
@@ -1511,15 +1614,14 @@
                 const now = Date.now();
                 if (now - wheelLastTime < 300) return; // Cooldown
                 if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 10) {
-                    const idx = db.settings.tabOrder.indexOf(tab);
+                    const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
+                    const idx = enabledTabs.indexOf(tab);
                     if (e.deltaX > 0) {
-                        // Swipe left (content moves right) -> Go to next tab
-                        const next = db.settings.tabOrder[idx + 1];
-                        if (next && db.settings.tabs[next]) switchTab(next);
+                        const next = enabledTabs[idx + 1];
+                        if (next) switchTab(next);
                     } else {
-                        // Swipe right (content moves left) -> Go to prev tab
-                        const prev = db.settings.tabOrder[idx - 1];
-                        if (prev && db.settings.tabs[prev]) switchTab(prev);
+                        const prev = enabledTabs[idx - 1];
+                        if (prev) switchTab(prev);
                     }
                     wheelLastTime = now;
                 }
@@ -1802,6 +1904,7 @@
             listC.innerHTML = ''; archC.innerHTML = ''; shopC.innerHTML = ''; dailyC.innerHTML = '';
 
             const list = db[tab] || [];
+            if (!Array.isArray(list)) return;
 
             // Deduplicate items by UID to prevent double-rendering bugs
             const seenUids = new Set();
@@ -1888,6 +1991,7 @@
                                 secTimer = null;
                                 openSectionEdit(secId);
                                 if (navigator.vibrate) navigator.vibrate(50);
+                                if (navigator.vibrate) navigator.vibrate(50);
                             }
                         }, 800);
                     };
@@ -1965,6 +2069,8 @@
                 shopC.innerHTML = '';
                 renderShop(shopC, itemMap);
                 initSectionSortable();
+            } else if (tab === 'notes') {
+                // Notes pane is handled by the notes-sidebar component, no direct rendering here
             }
             saveLocal(); initSortable(); animateUID = 0;
 
@@ -2424,14 +2530,19 @@
         function switchTab(t) {
             tab = t;
             const slider = document.getElementById('view-slider');
-            const tabs = ['tasks', 'dailies', 'shopping'];
+            const tabs = ['tasks', 'dailies', 'shopping', 'notes'];
 
             // Respect tabOrder
-            const activeIndex = db.settings.tabOrder.indexOf(t);
+            const enabledTabs = db.settings.tabOrder.filter(id => db.settings.tabs[id]);
+            const activeIndex = enabledTabs.indexOf(t);
             const offset = activeIndex * -100;
-
-            slider.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
             slider.style.transform = `translateX(${offset}vw)`;
+
+            // Sync notes textareas if switching to/from notes
+            if (t === 'notes') {
+                const mobNotes = document.getElementById('mobile-notes-textarea');
+                if (mobNotes) mobNotes.value = db.notes || '';
+            }
 
             // Re-order the panes physically to match the offset? 
             // Or just rely on the order in the HTML being fixed and offset being based on that fixed order.
@@ -2439,7 +2550,8 @@
             const panesOrder = {
                 'tasks': document.getElementById('tasks-pane'),
                 'dailies': document.getElementById('dailies-pane'),
-                'shopping': document.getElementById('shopping-pane')
+                'shopping': document.getElementById('shopping-pane'),
+                'notes': document.getElementById('notes-pane')
             };
             db.settings.tabOrder.forEach(id => {
                 if (panesOrder[id]) slider.appendChild(panesOrder[id]);
@@ -2461,9 +2573,11 @@
             const activeId = tab === 'shopping' ? activeShopCat : (tab === 'dailies' ? activeDailySection : activeTaskSection);
             const sec = activeList.find(s => s.id === activeId);
 
-            inp.placeholder = `Add to ${sec ? sec.title : tab.charAt(0).toUpperCase() + tab.slice(1)}...`;
+            if (inp) {
+                inp.placeholder = `Add to ${sec ? sec.title : tab.charAt(0).toUpperCase() + tab.slice(1)}...`;
+            }
 
-            document.getElementById('fab-outer').style.display = '';
+            document.getElementById('fab-outer').style.display = (tab === 'notes') ? 'none' : '';
             render(false);
             updateTabVisibility();
             updateFabColor();
@@ -2593,10 +2707,11 @@
             const tasksEnabled = db.settings.tabs.tasks;
             const dailiesEnabled = db.settings.tabs.dailies;
             const shopEnabled = db.settings.tabs.shopping;
+            const notesEnabled = db.settings.tabs.notes;
 
             addGenericMenuOption(m, "Tasks", tasksEnabled, '#3b82f6', () => {
                 // Prevent disabling all tabs
-                if (tasksEnabled && !dailiesEnabled && !shopEnabled) {
+                if (tasksEnabled && !dailiesEnabled && !shopEnabled && !notesEnabled) {
                     showAlert("At least one tab must be enabled.");
                     return;
                 }
@@ -2609,7 +2724,7 @@
             });
 
             addGenericMenuOption(m, "Dailies", dailiesEnabled, '#10b981', () => {
-                if (dailiesEnabled && !tasksEnabled && !shopEnabled) {
+                if (dailiesEnabled && !tasksEnabled && !shopEnabled && !notesEnabled) {
                     showAlert("At least one tab must be enabled.");
                     return;
                 }
@@ -2622,7 +2737,7 @@
             });
 
             addGenericMenuOption(m, "Shopping", shopEnabled, '#f59e0b', () => {
-                if (shopEnabled && !tasksEnabled && !dailiesEnabled) {
+                if (shopEnabled && !tasksEnabled && !dailiesEnabled && !notesEnabled) {
                     showAlert("At least one tab must be enabled.");
                     return;
                 }
@@ -2634,15 +2749,20 @@
                 renderOptionsMenu(m); // In-place refresh
             });
 
-            const div = document.createElement('div'); div.className = 'menu-divider'; m.appendChild(div);
+            addGenericMenuOption(m, "Notes", notesEnabled, '#a1a1aa', () => {
+                if (notesEnabled && !tasksEnabled && !dailiesEnabled && !shopEnabled) {
+                    showAlert("At least one tab must be enabled.");
+                    return;
+                }
+                db.settings.tabs.notes = !notesEnabled;
+                if (!db.settings.tabs.notes && tab === 'notes') switchTab(db.settings.tabOrder.find(t => db.settings.tabs[t]));
+                db.settings.m = Date.now();
+                updateTabVisibility();
+                saveLocal(); pushToCloud();
+                renderOptionsMenu(m); // In-place refresh
+            });
 
-            // Notes (Mobile Only)
-            const nOpt = document.createElement('button');
-            nOpt.className = 'menu-opt md:hidden';
-            nOpt.style.color = '#ffffff';
-            nOpt.innerHTML = `<span>Notes</span><span class="text-[10px] opacity-40 font-black">📝</span>`;
-            nOpt.onclick = (e) => { e.stopPropagation(); m.classList.remove('active'); openMobileNotes(); };
-            m.appendChild(nOpt);
+            const div = document.createElement('div'); div.className = 'menu-divider'; m.appendChild(div);
 
             // Help & Tutorial
             const hOpt = document.createElement('button');
@@ -2689,15 +2809,16 @@
                 m.appendChild(head);
                 history.forEach(id => {
                     if (id === syncID) return;
-                    const hOpt = document.createElement('button');
-                    hOpt.className = 'menu-opt';
-                    hOpt.style.color = '#ffffff';
-                    hOpt.innerHTML = `<span>${id}</span><span class="text-[9px] opacity-40">Switch</span>`;
-                    hOpt.onclick = (e) => {
-                        e.stopPropagation();
-                        localStorage.setItem('todo_sync_id', id);
-                        window.location.reload();
-                    };
+                    const hOpt = document.createElement('div');
+                    hOpt.className = 'menu-opt flex items-center justify-between group';
+                    hOpt.innerHTML = `
+                        <div class="flex-1 cursor-pointer font-bold underline" style="color:#3b82f6" onclick="event.stopPropagation(); localStorage.setItem('todo_sync_id', '${id}'); window.location.reload();">
+                            ${id}
+                        </div>
+                        <button class="p-2 text-zinc-700 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onclick="event.stopPropagation(); removeFromSyncHistory('${id}'); renderOptionsMenu(document.getElementById('fab-menu'));">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    `;
                     m.appendChild(hOpt);
                 });
             }
@@ -2751,6 +2872,7 @@
 
             textarea.oninput = (e) => {
                 db.notes = e.target.value;
+                db.notesM = Date.now();
                 db.settings.m = Date.now();
                 saveLocal();
                 if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
@@ -2773,13 +2895,20 @@
 
 
         function updateTabVisibility() {
-            const tB = document.getElementById('tab-tasks');
-            const dB = document.getElementById('tab-dailies');
-            const sB = document.getElementById('tab-shopping');
+            const tabs = db.settings.tabs;
+            document.getElementById('tab-tasks').style.display = tabs.tasks ? '' : 'none';
+            document.getElementById('tab-dailies').style.display = tabs.dailies ? '' : 'none';
+            document.getElementById('tab-shopping').style.display = tabs.shopping ? '' : 'none';
+            document.getElementById('tab-notes').style.display = tabs.notes ? '' : 'none';
 
-            tB.style.display = db.settings.tabs.tasks ? '' : 'none';
-            dB.style.display = db.settings.tabs.dailies ? '' : 'none';
-            sB.style.display = db.settings.tabs.shopping ? '' : 'none';
+            document.getElementById('tasks-pane').style.display = tabs.tasks ? '' : 'none';
+            document.getElementById('dailies-pane').style.display = tabs.dailies ? '' : 'none';
+            document.getElementById('shopping-pane').style.display = tabs.shopping ? '' : 'none';
+            document.getElementById('notes-pane').style.display = tabs.notes ? '' : 'none';
+
+            // Desktop Sidebar
+            const notesWrapper = document.querySelector('.notes-wrapper');
+            if (notesWrapper) notesWrapper.style.display = tabs.notes ? '' : 'none';
         }
         function getSyncHistory() {
             try {
@@ -2804,6 +2933,10 @@
                     window.location.reload();
                 }
             });
+        }
+        function removeFromSyncHistory(id) {
+            const history = getSyncHistory().filter(x => x !== id);
+            localStorage.setItem('todo_sync_history', JSON.stringify(history));
         }
         function saveLocal() { if (syncID) localStorage.setItem(`todo_db_${syncID}`, JSON.stringify(db)); }
         function loadLocal() {
@@ -3098,25 +3231,31 @@
                             db.tasks.unshift({ text: v, done: false, uid: uid, m: m, section: activeTaskSection });
                         }
                         render(false); saveLocal(); pushToCloud();
+                        if (navigator.vibrate) navigator.vibrate(50);
                     }
                     e.target.value = ''; collapseInput();
                 }
             };
+            // Mobile Notes Input
+            const mobNotes = document.getElementById('mobile-notes-textarea');
+            if (mobNotes) {
+                mobNotes.oninput = (e) => {
+                    db.notes = e.target.value;
+                    db.notesM = Date.now();
+                    db.settings.m = Date.now();
+                    saveLocal();
+                    if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
+                    window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
+                };
+            }
         }
         function handleBgClick(e) { if (e.target.id.includes('-pane')) collapseInput(); }
-        function updateStatus(done) {
-            const el = document.getElementById('sync-status');
-            if (!el) return;
-            if (!isOnline) {
-                el.innerText = pendingSync ? "Offline (Pending)" : "Offline";
-                el.className = "sync-indicator status-offline";
-            } else if (!done) {
-                el.innerText = "Syncing...";
-                el.className = "sync-indicator status-offline"; // Use red/yellow while syncing
-            } else {
-                el.innerText = pendingSync ? "Retry in 5s..." : "Online";
-                el.className = `sync-indicator ${pendingSync ? 'status-offline' : 'status-online'}`;
-            }
+
+        function updateStatus(ok) {
+            const s = document.getElementById('sync-status');
+            if (!s) return;
+            s.className = 'sync-dot ' + (ok ? (pendingSync ? 'status-syncing' : 'status-online') : 'status-offline');
+            s.title = ok ? (pendingSync ? 'Syncing...' : 'Online') : 'Offline';
         }
         init();
     </script>
