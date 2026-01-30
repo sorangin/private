@@ -1476,6 +1476,10 @@
             } else {
                 setTimeout(promptSyncID, 500);
             }
+
+            // Initial reset check
+            checkDailiesReset();
+
             setupInputLogic(); window.addEventListener('focus', pullFromCloud); setupSwipe(); setupFabGestures(); setupMenuTouch();
             initTabSortable();
             document.getElementById('archive-header-row').onclick = toggleArchive;
@@ -1483,6 +1487,7 @@
         }
 
         async function pullFromCloud() {
+            checkDailiesReset(); // Check reset whenever we might be updating data or returning to app
             if (!syncID || isRemoteUpdate || isDragging || window.isDraggingSectionGlobal) return;
             const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
             if (data?.content) {
@@ -1494,7 +1499,6 @@
                 if (changed) {
                     saveLocal();
                     renderTabOrder();
-                    checkDailiesReset();
                     updateTabVisibility();
                     render();
                 }
@@ -1839,6 +1843,11 @@
             return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
         }
 
+        function getLocalDayString(date) {
+            const d = new Date(date);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
         function checkDailiesReset() {
             const now = new Date();
             const resetHour = db.settings.resetTime || 0;
@@ -1847,16 +1856,14 @@
             const adjustedNow = new Date(now);
             adjustedNow.setHours(adjustedNow.getHours() - resetHour);
 
-            const todayStr = adjustedNow.toISOString().split('T')[0]; // YYYY-MM-DD
+            const todayStr = getLocalDayString(adjustedNow);
             const currentWeek = adjustedNow.getFullYear() + '-W' + getISOWeek(adjustedNow);
-            const currentMonth = adjustedNow.toISOString().slice(0, 7); // YYYY-MM
+            const currentMonth = adjustedNow.getFullYear() + '-' + String(adjustedNow.getMonth() + 1).padStart(2, '0');
 
             let changed = false;
 
             // DAILY RESET
             if (db.settings.lastDailyReset !== todayStr) {
-                // Determine if we should maintain streaks or just reset
-                // For now, simpler: just uncheck all "daily" interval items
                 db.dailies.forEach(item => {
                     const sec = db.dailySections.find(s => s.id === item.section);
                     const interval = sec ? (sec.interval || 'daily') : 'daily';
@@ -1871,7 +1878,7 @@
                 db.dailies.forEach(item => {
                     const sec = db.dailySections.find(s => s.id === item.section);
                     const interval = sec ? (sec.interval || 'daily') : 'daily';
-                    if (interval === 'weekly' || interval === 'bi-weekly') { // Treat bi-weekly as weekly for now unless specific logic needed
+                    if (interval === 'weekly' || interval === 'bi-weekly') {
                         item.done = false;
                     }
                 });
@@ -1891,7 +1898,7 @@
             }
 
             if (changed) {
-                saveLocal(); pushToCloud();
+                saveLocal(); pushToCloud(); render();
             }
         }
 
@@ -3208,14 +3215,16 @@
                 if (e.key === 'Escape') return collapseInput();
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.contentEditable === 'true' || e.ctrlKey || e.metaKey) return;
                 if (e.key === 'ArrowLeft') {
-                    const idx = db.settings.tabOrder.indexOf(tab);
-                    const prev = db.settings.tabOrder[idx - 1];
-                    if (prev && db.settings.tabs[prev]) return switchTab(prev);
+                    const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
+                    const idx = enabledTabs.indexOf(tab);
+                    const prev = enabledTabs[idx - 1];
+                    if (prev) return switchTab(prev);
                 }
                 if (e.key === 'ArrowRight') {
-                    const idx = db.settings.tabOrder.indexOf(tab);
-                    const next = db.settings.tabOrder[idx + 1];
-                    if (next && db.settings.tabs[next]) return switchTab(next);
+                    const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
+                    const idx = enabledTabs.indexOf(tab);
+                    const next = enabledTabs[idx + 1];
+                    if (next) return switchTab(next);
                 }
                 if (e.key.length === 1) { expandInput(); document.getElementById('fab-input').value = e.key; }
             };
