@@ -1,7 +1,15 @@
-const CACHE_NAME = 'timer-v1';
+const CACHE_NAME = 'chrono-pro-v1';
 const ASSETS = [
-  'timer.html',
-  'manifest.json'
+  './',
+  'index.html',
+  'manifest.json',
+  'css/style.css',
+  'js/app.js',
+  'js/audio.js',
+  'js/background.js',
+  'js/timer.js',
+  'js/stopwatch.js',
+  'js/alarm.js'
 ];
 
 self.addEventListener('install', (e) => {
@@ -14,10 +22,4 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then((res) => res || fetch(e.request))
   );
-});
-
-// Notifications fallback / message handling could go here
-self.addEventListener('notificationclick', (e) => {
-  e.notification.close();
-  e.waitUntil(clients.openWindow('/'));
 });
