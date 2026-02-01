@@ -679,19 +679,18 @@
             height: 100%;
             background: rgba(0, 0, 0, 0.6);
             z-index: 30000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: none;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.2s;
-            backdrop-filter: blur(2px);
         }
 
         #modal-overlay.active,
         .modal-overlay.active {
+            display: flex;
             opacity: 1;
             pointer-events: auto;
+            backdrop-filter: blur(2px);
         }
 
         .modal-box {
@@ -912,7 +911,7 @@
     </div>
 
     <!-- FAB and Menu -->
-    <div id="fab-menu"></div>
+    <div id="fab-menu" style="view-transition-name: main-menu; display: none;"></div>
 
     <div id="fab-outer">
         <div id="fab-container">
@@ -937,7 +936,7 @@
     </div>
 
     <!-- Help / Tutorial Modal -->
-    <div id="help-modal" onclick="closeHelp()"
+    <div id="help-modal" onclick="closeHelp()" style="view-transition-name: main-help; display: none;"
         class="fixed inset-0 z-[30000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300 bg-black/80 backdrop-blur-md">
         <div onclick="event.stopPropagation()"
             class="bg-[#161618] border border-[#2d2d30] rounded-3xl p-8 w-[90%] max-w-[450px] max-h-[85vh] overflow-y-auto scale-95 transition-all duration-300 shadow-2xl">
@@ -982,7 +981,7 @@
     </div>
 
     <!-- Mobile Notes Modal -->
-    <div id="mobile-notes-modal"
+    <div id="mobile-notes-modal" style="view-transition-name: main-notes; display: none;"
         class="fixed inset-0 z-[30000] flex flex-col bg-[#0c0c0d] pointer-events-none opacity-0 transition-all duration-300">
         <div class="flex items-center justify-between p-4 border-b border-zinc-800">
             <h2 class="text-lg font-bold text-white">Notes</h2>
@@ -999,13 +998,14 @@
 
     <style>
         #mobile-notes-modal.active {
+            display: flex;
             opacity: 1;
             pointer-events: auto;
         }
     </style>
 
     <!-- Custom Prompt Modal -->
-    <div id="prompt-modal-overlay" class="modal-overlay" onclick="closePrompt()">
+    <div id="prompt-modal-overlay" class="modal-overlay" onclick="closePrompt()" style="display: none;">
         <div class="modal-box" onclick="event.stopPropagation()">
             <div id="prompt-msg" class="modal-title">Enter Value</div>
             <input id="prompt-input" type="text"
@@ -1030,7 +1030,7 @@
     </div>
 
     <!-- Edit Section Modal -->
-    <div id="edit-sec-modal" onclick="closeEditModal()"
+    <div id="edit-sec-modal" onclick="closeEditModal()" style="display: none;"
         class="fixed inset-0 z-[20000] flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 bg-black/60 backdrop-blur-sm">
         <div onclick="event.stopPropagation()"
             class="bg-[#161618] border border-[#2d2d30] rounded-2xl p-6 w-[85%] max-w-[320px] scale-90 transition-transform duration-200 shadow-2xl">
@@ -1119,6 +1119,7 @@
 
         #edit-sec-modal.active,
         #help-modal.active {
+            display: flex;
             opacity: 1;
             pointer-events: auto;
         }
@@ -1188,6 +1189,13 @@
         ::view-transition-group(main-header),
         ::view-transition-group(main-tabs) {
             animation-duration: 0s !important;
+        }
+
+        /* Force overlays on top during transitions */
+        ::view-transition-group(main-menu),
+        ::view-transition-group(main-help),
+        ::view-transition-group(main-notes) {
+            z-index: 10000 !important;
         }
     </style>
 
@@ -1467,12 +1475,15 @@
             render(false);
 
             if (syncID) {
-                if (pendingSync && isOnline) {
-                    await pushToCloud();
-                } else {
-                    await pullFromCloud();
-                }
-                subscribeRealtime();
+                // Background sync - don't await so UI appears immediately
+                (async () => {
+                    if (pendingSync && isOnline) {
+                        await pushToCloud();
+                    } else {
+                        await pullFromCloud();
+                    }
+                    subscribeRealtime();
+                })();
             } else {
                 setTimeout(promptSyncID, 500);
             }
@@ -1500,7 +1511,7 @@
                     saveLocal();
                     renderTabOrder();
                     updateTabVisibility();
-                    render();
+                    render(false); // Background update, no animation
                 }
                 updateStatus(true);
             } else { await pushToCloud(); }
@@ -1562,7 +1573,7 @@
                 db = migrateDB(payload.new.content);
                 renderTabOrder();
                 updateTabVisibility();
-                render(); isRemoteUpdate = false;
+                render(false); isRemoteUpdate = false;
             }).subscribe();
         }
 
@@ -2674,7 +2685,9 @@
             btn.className = `modal-btn btn-confirm ${btnText === 'Delete' ? '!bg-red-600' : '!bg-blue-600'}`;
 
             btn.onclick = () => { cb(); closeModal(); };
-            document.getElementById('modal-overlay').classList.add('active');
+            const overlay = document.getElementById('modal-overlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.classList.add('active'), 10);
         }
         function showAlert(msg) {
             document.getElementById('modal-msg').innerText = msg;
@@ -2686,10 +2699,14 @@
             btn.className = "modal-btn btn-confirm"; // Keep style or make neutral
 
             btn.onclick = () => { closeModal(); };
-            document.getElementById('modal-overlay').classList.add('active');
+            const overlay = document.getElementById('modal-overlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.classList.add('active'), 10);
         }
         function closeModal() {
-            document.getElementById('modal-overlay').classList.remove('active');
+            const overlay = document.getElementById('modal-overlay');
+            overlay.classList.remove('active');
+            setTimeout(() => { if (!overlay.classList.contains('active')) overlay.style.display = 'none'; }, 200);
             // Reset state slightly after transition if desired, but not strictly necessary for simple modal
             setTimeout(() => {
                 const cancelBtn = document.querySelector('.btn-cancel');
@@ -2841,6 +2858,7 @@
             if (m.classList.contains('active')) {
                 // Close it
                 m.classList.remove('active');
+                setTimeout(() => { if (!m.classList.contains('active')) m.style.display = 'none'; }, 200);
                 if (menuCloseHandler) {
                     document.removeEventListener('click', menuCloseHandler);
                     menuCloseHandler = null;
@@ -2860,23 +2878,31 @@
                         menuCloseHandler = null;
                     }
                 };
+                m.style.display = 'flex';
+                setTimeout(() => m.classList.add('active'), 10);
                 setTimeout(() => document.addEventListener('click', menuCloseHandler), 10);
             }
         }
 
         function openHelp() {
             const m = document.getElementById('help-modal');
-            m.classList.add('active');
-            m.querySelector('div').classList.remove('scale-95');
-            m.querySelector('div').classList.add('scale-100');
+            m.style.display = 'flex';
+            setTimeout(() => {
+                m.classList.add('active');
+                m.querySelector('div').classList.remove('scale-95');
+                m.querySelector('div').classList.add('scale-100');
+            }, 10);
         }
 
         function openMobileNotes() {
             const m = document.getElementById('mobile-notes-modal');
             const textarea = m.querySelector('.notes-textarea');
             textarea.value = db.notes || '';
-            m.classList.add('active');
-            textarea.focus();
+            m.style.display = 'flex';
+            setTimeout(() => {
+                m.classList.add('active');
+                textarea.focus();
+            }, 10);
 
             textarea.oninput = (e) => {
                 db.notes = e.target.value;
@@ -2891,6 +2917,7 @@
         function closeMobileNotes() {
             const m = document.getElementById('mobile-notes-modal');
             m.classList.remove('active');
+            setTimeout(() => { if (!m.classList.contains('active')) m.style.display = 'none'; }, 300);
         }
 
         function closeHelp() {
@@ -2898,6 +2925,7 @@
             m.querySelector('div').classList.remove('scale-100');
             m.querySelector('div').classList.add('scale-95');
             m.classList.remove('active');
+            setTimeout(() => { if (!m.classList.contains('active')) m.style.display = 'none'; }, 300);
         }
 
 
@@ -2969,12 +2997,16 @@
             const submit = () => { cb(input.value); closePrompt(); };
             btn.onclick = submit;
             input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
-            document.getElementById('prompt-modal-overlay').classList.add('active');
+            const m = document.getElementById('prompt-modal-overlay');
+            m.style.display = 'flex';
+            setTimeout(() => m.classList.add('active'), 10);
             setTimeout(() => input.focus(), 100);
         }
 
         function closePrompt() {
-            document.getElementById('prompt-modal-overlay').classList.remove('active');
+            const m = document.getElementById('prompt-modal-overlay');
+            m.classList.remove('active');
+            setTimeout(() => { if (!m.classList.contains('active')) m.style.display = 'none'; }, 200);
         }
 
         async function btnFAB(e) {
@@ -3018,7 +3050,9 @@
                 b.classList.toggle('selected', b.dataset.color === editingSectionColor);
             });
 
-            document.getElementById('edit-sec-modal').classList.add('active');
+            const modal = document.getElementById('edit-sec-modal');
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('active'), 10);
 
             const intervalCont = document.getElementById('edit-sec-interval-container');
             if (tab === 'dailies') {
@@ -3106,7 +3140,9 @@
         }
 
         function closeEditModal() {
-            document.getElementById('edit-sec-modal').classList.remove('active');
+            const modal = document.getElementById('edit-sec-modal');
+            modal.classList.remove('active');
+            setTimeout(() => { if (!modal.classList.contains('active')) modal.style.display = 'none'; }, 200);
             editingSectionId = null;
         }
 
