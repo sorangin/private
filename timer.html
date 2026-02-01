@@ -407,6 +407,55 @@
             color: var(--accent);
         }
 
+        /* Speed & Distance Tracking */
+        .tracking-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(22, 22, 22, 0.5);
+            border-radius: 16px;
+            border: 1px solid #222;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 300;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        .tracking-toggle-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding: 12px 16px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid #222;
+        }
+
+        .tracking-toggle-label {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
         #sw-display {
             font-size: 4rem;
             font-weight: 200;
@@ -731,15 +780,18 @@
 
         /* RING BUTTONS */
         .ring-btn {
-            padding: 18px 40px;
-            border-radius: 35px;
-            font-size: 1.2rem;
+            padding: 16px 24px;
+            border-radius: 30px;
+            font-size: 1.1rem;
             font-weight: 600;
             border: none;
             cursor: pointer;
-            min-width: 160px;
-            margin: 12px;
-            transition: transform 0.2s, opacity 0.2s;
+            width: 140px;
+            transition: transform 0.2s, opacity 0.2s, background-color 0.2s;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .ring-btn:hover {
@@ -765,9 +817,20 @@
 
         #ring-controls {
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             gap: 20px;
             align-items: center;
+            justify-content: center;
+            width: 100%;
+            margin-bottom: 60px;
+        }
+
+        #ring-current-time {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-top: 40px;
+            font-weight: 400;
+            letter-spacing: 1px;
         }
 
         #ring-countdown {
@@ -853,6 +916,17 @@
                     </svg>
                 </button>
             </div>
+            <div id="sw-tracking-stats" class="tracking-stats" style="display:none;">
+                <div class="stat-item">
+                    <span id="sw-speed" class="stat-value">0.0</span>
+                    <span class="stat-label">MPH</span>
+                </div>
+                <div class="stat-item">
+                    <span id="sw-distance" class="stat-value">0.00</span>
+                    <span class="stat-label">Miles</span>
+                </div>
+            </div>
+
             <div id="sw-laps" class="stopwatch-laps" style="display:none;"></div>
         </div>
     </div>
@@ -952,12 +1026,19 @@
 
     <!-- RING -->
     <div id="alarm-ring-overlay"
-        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background: #000; z-index:999; flex-direction:column; align-items:center; justify-content:center;">
-        <h1 style="font-size:4rem; color:#fff; font-weight:200; margin-bottom:3rem;">Alarm</h1>
-        <h2 id="ring-countdown"></h2>
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background: #000; z-index:999; flex-direction:column; align-items:center; justify-content: space-between; padding: 20px; box-sizing: border-box;">
+        <div id="ring-current-time">12:00 PM</div>
+
+        <div
+            style="flex: 1; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%;">
+            <h1 style="font-size:3.5rem; color:#fff; font-weight:200; margin:0;">Alarm</h1>
+            <h2 id="ring-countdown" style="font-size: 4.5rem; font-weight: 200; margin-top: 20px; margin-bottom: 0;">
+            </h2>
+        </div>
+
         <div id="ring-controls">
             <button class="ring-btn ring-snooze" id="btn-snooze" onclick="Alarm.snooze()">Snooze</button>
-            <button class="ring-btn ring-stop" onclick="Alarm.stopRing()">Stop</button>
+            <button class="ring-btn ring-stop" onclick="Alarm.stopRing()">Dismiss</button>
         </div>
     </div>
 
@@ -1010,6 +1091,11 @@
             prevTab() { if (this.currentIdx > 0) this.switchTab(this.tabs[this.currentIdx - 1]); },
             nextTab() { if (this.currentIdx < this.tabs.length - 1) this.switchTab(this.tabs[this.currentIdx + 1]); },
             switchTab(id, el) {
+                if (this.tabs[this.currentIdx] === id) {
+                    // Re-clicked same tab
+                    if (id === 'stopwatch') Stopwatch.toggleTracking();
+                    return;
+                }
                 this.currentIdx = this.tabs.indexOf(id);
                 document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
                 document.getElementById(`view-${id}`).classList.add('active');
@@ -1058,8 +1144,12 @@
         };
 
         const AudioMgr = {
-            ctx: null, timer: null, currentSource: null,
+            ctx: null, timer: null, currentSource: null, clockInterval: null,
             init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); },
+            updateClock() {
+                const el = document.getElementById('ring-current-time');
+                if (el) el.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            },
             startSound(customSoundId = null) {
                 this.init(); if (navigator.vibrate) navigator.vibrate([1000, 500, 1000, 500]);
 
@@ -1108,10 +1198,17 @@
             startAlarm(soundId = null) {
                 this.startSound(soundId);
                 document.getElementById('alarm-ring-overlay').style.display = 'flex';
+                this.updateClock();
+                if (this.clockInterval) clearInterval(this.clockInterval);
+                this.clockInterval = setInterval(() => this.updateClock(), 1000);
             },
             stopAlarm() {
                 this.stopSound();
                 document.getElementById('alarm-ring-overlay').style.display = 'none';
+                if (this.clockInterval) {
+                    clearInterval(this.clockInterval);
+                    this.clockInterval = null;
+                }
             }
         };
 
@@ -1545,14 +1642,33 @@
                 if (daysLeft > 0) txt += `${daysLeft}d `;
                 if (hrsLeft > 0) txt += `${hrsLeft}h `;
                 txt += `${minsLeft}m`;
-                this.infoEl.textContent = txt;
             }
         };
 
         const Stopwatch = {
-            t0: 0, elapsed: 0, running: false, req: null, laps: [], display: document.getElementById('sw-display'), lapsDiv: document.getElementById('sw-laps'),
-            btnMain: document.getElementById('sw-btn'), btnSub: document.getElementById('sw-lap-reset-btn'), txtSub: document.getElementById('sw-lap-text'),
-            init() { this.render(0); this.updateSubBtn(); },
+            t0: 0, elapsed: 0, running: false, req: null, laps: [],
+            display: document.getElementById('sw-display'),
+            lapsDiv: document.getElementById('sw-laps'),
+            btnMain: document.getElementById('sw-btn'),
+            btnSub: document.getElementById('sw-lap-reset-btn'),
+            txtSub: document.getElementById('sw-lap-text'),
+
+            // Tracking props
+            trackingEnabled: false,
+            watchId: null,
+            totalDistance: 0, // in meters
+            lastPos: null,
+            speedEl: document.getElementById('sw-speed'),
+            distEl: document.getElementById('sw-distance'),
+            statsDiv: document.getElementById('sw-tracking-stats'),
+
+            init() {
+                this.render(0);
+                this.updateSubBtn();
+                // Load tracking preference (default to false)
+                const saved = localStorage.getItem('sw_tracking_enabled');
+                this.toggleTracking(saved === 'true');
+            },
             toggle() { if (this.running) this.stop(); else this.start(); },
             start() {
                 AudioMgr.init(); this.running = true; this.t0 = Date.now() - this.elapsed;
@@ -1561,47 +1677,144 @@
                 this.btnMain.innerHTML = `<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
                 this.display.classList.add('active-accent');
                 this.updateSubBtn();
+                if (this.trackingEnabled) this.startTracking();
             },
             stop() {
                 this.running = false; cancelAnimationFrame(this.req);
                 this.btnMain.innerHTML = `<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
                 this.display.classList.remove('active-accent');
                 this.updateSubBtn();
+                this.stopTracking();
             },
-            lapOrReset() { if (this.running) this.lap(); else this.reset(); },
+            lapOrReset() {
+                if (this.running) this.lap(); else this.reset();
+            },
             lap() {
-                const p = this.laps.length > 0 ? this.laps[0].total : 0; const s = this.elapsed - p; this.laps.unshift({ total: this.elapsed, split: s }); this.renderLaps();
+                const now = this.elapsed;
+                const last = this.laps.length > 0 ? this.laps[0].total : 0;
+                const split = now - last;
+                this.laps.unshift({ no: this.laps.length + 1, split, total: now });
+                this.renderLaps();
+                this.lapsDiv.style.display = 'block';
             },
-            reset() { this.elapsed = 0; this.laps = []; this.render(0); this.renderLaps(); this.updateSubBtn(); },
+            reset() {
+                this.elapsed = 0; this.laps = []; this.render(0); this.renderLaps();
+                this.lapsDiv.style.display = 'none';
+                this.updateSubBtn();
+                this.totalDistance = 0;
+                this.lastPos = null;
+                this.updateTrackingUI(0, 0);
+            },
             updateSubBtn() {
-                this.txtSub.textContent = this.running ? "Lap" : "Reset";
-                // Use display: none/flex so the Start button centers when Reset is hidden
-                this.btnSub.style.display = (this.running || this.elapsed > 0) ? 'flex' : 'none';
+                if (this.running) { this.txtSub.textContent = 'Lap'; this.btnSub.style.opacity = '1'; }
+                else if (this.elapsed > 0) { this.txtSub.textContent = 'Reset'; this.btnSub.style.opacity = '1'; }
+                else { this.txtSub.textContent = 'Reset'; this.btnSub.style.opacity = '0.3'; }
             },
             render(ms) {
-                const d = new Date(ms); const m = d.getUTCMinutes().toString().padStart(2, '0'); const s = d.getUTCSeconds().toString().padStart(2, '0'); const c = Math.floor(d.getUTCMilliseconds() / 10).toString().padStart(2, '0');
-                this.display.textContent = `${m}:${s}.${c}`;
+                const h = Math.floor(ms / 3600000);
+                const m = Math.floor((ms % 3600000) / 60000);
+                const s = Math.floor((ms % 60000) / 1000);
+                const mm = Math.floor((ms % 1000) / 10);
+                let str = "";
+                if (h > 0) str += h.toString().padStart(2, '0') + ":";
+                str += m.toString().padStart(2, '0') + ":" + s.toString().padStart(2, '0') + "." + mm.toString().padStart(2, '0');
+                this.display.textContent = str;
             },
             renderLaps() {
-                if (this.laps.length === 0) {
-                    this.lapsDiv.style.display = 'none';
-                    this.lapsDiv.innerHTML = '';
+                this.lapsDiv.innerHTML = this.laps.map(l => {
+                    return `<div class="lap-row">
+                        <span>Lap ${l.no}</span>
+                        <span>${this.formatTime(l.split)}</span>
+                        <span>${this.formatTime(l.total)}</span>
+                    </div>`;
+                }).join('');
+            },
+            formatTime(ms) {
+                const h = Math.floor(ms / 3600000);
+                const m = Math.floor((ms % 3600000) / 60000);
+                const s = Math.floor((ms % 60000) / 1000);
+                const mm = Math.floor((ms % 1000) / 10);
+                let res = "";
+                if (h > 0) res += h.toString().padStart(2, '0') + ":";
+                res += m.toString().padStart(2, '0') + ":" + s.toString().padStart(2, '0') + "." + mm.toString().padStart(2, '0');
+                return res;
+            },
+
+            // Tracking Logic
+            toggleTracking(force = null) {
+                this.trackingEnabled = (force !== null) ? force : !this.trackingEnabled;
+                if (this.statsDiv) this.statsDiv.style.display = this.trackingEnabled ? 'grid' : 'none';
+                localStorage.setItem('sw_tracking_enabled', this.trackingEnabled);
+
+                if (this.trackingEnabled && this.running) {
+                    this.startTracking();
+                } else {
+                    this.stopTracking();
+                }
+            },
+            startTracking() {
+                if (!navigator.geolocation) {
+                    alert('Geolocation is not supported by your browser');
+                    this.toggleTracking(false);
                     return;
                 }
-                this.lapsDiv.style.display = 'block';
-                const html = this.laps.map((l, i) => {
-                    const n = this.laps.length - i;
-                    const f = (ms) => { const d = new Date(ms); return `${d.getUTCMinutes().toString().padStart(2, '0')}:${d.getUTCSeconds().toString().padStart(2, '0')}.${Math.floor(d.getUTCMilliseconds() / 10).toString().padStart(2, '0')}`; };
-                    return `<div class="lap-row"><span>Lap ${n}</span><span>${f(l.split)}</span><span>${f(l.total)}</span></div>`;
-                }).join('');
-                this.lapsDiv.innerHTML = html;
+                this.stopTracking(); // Clear any existing
+                this.watchId = navigator.geolocation.watchPosition(
+                    (pos) => this.handlePosition(pos),
+                    (err) => console.warn('Geo Error:', err),
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            },
+            stopTracking() {
+                if (this.watchId) {
+                    navigator.geolocation.clearWatch(this.watchId);
+                    this.watchId = null;
+                }
+                this.lastPos = null;
+            },
+            handlePosition(pos) {
+                if (!this.running) return;
+                const { latitude, longitude, speed } = pos.coords;
+
+                if (this.lastPos) {
+                    const d = this.calcDistance(this.lastPos.lat, this.lastPos.lon, latitude, longitude);
+                    // Filter out GPS jitter (accuracy check could be added)
+                    if (d > 2) this.totalDistance += d;
+                }
+                this.lastPos = { lat: latitude, lon: longitude };
+
+                // Convert Speed (m/s to MPH)
+                const mph = (speed || 0) * 2.23694;
+                // Convert total distance (meters to miles)
+                const miles = this.totalDistance * 0.000621371;
+
+                this.updateTrackingUI(mph, miles);
+            },
+            calcDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371e3; // Earth radius in meters
+                const φ1 = lat1 * Math.PI / 180;
+                const φ2 = lat2 * Math.PI / 180;
+                const Δφ = (lat2 - lat1) * Math.PI / 180;
+                const Δλ = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return R * c;
+            },
+            updateTrackingUI(mph, miles) {
+                if (this.speedEl) this.speedEl.textContent = mph.toFixed(1);
+                if (this.distEl) this.distEl.textContent = miles.toFixed(2);
             }
         };
 
-        App.init(); // Init Navigation
-        Timer.init();
-        Alarm.init();
-        Stopwatch.init();
+        // --- Init All ---
+        window.addEventListener('DOMContentLoaded', () => {
+            App.init();
+            Timer.init();
+            Alarm.init();
+            Stopwatch.init();
+        });
 
         // PWA
         const iSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="background:#0a0a0a"><rect width="24" height="24" fill="#0a0a0a" stroke="none"/><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M5 3L2 6M22 6l-3-3M6.38 18.7l-1.4 1.4M17.6 18.7l1.4 1.4"/></svg>`;
