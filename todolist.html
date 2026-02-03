@@ -351,7 +351,7 @@
                 padding: 1rem;
                 display: flex;
                 flex-direction: column;
-                transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 z-index: 50;
             }
 
@@ -400,8 +400,71 @@
                 pointer-events: auto;
             }
 
+            .notes-right-trigger {
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                width: 40px;
+                z-index: 60;
+                background: transparent;
+            }
+
+            .notes-collapse-btn {
+                position: absolute;
+                right: -12px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 24px;
+                height: 48px;
+                background: #1c1c1e;
+                border: 1px solid #2d2d30;
+                border-radius: 0 6px 6px 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                opacity: 0;
+                transition: opacity 0.2s, transform 0.2s, right 0.2s;
+                color: #71717a;
+                z-index: 70;
+                pointer-events: none;
+            }
+
+            .notes-right-trigger:hover~.notes-collapse-btn,
+            .notes-collapse-btn:hover {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
             .notes-sidebar.expanded .notes-expand-btn {
                 display: none;
+            }
+
+            .notes-sidebar.expanded .notes-collapse-btn {
+                display: none;
+            }
+
+            .notes-sidebar.collapsed-hidden {
+                transform: translateX(100%);
+            }
+
+            /* Hide collapse button when not in sidebar state */
+            .notes-sidebar.expanded .notes-collapse-btn,
+            .notes-sidebar.collapsed-hidden .notes-collapse-btn {
+                display: none;
+            }
+
+            .notes-sidebar.collapsed-hidden .notes-expand-btn {
+                opacity: 0;
+                pointer-events: auto;
+                left: -24px;
+                /* Ensure it sticks out from the hidden panel */
+                right: auto;
+            }
+
+            .notes-sidebar.collapsed-hidden:hover .notes-expand-btn {
+                opacity: 1;
             }
 
             .notes-close-btn {
@@ -1290,7 +1353,12 @@
                 tabs: { tasks: true, shopping: true, dailies: true, notes: true },
                 tabOrder: ['tasks', 'dailies', 'shopping', 'notes'],
                 lastResetDate: null,
-                resetTime: 0
+                resetTime: 0,
+                activeTaskSection: 'Tasks',
+                activeShopCat: 'misc',
+                activeDailySection: 'Daily',
+                notesState: 'sidebar',
+                m: Date.now()
             },
             notes: "",
             notesM: 0
@@ -1302,6 +1370,7 @@
         let activeTaskSection = 'Tasks';
         let activeShopCat = 'misc';
         let activeDailySection = 'Daily';
+        let activeNotesState = 'sidebar';
 
         // Unified Migration Logic
         function mergeDB(local, remote) {
@@ -1421,7 +1490,7 @@
             if (data.notesM === undefined) data.notesM = data.settings?.m || 0;
 
             // Settings & Tabs
-            if (!data.settings) data.settings = { tabs: { tasks: true, shopping: true, dailies: true, notes: true }, tabOrder: ['tasks', 'dailies', 'shopping', 'notes'], resetTime: 0, activeTaskSection: 'Tasks', activeShopCat: 'misc', activeDailySection: 'Daily' };
+            if (!data.settings) data.settings = { tabs: { tasks: true, shopping: true, dailies: true, notes: true }, tabOrder: ['tasks', 'dailies', 'shopping', 'notes'], resetTime: 0, activeTaskSection: 'Tasks', activeShopCat: 'misc', activeDailySection: 'Daily', notesState: 'sidebar' };
             if (!data.settings.tabs) data.settings.tabs = { tasks: true, shopping: true, dailies: true, notes: true };
             if (data.settings.tabs.notes === undefined) data.settings.tabs.notes = true;
             if (!data.settings.tabOrder) data.settings.tabOrder = ['tasks', 'dailies', 'shopping', 'notes'];
@@ -1430,6 +1499,7 @@
             if (data.settings.activeTaskSection === undefined) data.settings.activeTaskSection = 'Tasks';
             if (data.settings.activeShopCat === undefined) data.settings.activeShopCat = 'misc';
             if (data.settings.activeDailySection === undefined) data.settings.activeDailySection = 'Daily';
+            if (data.settings.notesState === undefined) data.settings.notesState = 'sidebar';
             if (data.settings.m === undefined) data.settings.m = 0;
 
             // Deleted tombstones
@@ -1440,6 +1510,7 @@
                 activeTaskSection = data.settings.activeTaskSection;
                 activeShopCat = data.settings.activeShopCat;
                 activeDailySection = data.settings.activeDailySection;
+                activeNotesState = data.settings.notesState || 'sidebar';
 
                 if (!data.taskSections.some(s => s.id === activeTaskSection)) activeTaskSection = data.taskSections[0]?.id || 'Tasks';
                 if (!data.shopCategories.some(c => c.id === activeShopCat)) activeShopCat = data.shopCategories[0]?.id || 'misc';
@@ -2121,58 +2192,107 @@
         function renderNotes() {
             const sidebars = document.querySelectorAll('.notes-sidebar');
             sidebars.forEach(sidebar => {
-                sidebar.innerHTML = `
-                    <div class="notes-edge-trigger"></div>
-                    <button class="notes-expand-btn" title="Expand">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="15 18 9 12 15 6"></polyline>
-                        </svg>
-                    </button>
-                    <button class="notes-close-btn" title="Close">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </button>
-                    <textarea class="notes-textarea" placeholder="">${db.notes || ''}</textarea>
-                `;
+                if (!sidebar.querySelector('.notes-textarea')) {
+                    sidebar.innerHTML = `
+                        <div class="notes-edge-trigger"></div>
+                        <div class="notes-right-trigger"></div>
+                        <button class="notes-expand-btn" title="Expand">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                        </button>
+                        <button class="notes-collapse-btn" title="Collapse">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                        <button class="notes-close-btn" title="Close">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                        <textarea class="notes-textarea" placeholder=""></textarea>
+                    `;
 
-                const expandBtn = sidebar.querySelector('.notes-expand-btn');
-                const closeBtn = sidebar.querySelector('.notes-close-btn');
+                    // Apply initial state
+                    if (activeNotesState === 'expanded') sidebar.classList.add('expanded');
+                    if (activeNotesState === 'collapsed-hidden') sidebar.classList.add('collapsed-hidden');
 
-                expandBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    sidebar.classList.add('expanded');
-                };
+                    const expandBtn = sidebar.querySelector('.notes-expand-btn');
+                    const collapseBtn = sidebar.querySelector('.notes-collapse-btn');
+                    const closeBtn = sidebar.querySelector('.notes-close-btn');
+                    const textarea = sidebar.querySelector('.notes-textarea');
 
-                closeBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    sidebar.classList.remove('expanded');
-                };
+                    const updateState = () => {
+                        activeNotesState = sidebar.classList.contains('expanded') ? 'expanded' :
+                            (sidebar.classList.contains('collapsed-hidden') ? 'collapsed-hidden' : 'sidebar');
+                        db.settings.notesState = activeNotesState;
+                        db.settings.m = Date.now();
+                        saveLocal(); pushToCloud();
+                    };
 
-                // Make expand button follow mouse Y position
-                sidebar.addEventListener('mousemove', (e) => {
-                    if (sidebar.classList.contains('expanded')) return;
-                    const rect = sidebar.getBoundingClientRect();
-                    const y = e.clientY - rect.top;
-                    const minY = 40;
-                    const maxY = rect.height - 40;
-                    const clampedY = Math.max(minY, Math.min(maxY, y));
-                    expandBtn.style.top = clampedY + 'px';
-                    expandBtn.style.transform = 'translateY(-50%)';
-                });
+                    expandBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        if (sidebar.classList.contains('collapsed-hidden')) {
+                            sidebar.classList.remove('collapsed-hidden');
+                        } else {
+                            sidebar.classList.add('expanded');
+                        }
+                        updateState();
+                    };
+                    collapseBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        if (sidebar.classList.contains('expanded')) {
+                            sidebar.classList.remove('expanded');
+                        } else if (sidebar.classList.contains('collapsed-hidden')) {
+                            sidebar.classList.remove('collapsed-hidden');
+                        } else {
+                            sidebar.classList.add('collapsed-hidden');
+                        }
+                        updateState();
+                    };
+                    closeBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        sidebar.classList.remove('expanded');
+                        updateState();
+                    };
 
+                    textarea.oninput = (e) => {
+                        db.notes = e.target.value;
+                        db.notesM = Date.now();
+                        db.settings.m = Date.now();
+                        saveLocal();
+                        if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
+                        window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
+                    };
+
+                    // Mouse movement for buttons
+                    sidebar.addEventListener('mousemove', (e) => {
+                        const isExpanded = sidebar.classList.contains('expanded');
+                        const rect = sidebar.getBoundingClientRect();
+                        const y = e.clientY - rect.top;
+                        const minY = 40, maxY = rect.height - 40;
+                        const clampedY = Math.max(minY, Math.min(maxY, y));
+
+                        // Left Side (Expand)
+                        if (!isExpanded) {
+                            expandBtn.style.top = clampedY + 'px';
+                            expandBtn.style.transform = 'translateY(-50%)';
+                        }
+                        // Right Side (Collapse)
+                        collapseBtn.style.top = clampedY + 'px';
+                        const isHidden = sidebar.classList.contains('collapsed-hidden');
+                        const rot = (isExpanded || isHidden) ? ' rotate(180deg)' : '';
+                        collapseBtn.style.transform = `translateY(-50%)${rot}`;
+                    });
+                }
+
+                // Update content non-destructively
                 const textarea = sidebar.querySelector('.notes-textarea');
-                textarea.oninput = (e) => {
-                    db.notes = e.target.value;
-                    db.notesM = Date.now();
-                    db.settings.m = Date.now();
-                    saveLocal();
-                    // Debounce cloud push
-                    if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
-                    window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
-
-                };
+                if (textarea !== document.activeElement && textarea.value !== (db.notes || '')) {
+                    textarea.value = db.notes || '';
+                }
             });
         }
 
