@@ -2182,14 +2182,7 @@
                         updateState();
                     };
 
-                    textarea.oninput = (e) => {
-                        db.notes = e.target.value;
-                        db.notesM = Date.now();
-                        db.settings.m = Date.now();
-                        saveLocal();
-                        if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
-                        window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
-                    };
+                    textarea.oninput = (e) => handleNoteInput(e.target.value);
 
                     // Mouse movement for buttons
                     sidebar.addEventListener('mousemove', (e) => {
@@ -2211,11 +2204,34 @@
                         collapseBtn.style.transform = `translateY(-50%)${rot}`;
                     });
                 }
+            });
 
-                // Update content non-destructively
-                const textarea = sidebar.querySelector('.notes-textarea');
-                if (textarea !== document.activeElement && textarea.value !== (db.notes || '')) {
-                    textarea.value = db.notes || '';
+            // Sync ALL visible notes textareas
+            const allNotesAreas = document.querySelectorAll('.notes-textarea, #mobile-notes-textarea');
+            allNotesAreas.forEach(ta => {
+                if (ta !== document.activeElement && ta.value !== (db.notes || '')) {
+                    ta.value = db.notes || '';
+                }
+                // Ensure oninput is attached if not already (for #mobile-notes-textarea)
+                if (!ta.oninput) {
+                    ta.oninput = (e) => handleNoteInput(e.target.value);
+                }
+            });
+        }
+
+        function handleNoteInput(val) {
+            db.notes = val;
+            db.notesM = Date.now();
+            db.settings.m = Date.now();
+            saveLocal();
+            if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
+            window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
+
+            // Sync other textareas immediately (except the one being typed in)
+            const allNotesAreas = document.querySelectorAll('.notes-textarea, #mobile-notes-textarea');
+            allNotesAreas.forEach(ta => {
+                if (ta !== document.activeElement && ta.value !== val) {
+                    ta.value = val;
                 }
             });
         }
@@ -2868,14 +2884,7 @@
                 textarea.focus();
             }, 10);
 
-            textarea.oninput = (e) => {
-                db.notes = e.target.value;
-                db.notesM = Date.now();
-                db.settings.m = Date.now();
-                saveLocal();
-                if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
-                window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
-            };
+            textarea.oninput = (e) => handleNoteInput(e.target.value);
         }
 
         function closeMobileNotes() {
