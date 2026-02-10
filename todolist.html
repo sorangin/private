@@ -140,6 +140,8 @@
             min-width: 260px;
             break-inside: avoid;
             margin-bottom: 2.5rem;
+            content-visibility: auto;
+            contain-intrinsic-size: 1px 100px;
         }
 
         #shopping-pane .section-block,
@@ -1599,10 +1601,7 @@
 
         async function pushToCloud() {
             if (!syncID || isRemoteUpdate) return;
-
-            // Always save local state before attempting any push
             saveLocal();
-
             if (!isOnline) {
                 pendingSync = true;
                 if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'true');
@@ -1611,37 +1610,34 @@
             }
 
             updateStatus(false);
-            try {
-                // 1. Pull latest from cloud
-                const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
+            if (window._pushDebounce) clearTimeout(window._pushDebounce);
+            window._pushDebounce = setTimeout(async () => {
+                try {
+                    const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
+                    const merged = mergeDB(db, data?.content);
+                    const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: merged }, { onConflict: 'sync_id' });
 
-                // 2. Merge local changes with cloud data
-                const merged = mergeDB(db, data?.content);
+                    if (error) {
+                        console.warn("Push error:", error);
+                        pendingSync = true;
+                        if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'true');
+                        updateStatus(true);
+                        return;
+                    }
 
-                // 3. Upsert merged state
-                const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: merged }, { onConflict: 'sync_id' });
-
-                if (error) {
-                    console.warn("Push error:", error);
+                    db = merged;
+                    saveLocal();
+                    pendingSync = false;
+                    if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'false');
+                    updateStatus(true);
+                    render(false);
+                } catch (e) {
+                    console.error("Sync exception:", e);
                     pendingSync = true;
                     if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'true');
                     updateStatus(true);
-                    return;
                 }
-
-                // Update local db with merged results (in case cloud had newer items)
-                db = merged;
-                saveLocal();
-                pendingSync = false;
-                if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'false');
-                updateStatus(true);
-                render(false);
-            } catch (e) {
-                console.error("Sync exception:", e);
-                pendingSync = true;
-                if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'true');
-                updateStatus(true);
-            }
+            }, 500);
         }
 
 
@@ -1650,10 +1646,12 @@
             supabaseClient.channel('changes').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, payload => {
                 if (isRemoteUpdate || isDragging) return;
                 isRemoteUpdate = true;
-                db = migrateDB(payload.new.content);
+                const remoteDB = payload.new.content;
+                db = mergeDB(db, remoteDB); // Use smart merge on incoming changes too
                 renderTabOrder();
                 updateTabVisibility();
-                render(false); isRemoteUpdate = false;
+                render(false);
+                isRemoteUpdate = false;
             }).subscribe();
         }
 
@@ -2010,15 +2008,17 @@
             const listC = document.getElementById('list-content'), archC = document.getElementById('archive-content'), shopC = document.getElementById('shop-container'), dailyC = document.getElementById('dailies-content');
             if (!listC || !shopC || !dailyC) return;
 
+            // Optimization: Use a fragment or simply manage existing children
             const itemMap = new Map();
             document.querySelectorAll('.item-card').forEach(el => itemMap.set(String(el.getAttribute('data-uid')), el));
+            const orphaned = new Set(itemMap.values());
 
-            listC.innerHTML = ''; archC.innerHTML = ''; shopC.innerHTML = ''; dailyC.innerHTML = '';
+            // Instead of wiping everything, we'll keep what's needed and clear the rest
+            const clearContainer = (c) => { if (c) c.innerHTML = ''; };
 
             const list = db[tab] || [];
             if (!Array.isArray(list)) return;
 
-            // Deduplicate items by UID to prevent double-rendering bugs
             const seenUids = new Set();
             const deduplicated = [];
             list.forEach(i => {
@@ -2029,9 +2029,7 @@
                     deduplicated.push(i);
                 }
             });
-            if (deduplicated.length !== list.length) {
-                db[tab] = deduplicated;
-            }
+            if (deduplicated.length !== list.length) db[tab] = deduplicated;
 
             const renderList = deduplicated;
             renderList.forEach(i => { if (tab === 'shopping' && !i.cat) i.cat = 'misc'; });
@@ -2050,143 +2048,69 @@
                 if (!db.taskSections || db.taskSections.length === 0) db.taskSections = [{ id: 'Tasks', title: 'Tasks', color: '#ffffff' }];
                 db.taskSections = db.taskSections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff' } : s);
 
-                // Render each section
-                listC.innerHTML = '<div id="task-col-1" class="main-col"></div><div id="task-col-2" class="main-col"></div>';
-                const col1 = listC.querySelector('#task-col-1');
-                const col2 = listC.querySelector('#task-col-2');
-                const colArr = [col1, col2];
+                if (!listC.querySelector('#task-col-1')) {
+                    listC.innerHTML = '<div id="task-col-1" class="main-col"></div><div id="task-col-2" class="main-col"></div>';
+                }
+                const colArr = [listC.querySelector('#task-col-1'), listC.querySelector('#task-col-2')];
 
                 db.taskSections.forEach((sec, secIdx) => {
-                    let targetCol;
-                    if (sec.col !== undefined && sec.col < colArr.length) {
-                        targetCol = colArr[sec.col];
-                    } else {
-                        targetCol = colArr[secIdx % 2];
-                    }
-                    const secId = sec.id;
-                    const secTitle = sec.title;
-                    const secColor = sec.color || '#ffffff';
+                    const targetCol = colArr[sec.col !== undefined && sec.col < colArr.length ? sec.col : secIdx % 2];
+                    const secId = sec.id, secTitle = sec.title, secColor = sec.color || '#ffffff';
 
-                    const secDiv = document.createElement('div');
-                    secDiv.className = 'section-block';
-                    secDiv.setAttribute('data-sec-id', secId);
+                    let secBlock = targetCol.querySelector(`.section-block[data-sec-id="${secId}"]`);
+                    if (!secBlock) {
+                        secBlock = document.createElement('div');
+                        secBlock.className = 'section-block';
+                        secBlock.setAttribute('data-sec-id', secId);
+                        targetCol.appendChild(secBlock);
+                    }
 
                     const isCol = db.collapsedStates[secId];
                     const count = renderList.filter(i => !i.done && (i.section === secId || (!i.section && secIdx === 0))).length;
 
-                    secDiv.innerHTML = `<div class="section-header cursor-pointer hover:bg-white/5 transition-colors rounded-lg px-2 py-1" data-sec-id="${secId}">
-                        <span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${secColor}">▼</span>
+                    let hdr = secBlock.querySelector('.section-header');
+                    if (!hdr) {
+                        hdr = document.createElement('div');
+                        hdr.className = 'section-header cursor-pointer hover:bg-white/5 transition-colors rounded-lg px-2 py-1';
+                        hdr.setAttribute('data-sec-id', secId);
+                        secBlock.prepend(hdr);
+                        hdr.onclick = () => toggleCat(secId);
+                    }
+                    hdr.innerHTML = `<span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${secColor}">▼</span>
                         <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${secColor}">${secTitle}</span>
-                        <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${count}</span>
-                    </div>
-                    <div id="list-${secId}" class="task-grid ${isCol ? 'collapsed-content' : ''}"></div>`;
+                        <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${count}</span>`;
 
-                    // Attach click for collapse
-                    secDiv.querySelector('.section-header').onclick = (e) => {
-                        if (e.target.closest('[data-editing]')) return;
-                        toggleCat(secId);
-                    };
+                    let cont = secBlock.querySelector('.task-grid');
+                    if (!cont) {
+                        cont = document.createElement('div'); cont.id = `list-${secId}`; cont.className = `task-grid ${isCol ? 'collapsed-content' : ''}`;
+                        secBlock.appendChild(cont);
+                    } else { cont.className = `task-grid ${isCol ? 'collapsed-content' : ''}`; }
 
-                    // Long press for edit
-                    let secTimer = null;
-                    let isDraggingSec = false;
-                    const hdr = secDiv.querySelector('.section-header');
-
-                    let startX = 0, startY = 0;
-                    const startSecPress = (e) => {
-                        if (e.type === 'touchstart') {
-                            startX = e.touches[0].clientX;
-                            startY = e.touches[0].clientY;
-                        }
-                        secTimer = setTimeout(() => {
-                            if (!window.isDraggingSectionGlobal) {
-                                secTimer = null;
-                                openSectionEdit(secId);
-                                if (navigator.vibrate) navigator.vibrate(50);
-                                if (navigator.vibrate) navigator.vibrate(50);
-                            }
-                        }, 800);
-                    };
-
-                    const cancelSecPress = (e) => {
-                        if (e && e.type === 'touchmove') {
-                            const x = e.touches[0].clientX;
-                            const y = e.touches[0].clientY;
-                            if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return; // Tolerance
-                        }
-                        if (secTimer) {
-                            clearTimeout(secTimer);
-                            secTimer = null;
-                        }
-                    };
-
-                    hdr.addEventListener('touchstart', startSecPress, { passive: true });
-                    hdr.addEventListener('touchmove', cancelSecPress, { passive: true });
-                    hdr.addEventListener('touchend', (e) => {
-                        if (!secTimer && !window.isDraggingSectionGlobal) e.preventDefault();
-                        cancelSecPress();
-                    });
-                    hdr.addEventListener('mousedown', startSecPress);
-                    hdr.addEventListener('mouseup', cancelSecPress);
-                    hdr.addEventListener('mouseleave', cancelSecPress);
-
-                    // Hook into Sortable to detect drag start
-                    secDiv.addEventListener('mousedown', () => { window.isDraggingSectionGlobal = false; });
-                    hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cancelSecPress(); });
-
-
-                    targetCol.appendChild(secDiv);
-
-                    const cont = secDiv.querySelector(`[id^="list-"]`);
-
-                    // Filter items for this section
-                    const isDefault = secIdx === 0;
-                    const items = renderList.filter(i => !i.done && (i.section === secId || (isDefault && !i.section)));
-
-                    items.forEach(i => buildItem(cont, i, itemMap));
+                    const items = renderList.filter(i => !i.done && (i.section === secId || (secIdx === 0 && !i.section)));
+                    items.forEach(i => orphaned.delete(buildItem(cont, i, itemMap)));
                     updateGridColumns(cont, items);
                 });
 
                 const comp = renderList.filter(i => i.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
-                archC.classList.add('task-grid');
-                comp.forEach(i => buildItem(archC, i, itemMap));
+                comp.forEach(i => orphaned.delete(buildItem(archC, i, itemMap)));
                 updateGridColumns(archC, comp);
-
-                if (comp.length === 0) archiveArea.classList.add('hidden');
-
-                // Render Notes Sidebar
-                renderNotes();
-
-                // Make section blocks sortable
-                initSectionSortable();
+                archiveArea.classList.toggle('hidden', comp.length === 0);
             } else if (tab === 'dailies') {
-                dailyC.innerHTML = '<div id="daily-col-1" class="main-col"></div><div id="daily-col-2" class="main-col"></div><div id="daily-col-3" class="main-col"></div>';
-                const col1 = dailyC.querySelector('#daily-col-1');
-                const col2 = dailyC.querySelector('#daily-col-2');
-                const col3 = dailyC.querySelector('#daily-col-3');
-                const colArr = [col1, col2, col3];
-
+                if (!dailyC.querySelector('#daily-col-1')) {
+                    dailyC.innerHTML = '<div id="daily-col-1" class="main-col"></div><div id="daily-col-2" class="main-col"></div><div id="daily-col-3" class="main-col"></div>';
+                }
+                const colArr = [dailyC.querySelector('#daily-col-1'), dailyC.querySelector('#daily-col-2'), dailyC.querySelector('#daily-col-3')];
                 db.dailySections.forEach((sec, secIdx) => {
-                    let targetCol;
-                    if (sec.col !== undefined && sec.col < colArr.length) {
-                        targetCol = colArr[sec.col];
-                    } else {
-                        targetCol = colArr[secIdx % 3];
-                    }
-                    renderDailiesSection(targetCol, sec.title, sec.id, sec.color || '#ffffff', itemMap, secIdx === 0);
+                    const targetCol = colArr[sec.col !== undefined && sec.col < colArr.length ? sec.col : secIdx % 3];
+                    renderDailiesSection(targetCol, sec.title, sec.id, sec.color || '#ffffff', itemMap, secIdx === 0, orphaned);
                 });
-
-                initSectionSortable();
             } else if (tab === 'shopping') {
-                shopC.innerHTML = '';
-                renderShop(shopC, itemMap);
-                initSectionSortable();
-            } else if (tab === 'notes') {
-                // Notes pane is handled by the notes-sidebar component, no direct rendering here
+                renderShop(shopC, itemMap, orphaned);
             }
-            saveLocal(); initSortable(); animateUID = 0;
 
-            // Update FAB visual hint? Optional.
+            orphaned.forEach(el => el.remove());
+            saveLocal(); initSortable(); initSectionSortable(); animateUID = 0;
+            renderNotes();
         }
 
         function renderNotes() {
@@ -2296,279 +2220,177 @@
             });
         }
 
-        function renderShop(container, itemMap) {
-            db.shopCategories.forEach(c => renderSection(container, c.title, c.id, c.color || '#ffffff', itemMap));
+        function renderShop(container, itemMap, orphaned) {
+            db.shopCategories.forEach(c => renderSection(container, c.title, c.id, c.color || '#ffffff', itemMap, orphaned));
             if (db.shopping.some(i => i.cat === 'trash')) {
-                renderSection(container, 'Trash', 'trash', '#71717a', itemMap, false);
+                renderSection(container, 'Trash', 'trash', '#71717a', itemMap, orphaned, false);
             }
         }
 
-        function renderSection(p, l, k, color, itemMap, draggable = true) {
+        function renderSection(p, l, k, color, itemMap, orphaned, draggable = true) {
             const items = db.shopping.filter(i => i.cat === k);
-            const t = items.length;
-            const active = items.filter(i => !i.done).length;
-            const con = document.createElement('div');
-            con.className = draggable ? 'section-block' : 'section-block-static';
-            con.setAttribute('data-sec-id', k);
+            const t = items.length, active = items.filter(i => !i.done).length;
+            let con = p.querySelector(`.section-block[data-sec-id="${k}"]`) || p.querySelector(`.section-block-static[data-sec-id="${k}"]`);
+            if (!con) {
+                con = document.createElement('div');
+                con.className = draggable ? 'section-block' : 'section-block-static';
+                con.setAttribute('data-sec-id', k);
+                p.appendChild(con);
+            }
 
             let actionBtn = '';
             if (k === 'trash' && t > 0) {
-                // Ensure button is very large and easy to click, and stop all propagation
                 actionBtn = `<button class="trash-btn ml-auto md:ml-2 text-zinc-600 hover:text-red-500 p-2 z-10" onclick="event.preventDefault(); event.stopPropagation(); emptyTrash();"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`;
             }
 
             const countDisplay = k === 'trash' ? `(${t})` : `(${active}/${t})`;
+            const isCol = db.collapsedStates[k];
 
-            con.innerHTML = `<div class="section-header ${!draggable ? 'no-drag' : ''}" style="color:${color}" data-sec-id="${k}">
-                <div class="flex items-center flex-1 md:flex-initial" onclick="toggleCat('${k}', event)">
-                    <span class="chevron ${db.collapsedStates[k] ? 'is-collapsed' : ''}">▼</span>${l} 
+            let hdr = con.querySelector('.section-header');
+            if (!hdr) {
+                hdr = document.createElement('div');
+                hdr.className = `section-header ${!draggable ? 'no-drag' : ''}`;
+                hdr.setAttribute('data-sec-id', k);
+                con.prepend(hdr);
+                if (k !== 'trash') {
+                    let secTimer = null, startX = 0, startY = 0;
+                    const sp = (e) => { if (e.type === 'touchstart') { startX = e.touches[0].clientX; startY = e.touches[0].clientY; } secTimer = setTimeout(() => { if (!window.isDraggingSectionGlobal) { secTimer = null; openSectionEdit(k); if (navigator.vibrate) navigator.vibrate(50); } }, 800); };
+                    const cp = (e) => { if (e && e.type === 'touchmove') { const x = e.touches[0].clientX, y = e.touches[0].clientY; if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return; } if (secTimer) { clearTimeout(secTimer); secTimer = null; } };
+                    hdr.addEventListener('touchstart', sp, { passive: true }); hdr.addEventListener('touchmove', cp, { passive: true }); hdr.addEventListener('touchend', cp); hdr.addEventListener('mousedown', sp); hdr.addEventListener('mouseup', cp); hdr.addEventListener('mouseleave', cp);
+                    hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cp(); });
+                }
+            }
+            hdr.style.color = color;
+            hdr.innerHTML = `<div class="flex items-center flex-1 md:flex-initial" onclick="toggleCat('${k}', event)">
+                    <span class="chevron ${isCol ? 'is-collapsed' : ''}">▼</span>${l} 
                     <span class="ml-1 opacity-60">${countDisplay}</span>
                 </div>
-                ${actionBtn}
-            </div>
-            <div id="cat-${k}" data-cat="${k}" class="shopping-grid ${db.collapsedStates[k] ? 'collapsed-content' : ''}"></div>`;
+                ${actionBtn}`;
 
-            p.appendChild(con);
+            let g = con.querySelector('.shopping-grid');
+            if (!g) {
+                g = document.createElement('div'); g.id = `cat-${k}`; g.setAttribute('data-cat', k);
+                g.className = `shopping-grid ${isCol ? 'collapsed-content' : ''}`;
+                con.appendChild(g);
+            } else { g.className = `shopping-grid ${isCol ? 'collapsed-content' : ''}`; }
 
-            if (k !== 'trash') {
-                const hdr = con.querySelector('.section-header');
-                let secTimer = null;
-                let startX = 0, startY = 0;
-                const startSecPress = (e) => {
-                    if (e.type === 'touchstart') {
-                        startX = e.touches[0].clientX;
-                        startY = e.touches[0].clientY;
-                    }
-                    secTimer = setTimeout(() => {
-                        if (!window.isDraggingSectionGlobal) {
-                            secTimer = null;
-                            openSectionEdit(k);
-                            if (navigator.vibrate) navigator.vibrate(50);
-                        }
-                    }, 800);
-                };
-                const cancelSecPress = (e) => {
-                    if (e && e.type === 'touchmove') {
-                        const x = e.touches[0].clientX;
-                        const y = e.touches[0].clientY;
-                        if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return;
-                    }
-                    if (secTimer) { clearTimeout(secTimer); secTimer = null; }
-                };
-                hdr.addEventListener('touchstart', startSecPress, { passive: true });
-                hdr.addEventListener('touchmove', cancelSecPress, { passive: true });
-                hdr.addEventListener('touchend', cancelSecPress);
-                hdr.addEventListener('mousedown', startSecPress);
-                hdr.addEventListener('mouseup', cancelSecPress);
-                hdr.addEventListener('mouseleave', cancelSecPress);
-                hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cancelSecPress(); });
-            }
-
-            const g = con.querySelector('.shopping-grid');
-            items.forEach(i => buildItem(g, i, itemMap));
+            items.forEach(i => orphaned.delete(buildItem(g, i, itemMap)));
         }
 
-        function renderDailiesSection(p, l, k, color, itemMap, isDefault) {
-            const secDiv = document.createElement('div');
-            secDiv.className = 'section-block';
-            secDiv.setAttribute('data-sec-id', k);
-
+        function renderDailiesSection(p, l, k, color, itemMap, isDefault, orphaned) {
+            let secBlock = p.querySelector(`.section-block[data-sec-id="${k}"]`);
+            if (!secBlock) {
+                secBlock = document.createElement('div');
+                secBlock.className = 'section-block';
+                secBlock.setAttribute('data-sec-id', k);
+                p.appendChild(secBlock);
+            }
             const isCol = db.collapsedStates[k];
             const items = db.dailies.filter(i => i.section === k || (isDefault && !i.section));
             const count = items.length;
             const active = items.filter(i => !i.done).length;
 
-            secDiv.innerHTML = `<div class="section-header rounded-lg px-2 py-1" data-sec-id="${k}">
-                <div class="flex items-center flex-1" onclick="toggleCat('${k}', event)">
+            let hdr = secBlock.querySelector('.section-header');
+            if (!hdr) {
+                hdr = document.createElement('div');
+                hdr.className = 'section-header rounded-lg px-2 py-1';
+                hdr.setAttribute('data-sec-id', k);
+                secBlock.prepend(hdr);
+                hdr.oncontextmenu = (e) => { e.preventDefault(); openSectionEdit(k); };
+                let secTimer = null, startX = 0, startY = 0;
+                const sp = (e) => { if (e.type === 'touchstart') { startX = e.touches[0].clientX; startY = e.touches[0].clientY; } secTimer = setTimeout(() => { if (!window.isDraggingSectionGlobal) { secTimer = null; openSectionEdit(k); if (navigator.vibrate) navigator.vibrate(50); } }, 800); };
+                const cp = (e) => { if (e && e.type === 'touchmove') { const x = e.touches[0].clientX, y = e.touches[0].clientY; if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return; } if (secTimer) { clearTimeout(secTimer); secTimer = null; } };
+                hdr.addEventListener('touchstart', sp, { passive: true }); hdr.addEventListener('touchmove', cp, { passive: true }); hdr.addEventListener('touchend', cp); hdr.addEventListener('mousedown', sp); hdr.addEventListener('mouseup', cp); hdr.addEventListener('mouseleave', cp);
+                hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cp(); });
+            }
+            hdr.innerHTML = `<div class="flex items-center flex-1" onclick="toggleCat('${k}', event)">
                     <span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${color}">▼</span>
                     <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${color}">${l}</span>
                     <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${active}/${count}</span>
-                </div>
-            </div>
-            <div id="list-${k}" class="task-grid ${isCol ? 'collapsed-content' : ''}"></div>`;
+                </div>`;
 
-            const hdr = secDiv.querySelector('.section-header');
-            // onclick removed from hdr, moved to label div inside template
-            hdr.oncontextmenu = (e) => { e.preventDefault(); openSectionEdit(k); };
-
-            let secTimer = null;
-            let startX = 0, startY = 0;
-            const startSecPress = (e) => {
-                if (e.type === 'touchstart') {
-                    startX = e.touches[0].clientX;
-                    startY = e.touches[0].clientY;
-                }
-                secTimer = setTimeout(() => {
-                    if (!window.isDraggingSectionGlobal) {
-                        secTimer = null;
-                        openSectionEdit(k);
-                        if (navigator.vibrate) navigator.vibrate(50);
-                    }
-                }, 800);
-            };
-            const cancelSecPress = (e) => {
-                if (e && e.type === 'touchmove') {
-                    const x = e.touches[0].clientX;
-                    const y = e.touches[0].clientY;
-                    if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return;
-                }
-                if (secTimer) { clearTimeout(secTimer); secTimer = null; }
-            };
-            hdr.addEventListener('touchstart', startSecPress, { passive: true });
-            hdr.addEventListener('touchmove', cancelSecPress, { passive: true });
-            hdr.addEventListener('touchend', cancelSecPress);
-            hdr.addEventListener('mousedown', startSecPress);
-            hdr.addEventListener('mouseup', cancelSecPress);
-            hdr.addEventListener('mouseleave', cancelSecPress);
-            hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cancelSecPress(); });
-
-            p.appendChild(secDiv);
-
-            const cont = secDiv.querySelector(`[id^="list-"]`);
-            items.forEach(i => buildItem(cont, i, itemMap));
+            let cont = secBlock.querySelector('.task-grid');
+            if (!cont) {
+                cont = document.createElement('div'); cont.id = `list-${k}`;
+                cont.className = `task-grid ${isCol ? 'collapsed-content' : ''}`;
+                secBlock.appendChild(cont);
+            } else {
+                cont.className = `task-grid ${isCol ? 'collapsed-content' : ''}`;
+            }
+            items.forEach(i => orphaned.delete(buildItem(cont, i, itemMap)));
             updateGridColumns(cont, items);
         }
 
         function buildItem(p, i, itemMap) {
             let card = itemMap ? itemMap.get(String(i.uid)) : null;
-            const isShop = tab === 'shopping';
-            const isDailies = tab === 'dailies';
-            // Find section/category color
+            const isShop = tab === 'shopping', isDailies = tab === 'dailies';
             const list = isShop ? db.shopCategories : (isDailies ? db.dailySections : db.taskSections);
             const id = isShop ? i.cat : (i.section || list[0].id);
             const sec = list.find(s => s.id === id);
 
-            // Base section color
             let rawColor = '#ffffff';
             if (sec && sec.color) rawColor = sec.color;
-            if (i.cat === 'trash') rawColor = '#71717a'; // Muted for trash
+            if (i.cat === 'trash') rawColor = '#71717a';
 
-            const secColor = wash(rawColor, 0.85); // Very desaturated/light (for task text)
-            const borderCol = isShop ? rawColor : wash(rawColor, 0.6); // Slightly better definition but still desaturated for tasks
-            const taskTextCol = isShop ? rawColor : secColor; // Washed for tasks, saturated for shop
+            const secColor = wash(rawColor, 0.85), borderCol = isShop ? rawColor : wash(rawColor, 0.6), taskTextCol = isShop ? rawColor : secColor;
 
             if (!card) {
                 card = document.createElement('div');
-                const vtag = 'item-' + String(i.uid).replace('.', '').substring(0, 8);
-                card.style.viewTransitionName = vtag;
                 card.setAttribute('data-uid', i.uid);
-
                 card.onclick = (e) => {
-                    const now = Date.now();
-                    const currentI = db[tab].find(x => x.uid == card.getAttribute('data-uid'));
-                    if (!currentI) return;
-                    if (currentI.lastClick && now - currentI.lastClick < 300) return;
+                    const now = Date.now(), currentI = db[tab].find(x => x.uid == card.getAttribute('data-uid'));
+                    if (!currentI || (currentI.lastClick && now - currentI.lastClick < 300)) return;
 
-                    const idx = db[tab].findIndex(x => x.uid == currentI.uid);
-                    const txt = card.querySelector('.editable-text');
+                    const idx = db[tab].findIndex(x => x.uid == currentI.uid), txt = card.querySelector('.editable-text');
 
-                    if (e.target.closest('.del')) {
-                        remove(idx);
-                    } else if (currentI.cat === 'trash') {
-                        return;
-                    } else {
-                        // For shopping items, check if click is near center for edit
-                        // For tasks, keep existing behavior (click text to edit)
+                    if (e.target.closest('.del')) remove(idx);
+                    else if (currentI.cat === 'trash') return;
+                    else {
                         let allowEdit = false;
                         if (isShop) {
-                            const rect = card.getBoundingClientRect();
-                            const cx = rect.left + rect.width / 2;
-                            const cy = rect.top + rect.height / 2;
-                            const dist = Math.sqrt(Math.pow(e.clientX - cx, 2) + Math.pow(e.clientY - cy, 2));
-                            // Allow edit if within central very small area (approx 10px radius)
-                            if (dist < 10) allowEdit = true;
-                        } else {
-                            if (e.target === txt) allowEdit = true;
-                        }
+                            const rect = card.getBoundingClientRect(), cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+                            if (Math.sqrt(Math.pow(e.clientX - cx, 2) + Math.pow(e.clientY - cy, 2)) < 10) allowEdit = true;
+                        } else if (e.target === txt) allowEdit = true;
 
-                        if (allowEdit) {
-                            txt.contentEditable = true;
-                            txt.focus();
-                        } else if (e.target.closest('.chk-box') || isShop) {
-                            currentI.lastClick = now;
-                            toggle(idx);
-                        }
+                        if (allowEdit) { txt.contentEditable = true; txt.focus(); }
+                        else if (e.target.closest('.chk-box') || isShop) { currentI.lastClick = now; toggle(idx); }
                     }
                 };
             }
 
-            card.className = `group item-card ${i.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-2 h-14 text-center'}`;
-            if (isShop && i.cat === 'trash') card.style.opacity = '0.35'; // Signficantly faded for trash
-            else card.style.opacity = '';
+            // Only update DOM if needed
+            const lastDone = card.getAttribute('data-last-done'), lastText = card.getAttribute('data-last-text'), lastCat = card.getAttribute('data-last-cat');
+            const needsFullUpdate = !card.innerHTML || lastDone !== String(i.done) || lastCat !== String(i.cat) || lastText !== i.text;
 
-            if (!i.done) {
-                card.style.backgroundColor = taskTextCol + '05';
-                card.style.borderColor = borderCol + (isShop ? '88' : '1a'); // ~50% for shop, ~10% for tasks desaturated
-            } else {
-                card.style.backgroundColor = '';
-                card.style.borderColor = '';
-            }
+            card.className = `group item-card ${i.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-2 h-14 text-center'}`;
+            card.style.opacity = (isShop && i.cat === 'trash') ? '0.35' : '';
+            card.style.backgroundColor = !i.done ? taskTextCol + '05' : '';
+            card.style.borderColor = !i.done ? borderCol + (isShop ? '88' : '1a') : '';
             if (i.uid === animateUID) card.classList.add('item-slide-in');
 
-            if (!isShop) {
-                const chkState = i.done ? 'checked' : '';
-                const svg = i.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : '';
-                const strike = i.done ? 'strikethrough' : '';
-
-                if (card.innerHTML === '' || card.getAttribute('data-last-done') !== String(i.done)) {
-                    card.innerHTML = `<div class="chk-box ${chkState}">${svg}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${strike}">${i.text}</span><button class="del ml-2 text-zinc-700 hover:text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>`;
-                    const chk = card.querySelector('.chk-box');
-                    const txt = card.querySelector('.editable-text');
-
-                    if (!i.done) {
-                        chk.style.borderColor = borderCol + '1a'; // ~10% opacity desaturated for tasks
-                        txt.style.color = taskTextCol;
-                        txt.style.textShadow = 'none';
-                    } else {
-                        chk.style.borderColor = '';
-                        txt.style.color = '';
-                        txt.style.textShadow = '';
-                    }
-
+            if (needsFullUpdate) {
+                if (!isShop) {
+                    const svg = i.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><path d="M20 6L9 17l-5-5"/></svg>' : '';
+                    card.innerHTML = `<div class="chk-box ${i.done ? 'checked' : ''}">${svg}</div><span class="ml-4 flex-1 editable-text text-[14px] font-medium ${i.done ? 'strikethrough' : ''}">${i.text}</span><button class="del ml-2 text-zinc-700 hover:text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>`;
+                    const chk = card.querySelector('.chk-box'), txt = card.querySelector('.editable-text');
+                    chk.style.borderColor = !i.done ? borderCol + '1a' : '';
+                    txt.style.color = !i.done ? taskTextCol : '';
                     txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
                     txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; db[tab][idx].m = Date.now(); saveLocal(); pushToCloud(); } };
-                    card.setAttribute('data-last-done', i.done);
                 } else {
+                    const delBtn = i.cat === 'trash' ? `<button class="del absolute top-0.5 right-0.5 text-zinc-500 text-[14px] p-1 hover:text-zinc-300 font-bold">＋</button>` : `<button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1 hover:text-zinc-400">✕</button>`;
+                    card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${i.done ? 'strikethrough' : ''}" style="color:${i.done ? '' : taskTextCol}">${i.text}</span>${delBtn}`;
                     const txt = card.querySelector('.editable-text');
-                    const chk = card.querySelector('.chk-box');
-                    if (txt && txt.innerText !== i.text && document.activeElement !== txt) txt.innerText = i.text;
-                    if (!i.done) {
-                        chk.style.borderColor = borderCol + '1a'; // ~10% opacity desaturated
-                        txt.style.color = taskTextCol;
-                    } else {
-                        chk.style.borderColor = '';
-                        txt.style.color = '';
-                        txt.style.textShadow = '';
-                    }
-                }
-            } else {
-                let delBtn = `<button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1 hover:text-zinc-400">✕</button>`;
-                if (i.cat === 'trash') delBtn = `<button class="del absolute top-0.5 right-0.5 text-zinc-500 text-[14px] p-1 hover:text-zinc-300 font-bold">＋</button>`;
-                const strike = i.done ? 'strikethrough' : '';
-
-                if (card.innerHTML === '' || card.getAttribute('data-last-done') !== String(i.done) || card.getAttribute('data-last-cat') !== String(i.cat)) {
-                    card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${strike}" style="color:${i.done ? '' : taskTextCol}">${i.text}</span>${delBtn}`;
-                    const txt = card.querySelector('.editable-text');
-                    card.style.borderColor = i.done ? '' : borderCol + '88';
                     txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
                     txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; db[tab][idx].m = Date.now(); saveLocal(); pushToCloud(); } };
-                    card.setAttribute('data-last-done', i.done);
-                    card.setAttribute('data-last-cat', i.cat);
                 }
-                else {
-                    const txt = card.querySelector('.editable-text');
-                    if (txt && txt.innerText !== i.text && document.activeElement !== txt) txt.innerText = i.text;
-                    if (!i.done) {
-                        txt.style.color = taskTextCol;
-                        card.style.borderColor = borderCol + '88';
-                    } else {
-                        txt.style.color = '';
-                        card.style.borderColor = '';
-                    }
-                }
+                card.setAttribute('data-last-done', i.done);
+                card.setAttribute('data-last-text', i.text);
+                card.setAttribute('data-last-cat', i.cat);
             }
 
-            p.appendChild(card);
+            if (card.parentElement !== p) p.appendChild(card);
+            return card;
         }
 
         function initSortable() {
