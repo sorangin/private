@@ -15,6 +15,13 @@
         type="image/svg+xml">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script>
+        const _warn = console.warn;
+        console.warn = function (...args) {
+            if (args[0] && args[0].includes && args[0].includes('cdn.tailwindcss.com should not be used in production')) return;
+            _warn.apply(console, args);
+        };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
@@ -1329,12 +1336,8 @@
             updateStatus(true); // Refresh UI to show offline
         });
 
-        if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-            navigator.serviceWorker.register(
-                URL.createObjectURL(new Blob(['self.addEventListener("fetch", (e) => {});'], { type: "text/javascript" })),
-                { scope: window.location.href }
-            ).catch(err => console.log('SW Error:', err));
-        }
+        // Service Worker removed: blob URLs are blocked on GitHub Pages,
+        // and the previous SW was a no-op (empty fetch handler).
 
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
         // Data Model Update: taskSections & shopCategories
