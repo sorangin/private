@@ -13,16 +13,33 @@
     <link rel="icon"
         href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E"
         type="image/svg+xml">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" async
+        onerror="console.warn('Supabase CDN unavailable, running offline')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js" async
+        onerror="console.warn('SortableJS CDN unavailable, running offline')"></script>
     <script>
         const _warn = console.warn;
         console.warn = function (...args) {
             if (args[0] && args[0].includes && args[0].includes('cdn.tailwindcss.com should not be used in production')) return;
             _warn.apply(console, args);
         };
+        // Load Tailwind dynamically with timeout fallback for offline
+        (function () {
+            var tw = document.createElement('script');
+            tw.src = 'https://cdn.tailwindcss.com';
+            var revealed = false;
+            function reveal() {
+                if (revealed) return; revealed = true;
+                // Small delay to let Tailwind process the DOM
+                setTimeout(function () { document.documentElement.classList.add('ready'); }, 50);
+            }
+            tw.onload = function () { setTimeout(reveal, 150); }; // Give Tailwind time to process
+            tw.onerror = function () { console.warn('Tailwind CDN unavailable, running offline'); reveal(); };
+            // Safety net: show page after 4s no matter what
+            setTimeout(reveal, 4000);
+            document.head.appendChild(tw);
+        })();
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
@@ -36,6 +53,16 @@
 
         html {
             background-color: var(--bg);
+        }
+
+        /* Hide page until Tailwind loads (or timeout) to prevent FOUC */
+        html:not(.ready) body {
+            opacity: 0;
+        }
+
+        html.ready body {
+            opacity: 1;
+            transition: opacity 0.15s ease;
         }
 
         body {
@@ -528,6 +555,34 @@
             font-family: inherit;
         }
 
+        .notes-editable {
+            width: 100%;
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #d1d1d6;
+            font-size: 13px;
+            line-height: 1.6;
+            font-family: inherit;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            user-select: text;
+            -webkit-user-select: text;
+            scrollbar-width: none;
+        }
+
+        .notes-editable::-webkit-scrollbar {
+            display: none;
+        }
+
+        .notes-editable:empty::before {
+            content: attr(data-placeholder);
+            color: #52525b;
+            pointer-events: none;
+        }
+
         .strikethrough {
             text-decoration: line-through;
             opacity: 0.6;
@@ -976,9 +1031,9 @@
             </main>
             <main id="notes-pane" class="view-pane px-2 no-scrollbar" onclick="handleBgClick(event)">
                 <div class="notes-mobile-content mt-2">
-                    <textarea id="mobile-notes-textarea"
-                        class="w-full bg-transparent text-[14px] leading-relaxed outline-none min-height-[calc(100vh-180px)]"
-                        placeholder="Type notes here..."></textarea>
+                    <div id="mobile-notes-textarea" contenteditable="true"
+                        class="notes-editable w-full bg-transparent text-[14px] leading-relaxed outline-none"
+                        data-placeholder="Type notes here..." style="min-height:calc(100vh - 180px)"></div>
                 </div>
             </main>
         </div>
@@ -1067,7 +1122,7 @@
                 </svg>
             </button>
         </div>
-        <textarea class="notes-textarea flex-1 p-4" placeholder=""></textarea>
+        <div class="notes-editable notes-textarea flex-1 p-4" contenteditable="true" data-placeholder=""></div>
     </div>
 
     <style>
@@ -1326,7 +1381,8 @@
 
         window.addEventListener('online', () => {
             isOnline = true;
-            if (pendingSync) {
+            initSupabase(); // Try to init if not already
+            if (pendingSync && supabaseClient) {
                 console.log("Back online, pushing pending changes...");
                 pushToCloud();
             }
@@ -1339,7 +1395,17 @@
         // Service Worker removed: blob URLs are blocked on GitHub Pages,
         // and the previous SW was a no-op (empty fetch handler).
 
-        const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620", supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+        const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620";
+        let supabaseClient = null;
+        function initSupabase() {
+            if (!supabaseClient && typeof supabase !== 'undefined') {
+                supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+                return true;
+            }
+            return !!supabaseClient;
+        }
+        // Try to init immediately if already loaded
+        initSupabase();
         // Data Model Update: taskSections & shopCategories
         let db = {
             tasks: [],
@@ -1556,12 +1622,16 @@
             updateTabVisibility();
             switchTab(tab);
             const mobNotes = document.getElementById('mobile-notes-textarea');
-            if (mobNotes) mobNotes.value = db.notes || '';
+            if (mobNotes) mobNotes.innerHTML = db.notes || '';
             render(false);
 
             if (syncID) {
                 // Background sync - don't await so UI appears immediately
                 (async () => {
+                    // Wait for Supabase to be available (async script loading)
+                    let retries = 0;
+                    while (!initSupabase() && retries < 50) { await new Promise(r => setTimeout(r, 100)); retries++; }
+                    if (!supabaseClient) { console.warn('Supabase not available, running offline'); updateStatus(false); return; }
                     if (pendingSync && isOnline) {
                         await pushToCloud();
                     } else {
@@ -1570,21 +1640,30 @@
                     subscribeRealtime();
                 })();
             } else {
-                setTimeout(promptSyncID, 500);
+                // Wait for Supabase before prompting sync ID
+                (async () => {
+                    let retries = 0;
+                    while (!initSupabase() && retries < 50) { await new Promise(r => setTimeout(r, 100)); retries++; }
+                    if (supabaseClient) setTimeout(promptSyncID, 500);
+                })();
             }
 
-            // Initial reset check
             checkDailiesReset();
 
-            setupInputLogic(); window.addEventListener('focus', pullFromCloud); setupSwipe(); setupFabGestures(); setupMenuTouch();
-            initTabSortable();
+            setupInputLogic(); window.addEventListener('focus', () => { if (supabaseClient) pullFromCloud(); }); setupSwipe(); setupFabGestures(); setupMenuTouch();
+            // Wait for SortableJS before initializing sortables
+            (async () => {
+                let retries = 0;
+                while (typeof Sortable === 'undefined' && retries < 50) { await new Promise(r => setTimeout(r, 100)); retries++; }
+                if (typeof Sortable !== 'undefined') { initTabSortable(); initSortable(); initSectionSortable(); }
+            })();
             document.getElementById('archive-header-row').onclick = toggleArchive;
             document.getElementById('wipe-btn').onclick = (e) => { e.stopPropagation(); wipeCompleted(); };
         }
 
         async function pullFromCloud() {
             checkDailiesReset(); // Check reset whenever we might be updating data or returning to app
-            if (!syncID || isRemoteUpdate || isDragging || window.isDraggingSectionGlobal) return;
+            if (!syncID || !supabaseClient || isRemoteUpdate || isDragging || window.isDraggingSectionGlobal) return;
             const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
             if (data?.content) {
                 // Perform smart merge
@@ -1603,7 +1682,7 @@
         }
 
         async function pushToCloud() {
-            if (!syncID || isRemoteUpdate) return;
+            if (!syncID || !supabaseClient || isRemoteUpdate) return;
             saveLocal();
             if (!isOnline) {
                 pendingSync = true;
@@ -1646,6 +1725,7 @@
 
 
         function subscribeRealtime() {
+            if (!supabaseClient) return;
             supabaseClient.channel('changes').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos', filter: `sync_id=eq.${syncID}` }, payload => {
                 if (isRemoteUpdate || isDragging) return;
                 isRemoteUpdate = true;
@@ -2090,7 +2170,9 @@
                     } else { cont.className = `task-grid ${isCol ? 'collapsed-content' : ''}`; }
 
                     const items = renderList.filter(i => !i.done && (i.section === secId || (secIdx === 0 && !i.section)));
-                    items.forEach(i => orphaned.delete(buildItem(cont, i, itemMap)));
+                    const builtCards = items.map(i => { const c = buildItem(cont, i, itemMap); orphaned.delete(c); return c; });
+                    // Reorder DOM children to match array order (new tasks appear at top)
+                    builtCards.forEach(c => cont.appendChild(c));
                     updateGridColumns(cont, items);
                 });
 
@@ -2112,7 +2194,7 @@
             }
 
             orphaned.forEach(el => el.remove());
-            saveLocal(); initSortable(); initSectionSortable(); animateUID = 0;
+            saveLocal(); if (typeof Sortable !== 'undefined') { initSortable(); initSectionSortable(); } animateUID = 0;
             renderNotes();
         }
 
@@ -2139,8 +2221,13 @@
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
                             </svg>
                         </button>
-                        <textarea class="notes-textarea" placeholder=""></textarea>
+                        <div class="notes-textarea notes-editable" contenteditable="true" data-placeholder=""></div>
                     `;
+
+                    // Ctrl+B / Ctrl+U formatting for sidebar notes
+                    const _ta = sidebar.querySelector('.notes-textarea');
+                    _ta.addEventListener('keydown', notesKeydownHandler);
+
 
                     // Apply initial state
                     if (activeNotesState === 'expanded') sidebar.classList.add('expanded');
@@ -2185,7 +2272,8 @@
                         updateState();
                     };
 
-                    textarea.oninput = (e) => handleNoteInput(e.target.value);
+                    textarea.addEventListener('input', () => handleNoteInput(textarea.innerHTML));
+                    textarea.addEventListener('keydown', notesKeydownHandler);
 
                     // Mouse movement for buttons
                     sidebar.addEventListener('mousemove', (e) => {
@@ -2212,12 +2300,14 @@
             // Sync ALL visible notes textareas
             const allNotesAreas = document.querySelectorAll('.notes-textarea, #mobile-notes-textarea');
             allNotesAreas.forEach(ta => {
-                if (ta !== document.activeElement && ta.value !== (db.notes || '')) {
-                    ta.value = db.notes || '';
+                if (ta !== document.activeElement && ta.innerHTML !== (db.notes || '')) {
+                    ta.innerHTML = db.notes || '';
                 }
                 // Ensure oninput is attached if not already (for #mobile-notes-textarea)
-                if (!ta.oninput) {
-                    ta.oninput = (e) => handleNoteInput(e.target.value);
+                if (!ta._notesInit) {
+                    ta.addEventListener('input', () => handleNoteInput(ta.innerHTML));
+                    ta.addEventListener('keydown', notesKeydownHandler);
+                    ta._notesInit = true;
                 }
             });
         }
@@ -2230,13 +2320,23 @@
             if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
             window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
 
-            // Sync other textareas immediately (except the one being typed in)
+            // Sync other contentEditable areas immediately (except the one being typed in)
             const allNotesAreas = document.querySelectorAll('.notes-textarea, #mobile-notes-textarea');
             allNotesAreas.forEach(ta => {
-                if (ta !== document.activeElement && ta.value !== val) {
-                    ta.value = val;
+                if (ta !== document.activeElement && ta.innerHTML !== val) {
+                    ta.innerHTML = val;
                 }
             });
+        }
+
+        function notesKeydownHandler(e) {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+                e.preventDefault();
+                document.execCommand('bold');
+            } else if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) {
+                e.preventDefault();
+                document.execCommand('underline');
+            }
         }
 
         function renderShop(container, itemMap, orphaned) {
@@ -2879,15 +2979,16 @@
 
         function openMobileNotes() {
             const m = document.getElementById('mobile-notes-modal');
-            const textarea = m.querySelector('.notes-textarea');
-            textarea.value = db.notes || '';
+            const editable = m.querySelector('.notes-editable');
+            editable.innerHTML = db.notes || '';
             m.style.display = 'flex';
             setTimeout(() => {
                 m.classList.add('active');
-                textarea.focus();
+                editable.focus();
             }, 10);
 
-            textarea.oninput = (e) => handleNoteInput(e.target.value);
+            editable.addEventListener('input', () => handleNoteInput(editable.innerHTML));
+            editable.addEventListener('keydown', notesKeydownHandler);
         }
 
         function closeMobileNotes() {
@@ -2954,12 +3055,21 @@
         function loadLocal() {
             if (!syncID) return;
             const s = localStorage.getItem(`todo_db_${syncID}`);
-            if (s) db = JSON.parse(s);
-            else {
+            if (s) {
+                db = JSON.parse(s);
+                // Migrate plain-text notes to HTML for contentEditable
+                if (db.notes && !/<[a-z][\s\S]*>/i.test(db.notes)) {
+                    db.notes = db.notes.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                }
+            } else {
                 // FALLBACK: If namespaced key is empty, check legacy key
                 const legacy = localStorage.getItem('todo_db');
                 if (legacy) {
                     db = JSON.parse(legacy);
+                    // Migrate plain-text notes to HTML for contentEditable
+                    if (db.notes && !/<[a-z][\s\S]*>/i.test(db.notes)) {
+                        db.notes = db.notes.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                    }
                     // We don't delete legacy yet to be safe, but we'll save to namespaced from now on
                 }
             }
@@ -3258,17 +3368,18 @@
                     e.target.value = ''; collapseInput();
                 }
             };
-            // Mobile Notes Input
+            // Mobile Notes Input (contentEditable)
             const mobNotes = document.getElementById('mobile-notes-textarea');
             if (mobNotes) {
-                mobNotes.oninput = (e) => {
-                    db.notes = e.target.value;
+                mobNotes.addEventListener('input', () => {
+                    db.notes = mobNotes.innerHTML;
                     db.notesM = Date.now();
                     db.settings.m = Date.now();
                     saveLocal();
                     if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
                     window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
-                };
+                });
+                mobNotes.addEventListener('keydown', notesKeydownHandler);
             }
         }
         function handleBgClick(e) { if (e.target.id.includes('-pane')) collapseInput(); }
