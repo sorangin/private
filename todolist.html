@@ -597,17 +597,16 @@
         .sortable-chosen {
             background: #18181b !important;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
-            transform: scale(1.02);
             z-index: 50;
         }
 
         .sortable-drag {
             opacity: 0.9 !important;
-            transform: scale(1.1);
             cursor: grabbing !important;
             z-index: 10000 !important;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             border: 2px solid #3b82f6 !important;
+            margin: 0 !important;
         }
 
         #fab-outer {
@@ -2463,6 +2462,11 @@
                     const idx = db[tab].findIndex(x => x.uid == currentI.uid), txt = card.querySelector('.editable-text');
 
                     if (e.target.closest('.del')) remove(idx);
+                    else if (e.target.closest('.restore')) {
+                        currentI.cat = currentI.origCat || 'misc';
+                        currentI.m = Date.now();
+                        render(); saveLocal(); pushToCloud();
+                    }
                     else if (currentI.cat === 'trash') return;
                     else {
                         let allowEdit = false;
@@ -2478,8 +2482,8 @@
             }
 
             // Only update DOM if needed
-            const lastDone = card.getAttribute('data-last-done'), lastText = card.getAttribute('data-last-text'), lastCat = card.getAttribute('data-last-cat');
-            const needsFullUpdate = !card.innerHTML || lastDone !== String(i.done) || lastCat !== String(i.cat) || lastText !== i.text;
+            const lastDone = card.getAttribute('data-last-done'), lastText = card.getAttribute('data-last-text'), lastCat = card.getAttribute('data-last-cat'), lastSec = card.getAttribute('data-last-sec');
+            const needsFullUpdate = !card.innerHTML || lastDone !== String(i.done) || lastCat !== String(i.cat) || lastSec !== String(i.section) || lastText !== i.text;
 
             card.className = `group item-card ${i.done ? 'done' : ''} ${!isShop ? 'flex items-center p-3' : 'flex flex-col items-center justify-center p-2 h-14 text-center'}`;
             card.style.opacity = (isShop && i.cat === 'trash') ? '0.35' : '';
@@ -2497,7 +2501,7 @@
                     txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
                     txt.onblur = () => { txt.contentEditable = false; const idx = db[tab].findIndex(x => x.uid == i.uid); if (idx > -1) { db[tab][idx].text = txt.innerText; db[tab][idx].m = Date.now(); saveLocal(); pushToCloud(); } };
                 } else {
-                    const delBtn = i.cat === 'trash' ? `<button class="del absolute top-0.5 right-0.5 text-zinc-500 text-[14px] p-1 hover:text-zinc-300 font-bold">＋</button>` : `<button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1 hover:text-zinc-400">✕</button>`;
+                    const delBtn = i.cat === 'trash' ? `<button class="restore absolute top-0.5 right-0.5 text-zinc-500 text-[14px] p-1 hover:text-zinc-300 font-bold">＋</button>` : `<button class="del absolute top-0.5 right-0.5 text-zinc-700 text-[10px] p-1 hover:text-zinc-400">✕</button>`;
                     card.innerHTML = `<span class="editable-text text-[11px] font-bold px-1 ${i.done ? 'strikethrough' : ''}" style="color:${i.done ? '' : taskTextCol}">${i.text}</span>${delBtn}`;
                     const txt = card.querySelector('.editable-text');
                     txt.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); txt.blur(); } e.stopPropagation(); };
@@ -2506,6 +2510,7 @@
                 card.setAttribute('data-last-done', i.done);
                 card.setAttribute('data-last-text', i.text);
                 card.setAttribute('data-last-cat', i.cat);
+                card.setAttribute('data-last-sec', i.section);
             }
 
             if (card.parentElement !== p) p.appendChild(card);
@@ -2519,7 +2524,7 @@
                 animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
                 draggable: '.item-card',
                 delay: isT ? 350 : 0, delayOnTouchOnly: true,
-                forceFallback: true, fallbackTolerance: 3,
+                forceFallback: true, fallbackOnBody: true, fallbackTolerance: 3,
                 swapThreshold: 0.6, invertSwap: true,
                 filter: '.editable-text, button, .chk-box, .del', preventOnFilter: true,
                 onStart: (evt) => {
@@ -3253,6 +3258,7 @@
                     delay: isT ? 150 : 0,
                     delayOnTouchOnly: true,
                     forceFallback: true,
+                    fallbackOnBody: true,
                     fallbackTolerance: 5,
                     ghostClass: 'sortable-ghost',
                     onStart: () => { window.isDraggingSectionGlobal = true; },
