@@ -1363,6 +1363,33 @@
             return `#${h(m(r))}${h(m(g))}${h(m(b))}`;
         }
 
+        function setupSectionHeaderEvents(hdr, secId) {
+            hdr.oncontextmenu = (e) => { e.preventDefault(); openSectionEdit(secId); };
+            let secTimer = null, startX = 0, startY = 0;
+            const sp = (e) => {
+                if (e.type === 'touchstart') { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }
+                secTimer = setTimeout(() => {
+                    if (!window.isDraggingSectionGlobal) {
+                        secTimer = null; openSectionEdit(secId); if (navigator.vibrate) navigator.vibrate(50);
+                    }
+                }, 800);
+            };
+            const cp = (e) => {
+                if (e && e.type === 'touchmove') {
+                    const x = e.touches[0].clientX, y = e.touches[0].clientY;
+                    if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return;
+                }
+                if (secTimer) { clearTimeout(secTimer); secTimer = null; }
+            };
+            hdr.addEventListener('touchstart', sp, { passive: true });
+            hdr.addEventListener('touchmove', cp, { passive: true });
+            hdr.addEventListener('touchend', cp);
+            hdr.addEventListener('mousedown', sp);
+            hdr.addEventListener('mouseup', cp);
+            hdr.addEventListener('mouseleave', cp);
+            hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cp(); });
+        }
+
         function updateGridColumns(container, items) {
             if (!container || !items) return;
             const maxLen = Math.max(0, ...items.map(i => (i.text || '').length));
@@ -1658,6 +1685,13 @@
             })();
             document.getElementById('archive-header-row').onclick = toggleArchive;
             document.getElementById('wipe-btn').onclick = (e) => { e.stopPropagation(); wipeCompleted(); };
+
+            window.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden' && window.notesPushTimer) {
+                    clearTimeout(window.notesPushTimer);
+                    pushToCloud();
+                }
+            });
         }
 
         async function pullFromCloud() {
@@ -2157,6 +2191,7 @@
                         hdr.setAttribute('data-sec-id', secId);
                         secBlock.prepend(hdr);
                         hdr.onclick = () => toggleCat(secId);
+                        setupSectionHeaderEvents(hdr, secId);
                     }
                     hdr.innerHTML = `<span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${secColor}">▼</span>
                         <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${secColor}">${secTitle}</span>
@@ -2302,10 +2337,16 @@
                 if (ta !== document.activeElement && ta.innerHTML !== (db.notes || '')) {
                     ta.innerHTML = db.notes || '';
                 }
-                // Ensure oninput is attached if not already (for #mobile-notes-textarea)
+                // Ensure triggers are attached if not already (for #mobile-notes-textarea)
                 if (!ta._notesInit) {
                     ta.addEventListener('input', () => handleNoteInput(ta.innerHTML));
                     ta.addEventListener('keydown', notesKeydownHandler);
+                    ta.onblur = () => {
+                        if (window.notesPushTimer) {
+                            clearTimeout(window.notesPushTimer);
+                            pushToCloud();
+                        }
+                    };
                     ta._notesInit = true;
                 }
             });
@@ -2317,7 +2358,7 @@
             db.settings.m = Date.now();
             saveLocal();
             if (window.notesPushTimer) clearTimeout(window.notesPushTimer);
-            window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 2000);
+            window.notesPushTimer = setTimeout(() => { pushToCloud(); }, 1000);
 
             // Sync other contentEditable areas immediately (except the one being typed in)
             const allNotesAreas = document.querySelectorAll('.notes-textarea, #mobile-notes-textarea');
@@ -2371,11 +2412,7 @@
                 hdr.setAttribute('data-sec-id', k);
                 con.prepend(hdr);
                 if (k !== 'trash') {
-                    let secTimer = null, startX = 0, startY = 0;
-                    const sp = (e) => { if (e.type === 'touchstart') { startX = e.touches[0].clientX; startY = e.touches[0].clientY; } secTimer = setTimeout(() => { if (!window.isDraggingSectionGlobal) { secTimer = null; openSectionEdit(k); if (navigator.vibrate) navigator.vibrate(50); } }, 800); };
-                    const cp = (e) => { if (e && e.type === 'touchmove') { const x = e.touches[0].clientX, y = e.touches[0].clientY; if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return; } if (secTimer) { clearTimeout(secTimer); secTimer = null; } };
-                    hdr.addEventListener('touchstart', sp, { passive: true }); hdr.addEventListener('touchmove', cp, { passive: true }); hdr.addEventListener('touchend', cp); hdr.addEventListener('mousedown', sp); hdr.addEventListener('mouseup', cp); hdr.addEventListener('mouseleave', cp);
-                    hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cp(); });
+                    setupSectionHeaderEvents(hdr, k);
                 }
             }
             hdr.style.color = color;
@@ -2414,12 +2451,7 @@
                 hdr.className = 'section-header rounded-lg px-2 py-1';
                 hdr.setAttribute('data-sec-id', k);
                 secBlock.prepend(hdr);
-                hdr.oncontextmenu = (e) => { e.preventDefault(); openSectionEdit(k); };
-                let secTimer = null, startX = 0, startY = 0;
-                const sp = (e) => { if (e.type === 'touchstart') { startX = e.touches[0].clientX; startY = e.touches[0].clientY; } secTimer = setTimeout(() => { if (!window.isDraggingSectionGlobal) { secTimer = null; openSectionEdit(k); if (navigator.vibrate) navigator.vibrate(50); } }, 800); };
-                const cp = (e) => { if (e && e.type === 'touchmove') { const x = e.touches[0].clientX, y = e.touches[0].clientY; if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return; } if (secTimer) { clearTimeout(secTimer); secTimer = null; } };
-                hdr.addEventListener('touchstart', sp, { passive: true }); hdr.addEventListener('touchmove', cp, { passive: true }); hdr.addEventListener('touchend', cp); hdr.addEventListener('mousedown', sp); hdr.addEventListener('mouseup', cp); hdr.addEventListener('mouseleave', cp);
-                hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cp(); });
+                setupSectionHeaderEvents(hdr, k);
             }
             hdr.innerHTML = `<div class="flex items-center flex-1" onclick="toggleCat('${k}', event)">
                     <span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${color}">▼</span>
