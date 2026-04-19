@@ -1418,8 +1418,16 @@
             updateStatus(true); // Refresh UI to show offline
         });
 
-        // Service Worker removed: blob URLs are blocked on GitHub Pages,
-        // and the previous SW was a no-op (empty fetch handler).
+        // Register Service Worker for Offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./todo-sw.js').then(reg => {
+                    console.log('SW registered!', reg);
+                }).catch(err => {
+                    console.log('SW registration failed:', err);
+                });
+            });
+        }
 
         const SB_URL = "https://sbhxqpymyxpxocwnngun.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiaHhxcHlteXhweG9jd25uZ3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjI5NzAsImV4cCI6MjA4Mjk5ODk3MH0.RxtlRPzMaib2_EWxIzHajObzyHxqo0sA66eIWDYk620";
         let supabaseClient = null;
