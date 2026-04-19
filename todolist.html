@@ -2169,13 +2169,20 @@
 
                 // Tasks grouped by section
                 // Migrate old string format to new object format
-                if (!db.taskSections || db.taskSections.length === 0) db.taskSections = [{ id: 'Tasks', title: 'Tasks', color: '#ffffff' }];
+                if (!db.taskSections) db.taskSections = [];
                 db.taskSections = db.taskSections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff' } : s);
 
                 if (!listC.querySelector('#task-col-1')) {
                     listC.innerHTML = '<div id="task-col-1" class="main-col"></div><div id="task-col-2" class="main-col"></div>';
                 }
                 const colArr = [listC.querySelector('#task-col-1'), listC.querySelector('#task-col-2')];
+                
+                colArr.forEach(col => {
+                    if (col) Array.from(col.querySelectorAll('.section-block')).forEach(block => {
+                        const id = block.getAttribute('data-sec-id');
+                        if (!db.taskSections.some(s => s.id === id)) block.remove();
+                    });
+                });
 
                 db.taskSections.forEach((sec, secIdx) => {
                     const targetCol = colArr[sec.col !== undefined && sec.col < colArr.length ? sec.col : secIdx % 2];
@@ -2227,6 +2234,14 @@
                     dailyC.innerHTML = '<div id="daily-col-1" class="main-col"></div><div id="daily-col-2" class="main-col"></div><div id="daily-col-3" class="main-col"></div>';
                 }
                 const colArr = [dailyC.querySelector('#daily-col-1'), dailyC.querySelector('#daily-col-2'), dailyC.querySelector('#daily-col-3')];
+                
+                colArr.forEach(col => {
+                    if (col) Array.from(col.querySelectorAll('.section-block')).forEach(block => {
+                        const id = block.getAttribute('data-sec-id');
+                        if (!db.dailySections.some(s => s.id === id)) block.remove();
+                    });
+                });
+
                 db.dailySections.forEach((sec, secIdx) => {
                     const targetCol = colArr[sec.col !== undefined && sec.col < colArr.length ? sec.col : secIdx % 3];
                     renderDailiesSection(targetCol, sec.title, sec.id, sec.color || '#ffffff', itemMap, secIdx === 0, orphaned);
@@ -2388,6 +2403,12 @@
         }
 
         function renderShop(container, itemMap, orphaned) {
+            Array.from(container.querySelectorAll('.section-block, .section-block-static')).forEach(block => {
+                const id = block.getAttribute('data-sec-id');
+                if (id !== 'trash' && !db.shopCategories.some(c => c.id === id)) block.remove();
+                if (id === 'trash' && (!db.shopping || !db.shopping.some(i => i.cat === 'trash'))) block.remove();
+            });
+
             db.shopCategories.forEach(c => renderSection(container, c.title, c.id, c.color || '#ffffff', itemMap, orphaned));
             if (db.shopping.some(i => i.cat === 'trash')) {
                 renderSection(container, 'Trash', 'trash', '#71717a', itemMap, orphaned, false);
@@ -2953,6 +2974,22 @@
             sOpt.onclick = (e) => { e.stopPropagation(); promptSyncID(); };
             m.appendChild(sOpt);
 
+            // Export Data Option
+            const eOpt = document.createElement('button');
+            eOpt.className = 'menu-opt';
+            eOpt.style.color = '#ffffff';
+            eOpt.innerHTML = `<span>Export Data</span><span class="text-[10px] font-black" style="color:#10b981">↓ JSON</span>`;
+            eOpt.onclick = (e) => { e.stopPropagation(); m.classList.remove('active'); exportData(); };
+            m.appendChild(eOpt);
+
+            // Import Data Option
+            const iOpt = document.createElement('button');
+            iOpt.className = 'menu-opt';
+            iOpt.style.color = '#ffffff';
+            iOpt.innerHTML = `<span>Import Data</span><span class="text-[10px] font-black" style="color:#ef4444">↑ JSON</span>`;
+            iOpt.onclick = (e) => { e.stopPropagation(); m.classList.remove('active'); importData(); };
+            m.appendChild(iOpt);
+
             // Sync History
             const history = getSyncHistory();
             if (history.length > 0) {
@@ -3096,6 +3133,90 @@
             const history = getSyncHistory().filter(x => x !== id);
             localStorage.setItem('todo_sync_history', JSON.stringify(history));
         }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `todo_backup_${syncID || 'local'}_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.style.display = 'none';
+            document.body.appendChild(input);
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                input.remove();
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const rawDb = JSON.parse(event.target.result);
+                        if (!rawDb || typeof rawDb !== 'object' || !rawDb.settings) throw new Error("Invalid format");
+                        const importedDb = migrateDB(rawDb, false);
+                        
+                        showConfirm('Overwrite all current data with this backup? This cannot be undone.', async () => {
+                            if (window._pushDebounce) clearTimeout(window._pushDebounce);
+                            
+                            // Gather imported IDs so we don't accidentally delete ones we're importing
+                            const importedIds = new Set();
+                            if (importedDb.tasks) importedDb.tasks.forEach(t => importedIds.add(t.uid));
+                            if (importedDb.dailies) importedDb.dailies.forEach(t => importedIds.add(t.uid));
+                            if (importedDb.shopping) importedDb.shopping.forEach(t => importedIds.add(t.uid));
+                            if (importedDb.taskSections) importedDb.taskSections.forEach(s => importedIds.add(s.id));
+                            if (importedDb.dailySections) importedDb.dailySections.forEach(s => importedIds.add(s.id));
+                            if (importedDb.shopCategories) importedDb.shopCategories.forEach(s => importedIds.add(s.id));
+
+                            const oldIds = [];
+                            if (db.tasks) db.tasks.forEach(t => { if (!importedIds.has(t.uid)) oldIds.push(t.uid); });
+                            if (db.dailies) db.dailies.forEach(t => { if (!importedIds.has(t.uid)) oldIds.push(t.uid); });
+                            if (db.shopping) db.shopping.forEach(t => { if (!importedIds.has(t.uid)) oldIds.push(t.uid); });
+                            if (db.taskSections) db.taskSections.forEach(s => { if (!importedIds.has(s.id)) oldIds.push(s.id); });
+                            if (db.dailySections) db.dailySections.forEach(s => { if (!importedIds.has(s.id)) oldIds.push(s.id); });
+                            if (db.shopCategories) db.shopCategories.forEach(s => { if (!importedIds.has(s.id)) oldIds.push(s.id); });
+                            
+                            db = importedDb;
+                            if (!db.deleted) db.deleted = [];
+                            oldIds.forEach(id => { if (id && !db.deleted.includes(id)) db.deleted.push(id) });
+                            
+                            db.settings.m = Date.now();
+                            if (db.tasks) db.tasks.forEach(t => t.m = Date.now());
+                            if (db.dailies) db.dailies.forEach(t => t.m = Date.now());
+                            if (db.shopping) db.shopping.forEach(t => t.m = Date.now());
+                            if (db.taskSections) db.taskSections.forEach(s => s.m = Date.now());
+                            if (db.dailySections) db.dailySections.forEach(s => s.m = Date.now());
+                            if (db.shopCategories) db.shopCategories.forEach(s => s.m = Date.now());
+                            db.notesM = Date.now();
+                            
+                            saveLocal();
+                            
+                            if (syncID && typeof supabaseClient !== 'undefined' && supabaseClient) {
+                                document.getElementById('modal-msg').innerText = "Importing. Please wait...";
+                                const payload = { sync_id: syncID, content: db };
+                                const { error } = await supabaseClient.from('todos').upsert(payload, { onConflict: 'sync_id' });
+                                if (error) {
+                                    alert("Cloud Sync Error: " + error.message);
+                                }
+                                window.location.reload();
+                            } else {
+                                window.location.reload();
+                            }
+                        }, "Import");
+                    } catch (err) {
+                        alert("Error reading backup: Invalid file format.");
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
         function saveLocal() { if (syncID) localStorage.setItem(`todo_db_${syncID}`, JSON.stringify(db)); }
         function loadLocal() {
             if (!syncID) return;
@@ -3107,15 +3228,17 @@
                     db.notes = db.notes.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
                 }
             } else {
-                // FALLBACK: If namespaced key is empty, check legacy key
-                const legacy = localStorage.getItem('todo_db');
-                if (legacy) {
-                    db = JSON.parse(legacy);
-                    // Migrate plain-text notes to HTML for contentEditable
-                    if (db.notes && !/<[a-z][\s\S]*>/i.test(db.notes)) {
-                        db.notes = db.notes.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                // FALLBACK: Only pull legacy key if they have literally no sync history (first time ever migrating).
+                // If they have history, they are deliberately making a new, empty sync ID.
+                const history = getSyncHistory();
+                if (history.length === 0) {
+                    const legacy = localStorage.getItem('todo_db');
+                    if (legacy) {
+                        db = JSON.parse(legacy);
+                        if (db.notes && !/<[a-z][\s\S]*>/i.test(db.notes)) {
+                            db.notes = db.notes.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                        }
                     }
-                    // We don't delete legacy yet to be safe, but we'll save to namespaced from now on
                 }
             }
         }
@@ -3147,6 +3270,16 @@
                 const i = document.getElementById('fab-input'), v = i.value.trim();
                 if (v) {
                     const uid = Math.random(), m = Date.now(); animateUID = uid;
+                    if (tab === 'tasks' && db.taskSections.length === 0) {
+                        db.taskSections.push({ id: 'Tasks', title: 'Tasks', color: '#ffffff' });
+                        activeTaskSection = 'Tasks';
+                    } else if (tab === 'dailies' && db.dailySections.length === 0) {
+                        db.dailySections.push({ id: 'Daily', title: 'Daily', interval: 'daily', color: '#3b82f6' });
+                        activeDailySection = 'Daily';
+                    } else if (tab === 'shopping' && db.shopCategories.length === 0) {
+                        db.shopCategories.push({ id: 'misc', title: 'Items', color: '#3b82f6' });
+                        activeShopCat = 'misc';
+                    }
                     if (tab === 'shopping') {
                         db.shopping.push({ text: v, done: false, uid: uid, m: m, cat: activeShopCat || 'misc' });
                     } else if (tab === 'dailies') {
@@ -3231,29 +3364,29 @@
 
         function deleteSection() {
             const list = tab === 'tasks' ? db.taskSections : (tab === 'dailies' ? db.dailySections : db.shopCategories);
-            if (list.length <= 1) {
-                alert("Can't delete the last section!");
-                return;
-            }
 
             // Check if section is empty
             const items = tab === 'tasks' ? db.tasks : (tab === 'dailies' ? db.dailies : db.shopping);
             const hasItems = items.some(i => (tab === 'tasks' ? i.section : (tab === 'dailies' ? i.section : i.cat)) === editingSectionId);
 
             const doDelete = () => {
-                const defaultId = list[0].id;
+                const fallbackSec = list.find(s => s.id !== editingSectionId);
+                const defaultId = fallbackSec ? fallbackSec.id : list[0].id;
                 if (tab === 'tasks') {
-                    db.tasks.forEach(t => { if (t.section === editingSectionId) { t.section = defaultId; t.m = Date.now(); } });
+                    db.tasks.filter(t => t.section === editingSectionId).forEach(t => db.deleted.push(t.uid));
+                    db.tasks = db.tasks.filter(t => t.section !== editingSectionId);
                     if (editingSectionId) db.deleted.push(editingSectionId);
                     db.taskSections = db.taskSections.filter(s => s.id !== editingSectionId);
                     if (activeTaskSection === editingSectionId) activeTaskSection = defaultId;
                 } else if (tab === 'dailies') {
-                    db.dailies.forEach(d => { if (d.section === editingSectionId) { d.section = defaultId; d.m = Date.now(); } });
+                    db.dailies.filter(d => d.section === editingSectionId).forEach(d => db.deleted.push(d.uid));
+                    db.dailies = db.dailies.filter(d => d.section !== editingSectionId);
                     if (editingSectionId) db.deleted.push(editingSectionId);
                     db.dailySections = db.dailySections.filter(s => s.id !== editingSectionId);
                     if (activeDailySection === editingSectionId) activeDailySection = defaultId;
                 } else {
-                    db.shopping.forEach(i => { if (i.cat === editingSectionId) { i.cat = defaultId; i.m = Date.now(); } });
+                    db.shopping.filter(i => i.cat === editingSectionId).forEach(i => db.deleted.push(i.uid));
+                    db.shopping = db.shopping.filter(i => i.cat !== editingSectionId);
                     if (editingSectionId) db.deleted.push(editingSectionId);
                     db.shopCategories = db.shopCategories.filter(c => c.id !== editingSectionId);
                     if (activeShopCat === editingSectionId) activeShopCat = defaultId;
@@ -3264,7 +3397,7 @@
 
             if (hasItems) {
                 const type = (tab === 'tasks' || tab === 'dailies') ? 'section' : 'category';
-                showConfirm(`Delete this ${type}? Items will move to the first one.`, doDelete);
+                showConfirm(`Delete this ${type}? All items inside will be PERMANENTLY deleted.`, doDelete);
             } else {
                 doDelete();
             }
