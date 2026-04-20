@@ -1739,9 +1739,9 @@
             checkDailiesReset(); // Check reset whenever we might be updating data or returning to app
             if (!syncID || !supabaseClient || isRemoteUpdate || isDragging || window.isDraggingSectionGlobal) return;
             
-            // Throttling: Don't pull more than once every 5 seconds on visibility change
+            // Throttling: Don't pull more than once every 1.5 seconds on visibility change
             const now = Date.now();
-            if (window._lastPullTime && now - window._lastPullTime < 5000) return;
+            if (window._lastPullTime && now - window._lastPullTime < 1500) return;
             window._lastPullTime = now;
 
             const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
@@ -1760,7 +1760,7 @@
             } else { await pushToCloud(); }
         }
 
-        async function pushToCloud() {
+        async function pushToCloud(immediate = false) {
             if (!syncID || !supabaseClient || isRemoteUpdate) return;
             saveLocal();
             if (!isOnline) {
@@ -1772,7 +1772,8 @@
 
             updateStatus(false);
             if (window._pushDebounce) clearTimeout(window._pushDebounce);
-            window._pushDebounce = setTimeout(async () => {
+
+            const performPush = async () => {
                 try {
                     const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
                     const { merged, changed } = mergeDB(db, data?.content);
@@ -1791,19 +1792,22 @@
                         return;
                     }
 
-                    db = merged;
-                    saveLocal();
                     pendingSync = false;
                     if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'false');
                     updateStatus(true);
-                    render(false);
                 } catch (e) {
                     console.error("Sync exception:", e);
                     pendingSync = true;
                     if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'true');
                     updateStatus(true);
                 }
-            }, 500);
+            };
+
+            if (immediate) {
+                await performPush();
+            } else {
+                window._pushDebounce = setTimeout(performPush, 500);
+            }
         }
 
 
@@ -1816,6 +1820,7 @@
                 const remoteDB = payload.new.content;
                 const { merged, changed } = mergeDB(db, remoteDB); 
                 db = merged;
+                saveLocal(); // Persist remote update immediately
                 renderTabOrder();
                 updateTabVisibility();
                 render(false);
@@ -2828,7 +2833,7 @@
                 db[tab][idx].m = Date.now();
                 if (db[tab][idx].done) db[tab][idx].doneAt = Date.now();
                 render();
-                pushToCloud();
+                pushToCloud(true);
             }
         }
         function remove(idx) {
@@ -2888,7 +2893,7 @@
             });
             render();
             saveLocal();
-            pushToCloud();
+            pushToCloud(true);
         }
         function showConfirm(msg, cb, btnText = "Delete") {
             document.getElementById('modal-msg').innerText = msg;
