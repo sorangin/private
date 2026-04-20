@@ -1470,6 +1470,7 @@
         };
         let tab = 'tasks', isRemoteUpdate = false;
         let isDragging = false, panStartX = 0, panStartY = 0, isPanning = false, lastActionTime = 0, animateUID = 0;
+        let isPushing = false, pushPending = false;
 
         // Active selections
         let activeTaskSection = 'Tasks';
@@ -1553,7 +1554,7 @@
                 dailySections: resDSec.result,
                 deleted: Array.from(delUnion).slice(-100),
                 collapsedStates: { ...r.collapsedStates, ...l.collapsedStates },
-                settings: (l.settings?.m || 0) > (r.settings?.m || 0) ? l.settings : r.settings,
+                settings: (l.settings?.m || 0) >= (r.settings?.m || 0) ? l.settings : r.settings,
             };
 
             if (JSON.stringify(l.collapsedStates) !== JSON.stringify(merged.collapsedStates)) dbChanged = true;
@@ -1593,8 +1594,20 @@
             data.dailySections = data.dailySections.map(s => typeof s === 'string' ? { id: s, title: s, color: '#ffffff', interval: 'daily' } : s);
 
             // Ensure every item has a UID (Critical for Merging)
-            const ensureUID = (list) => list.forEach(i => { if (!i.uid) i.uid = Math.random(); });
-            ensureUID(data.tasks); ensureUID(data.shopping); ensureUID(data.dailies);
+            // For existing items without UIDs, generate a STABLE hash based on properties
+            // This ensures Device A and Device B assign the SAME ID to the same legacy items.
+            const ensureUID = (list, type) => list.forEach(i => { 
+                if (!i.uid) {
+                    const seed = type + (i.text || '') + (i.section || i.cat || '') + (i.id || '');
+                    let hash = 0;
+                    for (let j = 0; j < seed.length; j++) {
+                        hash = ((hash << 5) - hash) + seed.charCodeAt(j);
+                        hash |= 0;
+                    }
+                    i.uid = 'S-' + Math.abs(hash).toString(36);
+                }
+            });
+            ensureUID(data.tasks, 't'); ensureUID(data.shopping, 's'); ensureUID(data.dailies, 'd');
 
             // Daily Items Migration
             data.dailies.forEach(d => {
@@ -1622,16 +1635,44 @@
             if (data.notesM === undefined) data.notesM = data.settings?.m || 0;
 
             // Settings & Tabs
-            if (!data.settings) data.settings = { tabs: { tasks: true, shopping: true, dailies: true, notes: true }, tabOrder: ['tasks', 'dailies', 'shopping', 'notes'], resetTime: 0, activeTaskSection: 'Tasks', activeShopCat: 'misc', activeDailySection: 'Daily', notesState: 'sidebar' };
+            const resetHour = data.settings?.resetTime || 0;
+            const adjustedNow = new Date();
+            adjustedNow.setHours(adjustedNow.getHours() - resetHour);
+            const todayStr = getLocalDayString(adjustedNow);
+            const currentWeek = adjustedNow.getFullYear() + '-W' + getISOWeek(adjustedNow);
+            const currentMonth = adjustedNow.getFullYear() + '-' + String(adjustedNow.getMonth() + 1).padStart(2, '0');
+            
+            if (!data.settings) {
+                data.settings = { 
+                    tabs: { tasks: true, shopping: true, dailies: true, notes: true }, 
+                    tabOrder: ['tasks', 'dailies', 'shopping', 'notes'], 
+                    resetTime: 0, 
+                    activeTaskSection: 'Tasks', 
+                    activeShopCat: 'misc', 
+                    activeDailySection: 'Daily', 
+                    notesState: 'sidebar',
+                    lastDailyReset: todayStr,
+                    lastWeeklyReset: currentWeek,
+                    lastMonthlyReset: currentMonth,
+                    m: Date.now()
+                };
+            }
             if (!data.settings.tabs) data.settings.tabs = { tasks: true, shopping: true, dailies: true, notes: true };
-            if (data.settings.tabs.notes === undefined) data.settings.tabs.notes = true;
-            if (!data.settings.tabOrder) data.settings.tabOrder = ['tasks', 'dailies', 'shopping', 'notes'];
-            if (!data.settings.tabOrder.includes('notes')) data.settings.tabOrder.push('notes');
+            ['tasks', 'shopping', 'dailies', 'notes'].forEach(t => {
+                if (data.settings.tabs[t] === undefined) data.settings.tabs[t] = true;
+            });
+            if (!data.settings.tabOrder || data.settings.tabOrder.length === 0) data.settings.tabOrder = ['tasks', 'dailies', 'shopping', 'notes'];
+            ['tasks', 'shopping', 'dailies', 'notes'].forEach(t => {
+                if (!data.settings.tabOrder.includes(t)) data.settings.tabOrder.push(t);
+            });
             if (data.settings.resetTime === undefined) data.settings.resetTime = 0;
             if (data.settings.activeTaskSection === undefined) data.settings.activeTaskSection = 'Tasks';
             if (data.settings.activeShopCat === undefined) data.settings.activeShopCat = 'misc';
             if (data.settings.activeDailySection === undefined) data.settings.activeDailySection = 'Daily';
             if (data.settings.notesState === undefined) data.settings.notesState = 'sidebar';
+            if (data.settings.lastDailyReset === undefined) data.settings.lastDailyReset = todayStr;
+            if (data.settings.lastWeeklyReset === undefined) { data.settings.lastWeeklyReset = currentWeek; data.settings.m = Date.now(); }
+            if (data.settings.lastMonthlyReset === undefined) { data.settings.lastMonthlyReset = currentMonth; data.settings.m = Date.now(); }
             if (data.settings.m === undefined) data.settings.m = 0;
 
             // Deleted tombstones
@@ -1713,8 +1754,11 @@
 
             setupInputLogic(); 
             document.addEventListener('visibilitychange', () => { 
-                if (document.visibilityState === 'visible' && supabaseClient) {
-                    pullFromCloud(); 
+                if (document.visibilityState === 'visible') {
+                    if (supabaseClient) pullFromCloud(); 
+                } else if (document.visibilityState === 'hidden' && window.notesPushTimer) {
+                    clearTimeout(window.notesPushTimer);
+                    pushToCloud();
                 }
             });
             setupSwipe(); setupFabGestures(); setupMenuTouch();
@@ -1727,17 +1771,12 @@
             document.getElementById('archive-header-row').onclick = toggleArchive;
             document.getElementById('wipe-btn').onclick = (e) => { e.stopPropagation(); wipeCompleted(); };
 
-            window.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'hidden' && window.notesPushTimer) {
-                    clearTimeout(window.notesPushTimer);
-                    pushToCloud();
-                }
-            });
+
         }
 
         async function pullFromCloud() {
             checkDailiesReset(); // Check reset whenever we might be updating data or returning to app
-            if (!syncID || !supabaseClient || isRemoteUpdate || isDragging || window.isDraggingSectionGlobal) return;
+            if (!syncID || !supabaseClient || isRemoteUpdate || isDragging || window.isDraggingSectionGlobal || isPushing) return;
             
             // Throttling: Don't pull more than once every 1.5 seconds on visibility change
             const now = Date.now();
@@ -1770,18 +1809,26 @@
                 return;
             }
 
+            if (isPushing) {
+                pushPending = true;
+                return;
+            }
+
             updateStatus(false);
             if (window._pushDebounce) clearTimeout(window._pushDebounce);
 
             const performPush = async () => {
+                isPushing = true;
                 try {
                     const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
+                    // Crucial: Use the UP-TO-DATE db from memory for the merge, not a stale copy
                     const { merged, changed } = mergeDB(db, data?.content);
                     db = merged;
                     if (changed) {
                         saveLocal();
                         render(false);
                     }
+                    // For the upsert, we send the merged result which now includes the newest local AND remote changes
                     const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: db }, { onConflict: 'sync_id' });
 
                     if (error) {
@@ -1789,17 +1836,22 @@
                         pendingSync = true;
                         if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'true');
                         updateStatus(true);
-                        return;
+                    } else {
+                        pendingSync = false;
+                        if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'false');
+                        updateStatus(true);
                     }
-
-                    pendingSync = false;
-                    if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'false');
-                    updateStatus(true);
                 } catch (e) {
                     console.error("Sync exception:", e);
                     pendingSync = true;
                     if (syncID) localStorage.setItem(`todo_pending_sync_${syncID}`, 'true');
                     updateStatus(true);
+                } finally {
+                    isPushing = false;
+                    if (pushPending) {
+                        pushPending = false;
+                        pushToCloud(true);
+                    }
                 }
             };
 
@@ -1829,13 +1881,13 @@
         }
 
         function setupSwipe() {
-            // ... (keeping existing swipe logic, just need to make sure I don't break it)
             const vp = document.getElementById('viewport'), slider = document.getElementById('view-slider');
             vp.addEventListener('touchstart', e => { if (isDragging) return; panStartX = e.touches[0].clientX; panStartY = e.touches[0].clientY; isPanning = false; slider.style.transition = 'none'; }, { passive: true });
             vp.addEventListener('touchmove', e => {
                 if (isDragging) return;
                 let dx = e.touches[0].clientX - panStartX, dy = e.touches[0].clientY - panStartY;
                 if (!isPanning && Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy)) {
+                    if (!db.settings || !db.settings.tabs || !db.settings.tabOrder) return;
                     const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
                     const idx = enabledTabs.indexOf(tab);
                     // Prevent swiping past boundaries
@@ -1848,8 +1900,9 @@
                 if (isPanning) {
                     const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
                     const idx = enabledTabs.indexOf(tab);
-                    const offset = idx * -window.innerWidth;
-                    slider.style.transform = `translateX(${offset + dx}px)`;
+                    const offsetPct = idx * -100;
+                    const dragPct = (dx / window.innerWidth) * 100;
+                    slider.style.transform = `translateX(${offsetPct + dragPct}%)`;
                 }
             }, { passive: true });
             vp.addEventListener('touchend', e => {
@@ -2104,7 +2157,7 @@
 
         function render(animate = true) {
             if (animate && document.startViewTransition) {
-                document.startViewTransition(() => _render()).catch(() => { });
+                document.startViewTransition(() => _render()).finished.catch(() => { });
             } else {
                 _render();
             }
@@ -2138,6 +2191,7 @@
             const intervalMap = new Map();
             db.dailySections.forEach(s => intervalMap.set(s.id, s.interval || 'daily'));
 
+            let changed = false;
             // DAILY RESET
             if (db.settings.lastDailyReset !== todayStr) {
                 db.dailies.forEach(item => {
@@ -2173,6 +2227,7 @@
             }
 
             if (changed) {
+                db.settings.m = Date.now();
                 saveLocal(); pushToCloud(); render();
             }
         }
@@ -2779,7 +2834,12 @@
                 'notes': document.getElementById('notes-pane')
             };
             db.settings.tabOrder.forEach(id => {
-                if (panesOrder[id]) slider.appendChild(panesOrder[id]);
+                const pane = panesOrder[id];
+                if (pane) {
+                    slider.appendChild(pane);
+                    // Hide if not enabled
+                    pane.style.display = db.settings.tabs[id] ? 'block' : 'none';
+                }
             });
 
             // Update tab styles
@@ -3587,6 +3647,7 @@
                 if (e.key === 'Escape') return collapseInput();
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.contentEditable === 'true' || e.ctrlKey || e.metaKey) return;
                 if (e.key === 'ArrowLeft') {
+                    if (!db.settings || !db.settings.tabs || !db.settings.tabOrder) return;
                     const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
                     const idx = enabledTabs.indexOf(tab);
                     const prev = enabledTabs[idx - 1];
