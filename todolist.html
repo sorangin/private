@@ -1419,7 +1419,7 @@
         });
 
         // Register Service Worker for Offline support
-        if ('serviceWorker' in navigator) {
+        if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./todo-sw.js').then(reg => {
                     console.log('SW registered!', reg);
@@ -1479,13 +1479,17 @@
 
         // Unified Migration Logic
         function mergeDB(local, remote) {
-            if (!remote) return migrateDB(local, true);
-            // DO NOT update globals during merge
-            const l = migrateDB(JSON.parse(JSON.stringify(local)), false);
-            const r = migrateDB(JSON.parse(JSON.stringify(remote)), false);
+            if (!remote) {
+                const migrated = migrateDB(local, true);
+                return { merged: migrated, changed: false };
+            }
+            // Ensure both sides are valid DB objects
+            const l = migrateDB(local, false);
+            const r = migrateDB(remote, false);
 
             const mergeArea = (listL, listR, delUnion) => {
                 const map = new Map();
+                let changed = false;
                 // 1. Collect all valid items from both sides
                 const all = [...listR, ...listL];
                 all.forEach(i => {
@@ -1507,38 +1511,61 @@
                 preferredOrder.forEach(i => {
                     const key = i.uid || i.id;
                     if (map.has(key)) {
-                        result.push(map.get(key));
+                        const winner = map.get(key);
+                        result.push(winner);
                         seen.add(key);
+                        // Check if this item is different from what we had in listL
+                        const localItem = listL.find(lx => (lx.uid || lx.id) === key);
+                        if (!localItem || localItem.m !== winner.m || JSON.stringify(localItem) !== JSON.stringify(winner)) changed = true;
+                    } else {
+                        // If it was in preferredOrder (which includes listL) but not in map, it must have been deleted
+                        changed = true;
                     }
                 });
                 // Add any orphans
-                map.forEach((value, key) => { if (!seen.has(key)) result.push(value); });
-                return result;
+                map.forEach((value, key) => { 
+                    if (!seen.has(key)) {
+                        result.push(value); 
+                        changed = true; // New item from remote
+                    }
+                });
+                return { result, changed };
             };
 
             const delUnion = new Set([...l.deleted, ...r.deleted]);
+            let dbChanged = false;
+
+            const resTasks = mergeArea(l.tasks, r.tasks, delUnion);
+            const resShop = mergeArea(l.shopping, r.shopping, delUnion);
+            const resDailies = mergeArea(l.dailies, r.dailies, delUnion);
+            const resTSec = mergeArea(l.taskSections, r.taskSections, delUnion);
+            const resSCat = mergeArea(l.shopCategories, r.shopCategories, delUnion);
+            const resDSec = mergeArea(l.dailySections, r.dailySections, delUnion);
+
+            if (resTasks.changed || resShop.changed || resDailies.changed || resTSec.changed || resSCat.changed || resDSec.changed) dbChanged = true;
 
             const merged = {
-                tasks: mergeArea(l.tasks, r.tasks, delUnion),
-                shopping: mergeArea(l.shopping, r.shopping, delUnion),
-                dailies: mergeArea(l.dailies, r.dailies, delUnion),
-                taskSections: mergeArea(l.taskSections, r.taskSections, delUnion),
-                shopCategories: mergeArea(l.shopCategories, r.shopCategories, delUnion),
-                dailySections: mergeArea(l.dailySections, r.dailySections, delUnion),
+                tasks: resTasks.result,
+                shopping: resShop.result,
+                dailies: resDailies.result,
+                taskSections: resTSec.result,
+                shopCategories: resSCat.result,
+                dailySections: resDSec.result,
                 deleted: Array.from(delUnion).slice(-100),
                 collapsedStates: { ...r.collapsedStates, ...l.collapsedStates },
                 settings: (l.settings?.m || 0) > (r.settings?.m || 0) ? l.settings : r.settings,
-                notes: (l.settings?.m || 0) > (r.settings?.m || 0) ? l.notes : r.notes // Use settings timestamp as proxy for notes freshness for now, or just prefer local
             };
-            // Better notes merge: if notes exist on both, pick the one from the side with the newest overall modification
-            const latestM = Math.max(l.settings?.m || 0, r.settings?.m || 0);
-            merged.notes = (l.settings?.m || 0) >= (r.settings?.m || 0) ? (l.notes || "") : (r.notes || "");
-            // Better notes merge: use independent timestamp
+
+            if (JSON.stringify(l.collapsedStates) !== JSON.stringify(merged.collapsedStates)) dbChanged = true;
+            if (l.settings?.m !== merged.settings?.m) dbChanged = true;
+
             const lNm = l.notesM || l.settings?.m || 0;
             const rNm = r.notesM || r.settings?.m || 0;
             merged.notes = lNm >= rNm ? (l.notes || "") : (r.notes || "");
             merged.notesM = Math.max(lNm, rNm);
-            return merged;
+            if (l.notes !== merged.notes) dbChanged = true;
+
+            return { merged: migrateDB(merged, false), changed: dbChanged };
         }
 
         function migrateDB(data, updateGlobals = true) {
@@ -1684,7 +1711,13 @@
 
             checkDailiesReset();
 
-            setupInputLogic(); window.addEventListener('focus', () => { if (supabaseClient) pullFromCloud(); }); setupSwipe(); setupFabGestures(); setupMenuTouch();
+            setupInputLogic(); 
+            document.addEventListener('visibilitychange', () => { 
+                if (document.visibilityState === 'visible' && supabaseClient) {
+                    pullFromCloud(); 
+                }
+            });
+            setupSwipe(); setupFabGestures(); setupMenuTouch();
             // Wait for SortableJS before initializing sortables
             (async () => {
                 let retries = 0;
@@ -1705,11 +1738,16 @@
         async function pullFromCloud() {
             checkDailiesReset(); // Check reset whenever we might be updating data or returning to app
             if (!syncID || !supabaseClient || isRemoteUpdate || isDragging || window.isDraggingSectionGlobal) return;
+            
+            // Throttling: Don't pull more than once every 5 seconds on visibility change
+            const now = Date.now();
+            if (window._lastPullTime && now - window._lastPullTime < 5000) return;
+            window._lastPullTime = now;
+
             const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
             if (data?.content) {
                 // Perform smart merge
-                const merged = mergeDB(db, data.content);
-                const changed = JSON.stringify(db) !== JSON.stringify(merged);
+                const { merged, changed } = mergeDB(db, data.content);
                 db = merged;
 
                 if (changed) {
@@ -1737,8 +1775,13 @@
             window._pushDebounce = setTimeout(async () => {
                 try {
                     const { data } = await supabaseClient.from('todos').select('content').eq('sync_id', syncID).maybeSingle();
-                    const merged = mergeDB(db, data?.content);
-                    const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: merged }, { onConflict: 'sync_id' });
+                    const { merged, changed } = mergeDB(db, data?.content);
+                    db = merged;
+                    if (changed) {
+                        saveLocal();
+                        render(false);
+                    }
+                    const { error } = await supabaseClient.from('todos').upsert({ sync_id: syncID, content: db }, { onConflict: 'sync_id' });
 
                     if (error) {
                         console.warn("Push error:", error);
@@ -1771,7 +1814,8 @@
                 if (isRemoteUpdate || isDragging) return;
                 isRemoteUpdate = true;
                 const remoteDB = payload.new.content;
-                db = mergeDB(db, remoteDB); // Use smart merge on incoming changes too
+                const { merged, changed } = mergeDB(db, remoteDB); 
+                db = merged;
                 renderTabOrder();
                 updateTabVisibility();
                 render(false);
@@ -2055,7 +2099,7 @@
 
         function render(animate = true) {
             if (animate && document.startViewTransition) {
-                document.startViewTransition(() => _render());
+                document.startViewTransition(() => _render()).catch(() => { });
             } else {
                 _render();
             }
@@ -2086,14 +2130,15 @@
             const currentWeek = adjustedNow.getFullYear() + '-W' + getISOWeek(adjustedNow);
             const currentMonth = adjustedNow.getFullYear() + '-' + String(adjustedNow.getMonth() + 1).padStart(2, '0');
 
-            let changed = false;
+            const intervalMap = new Map();
+            db.dailySections.forEach(s => intervalMap.set(s.id, s.interval || 'daily'));
 
             // DAILY RESET
             if (db.settings.lastDailyReset !== todayStr) {
                 db.dailies.forEach(item => {
-                    const sec = db.dailySections.find(s => s.id === item.section);
-                    const interval = sec ? (sec.interval || 'daily') : 'daily';
-                    if (interval === 'daily') item.done = false;
+                    if (intervalMap.get(item.section) === 'daily') {
+                        if (item.done) { item.done = false; item.m = Date.now(); }
+                    }
                 });
                 db.settings.lastDailyReset = todayStr;
                 changed = true;
@@ -2102,10 +2147,9 @@
             // WEEKLY RESET
             if (db.settings.lastWeeklyReset !== currentWeek) {
                 db.dailies.forEach(item => {
-                    const sec = db.dailySections.find(s => s.id === item.section);
-                    const interval = sec ? (sec.interval || 'daily') : 'daily';
+                    const interval = intervalMap.get(item.section);
                     if (interval === 'weekly' || interval === 'bi-weekly') {
-                        item.done = false;
+                        if (item.done) { item.done = false; item.m = Date.now(); }
                     }
                 });
                 db.settings.lastWeeklyReset = currentWeek;
@@ -2115,9 +2159,9 @@
             // MONTHLY RESET
             if (db.settings.lastMonthlyReset !== currentMonth) {
                 db.dailies.forEach(item => {
-                    const sec = db.dailySections.find(s => s.id === item.section);
-                    const interval = sec ? (sec.interval || 'daily') : 'daily';
-                    if (interval === 'monthly') item.done = false;
+                    if (intervalMap.get(item.section) === 'monthly') {
+                        if (item.done) { item.done = false; item.m = Date.now(); }
+                    }
                 });
                 db.settings.lastMonthlyReset = currentMonth;
                 changed = true;
@@ -2486,7 +2530,15 @@
                     <span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${color}">▼</span>
                     <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${color}">${l}</span>
                     <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${active}/${count}</span>
-                </div>`;
+                </div>
+                <button class="reset-daily-btn ml-auto text-zinc-500 hover:text-blue-500 transition-colors p-2 z-10" 
+                    onclick="event.preventDefault(); event.stopPropagation(); resetDailiesSection('${k}');" 
+                    title="Reset Section">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                        <polyline points="3 3 3 8 8 8"></polyline>
+                    </svg>
+                </button>`;
 
             let cont = secBlock.querySelector('.task-grid');
             if (!cont) {
@@ -2823,6 +2875,20 @@
                 saveLocal();
                 pushToCloud();
             });
+        }
+        function resetDailiesSection(secId) {
+            db.dailies.forEach(d => {
+                if (d.section === secId || (secId === 'Dailies' && !d.section)) {
+                    if (d.done) {
+                        d.done = false;
+                        d.doneAt = null;
+                        d.m = Date.now();
+                    }
+                }
+            });
+            render();
+            saveLocal();
+            pushToCloud();
         }
         function showConfirm(msg, cb, btnText = "Delete") {
             document.getElementById('modal-msg').innerText = msg;
