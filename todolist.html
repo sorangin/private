@@ -178,6 +178,13 @@
             contain-intrinsic-size: 1px 100px;
         }
 
+        .section-name-text {
+            display: inline-block;
+            padding: 4px;
+            margin: -4px;
+            cursor: pointer;
+        }
+
         #shopping-pane .section-block,
         #shopping-pane .section-block-static {
             width: 100%;
@@ -1364,30 +1371,62 @@
         }
 
         function setupSectionHeaderEvents(hdr, secId) {
-            hdr.oncontextmenu = (e) => { e.preventDefault(); openSectionEdit(secId); };
-            let secTimer = null, startX = 0, startY = 0;
-            const sp = (e) => {
-                if (e.type === 'touchstart') { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }
-                secTimer = setTimeout(() => {
-                    if (!window.isDraggingSectionGlobal) {
-                        secTimer = null; openSectionEdit(secId); if (navigator.vibrate) navigator.vibrate(50);
-                    }
-                }, 800);
+            // Right-click on name text → edit menu
+            hdr.oncontextmenu = (e) => { 
+                if (e.target.closest('.section-name-text')) {
+                    e.preventDefault(); openSectionEdit(secId); 
+                }
             };
-            const cp = (e) => {
+
+            let secTimer = null, startX = 0, startY = 0;
+            let longPressTriggered = false;
+
+            // Suppress click (toggleCat) after a successful long-press or drag
+            hdr.addEventListener('click', (e) => {
+                if (longPressTriggered || window._justFinishedSectionDrag) {
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    longPressTriggered = false;
+                    return false;
+                }
+            }, true); // capture phase so it fires before onclick
+
+            const startPress = (e) => {
+                if (e.button && e.button !== 0) return;
+                longPressTriggered = false;
+                const isName = !!e.target.closest('.section-name-text');
+                if (!isName) return; // only track long-press on the name text
+
+                if (e.type === 'touchstart') {
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                }
+
+                secTimer = setTimeout(() => {
+                    secTimer = null;
+                    if (!window.isDraggingSectionGlobal) {
+                        longPressTriggered = true;
+                        openSectionEdit(secId);
+                        if (navigator.vibrate) navigator.vibrate(50);
+                    }
+                }, 600);
+            };
+
+            const cancelPress = (e) => {
                 if (e && e.type === 'touchmove') {
                     const x = e.touches[0].clientX, y = e.touches[0].clientY;
                     if (Math.abs(x - startX) < 10 && Math.abs(y - startY) < 10) return;
                 }
                 if (secTimer) { clearTimeout(secTimer); secTimer = null; }
             };
-            hdr.addEventListener('touchstart', sp, { passive: true });
-            hdr.addEventListener('touchmove', cp, { passive: true });
-            hdr.addEventListener('touchend', cp);
-            hdr.addEventListener('mousedown', sp);
-            hdr.addEventListener('mouseup', cp);
-            hdr.addEventListener('mouseleave', cp);
-            hdr.addEventListener('dragstart', () => { window.isDraggingSectionGlobal = true; cp(); });
+
+            hdr.addEventListener('touchstart', startPress, { passive: true });
+            hdr.addEventListener('touchmove', cancelPress, { passive: true });
+            hdr.addEventListener('touchend', cancelPress);
+            hdr.addEventListener('touchcancel', cancelPress);
+            hdr.addEventListener('mousedown', startPress);
+            hdr.addEventListener('mouseup', cancelPress);
+            hdr.addEventListener('mouseleave', cancelPress);
         }
 
         function updateGridColumns(container, items) {
@@ -1900,9 +1939,9 @@
                 if (isPanning) {
                     const enabledTabs = db.settings.tabOrder.filter(t => db.settings.tabs[t]);
                     const idx = enabledTabs.indexOf(tab);
-                    const offsetPct = idx * -100;
-                    const dragPct = (dx / window.innerWidth) * 100;
-                    slider.style.transform = `translateX(${offsetPct + dragPct}%)`;
+                    const offsetVw = idx * -100;
+                    const dragVw = (dx / window.innerWidth) * 100;
+                    slider.style.transform = `translateX(${offsetVw + dragVw}vw)`;
                 }
             }, { passive: true });
             vp.addEventListener('touchend', e => {
@@ -2313,7 +2352,7 @@
                         setupSectionHeaderEvents(hdr, secId);
                     }
                     hdr.innerHTML = `<span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${secColor}">▼</span>
-                        <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${secColor}">${secTitle}</span>
+                        <span class="section-name-text text-[11px] font-bold uppercase tracking-wider" style="color:${secColor}">${secTitle}</span>
                         <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${count}</span>`;
 
                     let cont = secBlock.querySelector('.task-grid');
@@ -2550,7 +2589,7 @@
             }
             hdr.style.color = color;
             hdr.innerHTML = `<div class="flex items-center flex-1 md:flex-initial" onclick="toggleCat('${k}', event)">
-                    <span class="chevron ${isCol ? 'is-collapsed' : ''}">▼</span>${l} 
+                    <span class="chevron ${isCol ? 'is-collapsed' : ''}">▼</span><span class="section-name-text">${l}</span> 
                     <span class="ml-1 opacity-60">${countDisplay}</span>
                 </div>
                 ${actionBtn}`;
@@ -2588,7 +2627,7 @@
             }
             hdr.innerHTML = `<div class="flex items-center flex-1" onclick="toggleCat('${k}', event)">
                     <span class="chevron ${isCol ? 'is-collapsed' : ''} mr-2" style="color:${color}">▼</span>
-                    <span class="text-[11px] font-bold uppercase tracking-wider" style="color:${color}">${l}</span>
+                    <span class="section-name-text text-[11px] font-bold uppercase tracking-wider" style="color:${color}">${l}</span>
                     <span class="ml-2 text-[9px] opacity-50 bg-zinc-800 px-1.5 py-0.5 rounded-full">${active}/${count}</span>
                 </div>
                 <button class="reset-daily-btn ml-auto text-zinc-500 hover:text-blue-500 transition-colors p-2 z-10" 
@@ -3559,19 +3598,26 @@
                     draggable: '.section-block',
                     filter: '.trash-btn, .del, .chk-box',
                     preventOnFilter: true,
-                    delay: isT ? 150 : 0,
+                    delay: isT ? 300 : 0,
                     delayOnTouchOnly: true,
-                    forceFallback: true,
-                    fallbackOnBody: true,
-                    fallbackTolerance: 5,
-                    ghostClass: 'sortable-ghost',
+                    ghostClass: 'section-drop-target',
                     onStart: () => { window.isDraggingSectionGlobal = true; },
                     onEnd: () => {
                         window.isDraggingSectionGlobal = false;
-                        // To get the new overall order, we need to look at both columns if they exist
+
+                        // Deferred cleanup of any leftover drag classes (runs after SortableJS finishes)
+                        requestAnimationFrame(() => {
+                            document.querySelectorAll('.section-block').forEach(b => {
+                                b.classList.remove('sortable-ghost', 'sortable-chosen', 'sortable-drag');
+                            });
+                        });
+
+                        // Suppress the click event that fires after drag-drop
+                        window._justFinishedSectionDrag = true;
+                        setTimeout(() => { window._justFinishedSectionDrag = false; }, 400);
+
+                        // Read the new order from the DOM (SortableJS already moved elements)
                         const newOrder = [];
-                        // We decide the order is Col1 then Col2. Or we could interleave. 
-                        // Col1 then Col2 is predictable for the user.
                         const allCols = parent.querySelectorAll('.main-col');
                         if (allCols.length > 0) {
                             allCols.forEach((c, colIdx) => {
@@ -3598,10 +3644,8 @@
                         else if (tab === 'dailies') db.dailySections = newOrder;
                         else db.shopCategories = newOrder;
 
-                        // Important: Bump 'm' timestamp for ALL sections to ensure this new order wins via mergeDB logic
                         const now = Date.now();
                         newOrder.forEach(s => s.m = now);
-
                         db.settings.m = now;
                         saveLocal(); pushToCloud();
                         setTimeout(() => render(false), 50);
