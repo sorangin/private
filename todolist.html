@@ -96,17 +96,19 @@
 
         #view-slider {
             display: flex;
-            width: 400vw;
             height: 100%;
             will-change: transform;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .view-pane {
+            min-width: 100vw;
             width: 100vw;
             height: 100%;
             overflow-y: auto;
             padding-bottom: 120px;
             touch-action: pan-y;
+            flex-shrink: 0;
         }
 
         .shopping-grid {
@@ -2849,13 +2851,41 @@
         function switchTab(t) {
             tab = t;
             const slider = document.getElementById('view-slider');
-            const tabs = ['tasks', 'dailies', 'shopping', 'notes'];
 
-            // Respect tabOrder
+            // Ensure panes are physically ordered to match tabOrder
+            const panesOrder = {
+                'tasks': document.getElementById('tasks-pane'),
+                'dailies': document.getElementById('dailies-pane'),
+                'shopping': document.getElementById('shopping-pane'),
+                'notes': document.getElementById('notes-pane')
+            };
+
             const enabledTabs = db.settings.tabOrder.filter(id => db.settings.tabs[id]);
+
+            // Reorder panes in DOM: enabled tabs first (in order), then disabled ones
+            enabledTabs.forEach(id => {
+                const pane = panesOrder[id];
+                if (pane) slider.appendChild(pane);
+            });
+            // Append disabled panes off-screen (they keep 100vw width but are invisible)
+            db.settings.tabOrder.filter(id => !db.settings.tabs[id]).forEach(id => {
+                const pane = panesOrder[id];
+                if (pane) slider.appendChild(pane);
+            });
+
+            // All panes stay visible (no display:none) to maintain flex layout
+            // Only truly disabled panes get visibility:hidden
+            Object.keys(panesOrder).forEach(id => {
+                const pane = panesOrder[id];
+                if (pane) {
+                    pane.style.display = '';
+                    pane.style.visibility = db.settings.tabs[id] ? '' : 'hidden';
+                }
+            });
+
+            // Slide to the correct position
             const activeIndex = enabledTabs.indexOf(t);
-            const offset = activeIndex * -100;
-            slider.style.transform = `translateX(${offset}vw)`;
+            slider.style.transform = `translateX(${activeIndex * -100}vw)`;
 
             // Sync notes textareas if switching to/from notes
             if (t === 'notes') {
@@ -2863,25 +2893,7 @@
                 if (mobNotes) mobNotes.value = db.notes || '';
             }
 
-            // Re-order the panes physically to match the offset? 
-            // Or just rely on the order in the HTML being fixed and offset being based on that fixed order.
-            // If the user reorders the tabs, the physical panes should probably match.
-            const panesOrder = {
-                'tasks': document.getElementById('tasks-pane'),
-                'dailies': document.getElementById('dailies-pane'),
-                'shopping': document.getElementById('shopping-pane'),
-                'notes': document.getElementById('notes-pane')
-            };
-            db.settings.tabOrder.forEach(id => {
-                const pane = panesOrder[id];
-                if (pane) {
-                    slider.appendChild(pane);
-                    // Hide if not enabled
-                    pane.style.display = db.settings.tabs[id] ? 'block' : 'none';
-                }
-            });
-
-            // Update tab styles
+            // Update tab button styles
             db.settings.tabOrder.forEach(id => {
                 const btn = document.getElementById('tab-' + id);
                 if (btn) {
@@ -3261,15 +3273,17 @@
 
         function updateTabVisibility() {
             const tabs = db.settings.tabs;
+            // Tab buttons: hide disabled tab buttons
             document.getElementById('tab-tasks').style.display = tabs.tasks ? '' : 'none';
             document.getElementById('tab-dailies').style.display = tabs.dailies ? '' : 'none';
             document.getElementById('tab-shopping').style.display = tabs.shopping ? '' : 'none';
             document.getElementById('tab-notes').style.display = tabs.notes ? '' : 'none';
 
-            document.getElementById('tasks-pane').style.display = tabs.tasks ? '' : 'none';
-            document.getElementById('dailies-pane').style.display = tabs.dailies ? '' : 'none';
-            document.getElementById('shopping-pane').style.display = tabs.shopping ? '' : 'none';
-            document.getElementById('notes-pane').style.display = tabs.notes ? '' : 'none';
+            // Panes: use visibility instead of display to maintain flex layout
+            document.getElementById('tasks-pane').style.visibility = tabs.tasks ? '' : 'hidden';
+            document.getElementById('dailies-pane').style.visibility = tabs.dailies ? '' : 'hidden';
+            document.getElementById('shopping-pane').style.visibility = tabs.shopping ? '' : 'hidden';
+            document.getElementById('notes-pane').style.visibility = tabs.notes ? '' : 'hidden';
 
             // Desktop Sidebar
             const notesWrapper = document.querySelector('.notes-wrapper');
