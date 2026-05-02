@@ -627,6 +627,51 @@
             transition: bottom 0.2s;
         }
 
+        /* Section Nav Arrows (mobile only) */
+        .section-nav-btn {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            width: 36px;
+            height: 24px;
+            border-radius: 12px;
+            border: 1px solid #2d2d30;
+            background: rgba(30, 30, 32, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            color: #71717a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            pointer-events: auto;
+        }
+
+        .section-nav-btn:active {
+            background: #27272a;
+            color: #a1a1aa;
+        }
+
+        .section-nav-btn.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #section-nav-up {
+            top: 52px;
+        }
+
+        #section-nav-down {
+            bottom: calc(68px + var(--keyboard-h));
+        }
+
+        @media (min-width: 768px) {
+            .section-nav-btn { display: none; }
+        }
+
         #fab-container {
             pointer-events: auto;
             width: 48px;
@@ -1061,6 +1106,14 @@
                 </svg></button>
         </div>
     </div>
+
+    <!-- Section Nav Arrows (mobile) -->
+    <button id="section-nav-up" class="section-nav-btn hidden" onclick="scrollToSection(-1)" aria-label="Previous section">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+    </button>
+    <button id="section-nav-down" class="section-nav-btn hidden" onclick="scrollToSection(1)" aria-label="Next section">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
 
     <div id="modal-overlay" onclick="closeModal()">
         <div class="modal-box" onclick="event.stopPropagation()">
@@ -1803,6 +1856,18 @@
                 }
             });
             setupSwipe(); setupFabGestures(); setupMenuTouch();
+
+            // Attach scroll listeners for section nav arrows
+            ['tasks-pane', 'dailies-pane', 'shopping-pane'].forEach(id => {
+                const pane = document.getElementById(id);
+                if (pane) {
+                    let raf = null;
+                    pane.addEventListener('scroll', () => {
+                        if (raf) return;
+                        raf = requestAnimationFrame(() => { updateSectionNavVisibility(); raf = null; });
+                    }, { passive: true });
+                }
+            });
             // Wait for SortableJS before initializing sortables
             (async () => {
                 let retries = 0;
@@ -2917,6 +2982,7 @@
             render(false);
             updateTabVisibility();
             updateFabColor();
+            setTimeout(updateSectionNavVisibility, 50);
         }
 
         function initTabSortable() {
@@ -2968,6 +3034,76 @@
                 render(); saveLocal(); pushToCloud();
             }
         }
+
+        function scrollToSection(direction) {
+            const pane = document.getElementById(tab + '-pane');
+            if (!pane) return;
+
+            const headers = Array.from(pane.querySelectorAll('.section-header'));
+            if (headers.length < 2) return;
+
+            // Sort by vertical position
+            const positions = headers.map(h => {
+                const rect = h.getBoundingClientRect();
+                const paneRect = pane.getBoundingClientRect();
+                return { el: h, top: rect.top - paneRect.top + pane.scrollTop };
+            }).sort((a, b) => a.top - b.top);
+
+            const scrollTop = pane.scrollTop;
+            const threshold = 5;
+
+            if (direction > 0) {
+                const next = positions.find(p => p.top > scrollTop + threshold);
+                if (next) pane.scrollTo({ top: next.top, behavior: 'smooth' });
+            } else {
+                const above = positions.filter(p => p.top < scrollTop - threshold);
+                if (above.length > 0) {
+                    pane.scrollTo({ top: above[above.length - 1].top, behavior: 'smooth' });
+                } else {
+                    pane.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            }
+            // Update button visibility after scroll completes
+            setTimeout(updateSectionNavVisibility, 400);
+        }
+
+        function updateSectionNavVisibility() {
+            const upBtn = document.getElementById('section-nav-up');
+            const downBtn = document.getElementById('section-nav-down');
+            if (!upBtn || !downBtn) return;
+
+            if (tab === 'notes') {
+                upBtn.classList.add('hidden');
+                downBtn.classList.add('hidden');
+                return;
+            }
+
+            const pane = document.getElementById(tab + '-pane');
+            if (!pane) { upBtn.classList.add('hidden'); downBtn.classList.add('hidden'); return; }
+
+            const headers = Array.from(pane.querySelectorAll('.section-header'));
+            if (headers.length < 2) {
+                upBtn.classList.add('hidden');
+                downBtn.classList.add('hidden');
+                return;
+            }
+
+            const positions = headers.map(h => {
+                const rect = h.getBoundingClientRect();
+                const paneRect = pane.getBoundingClientRect();
+                return rect.top - paneRect.top + pane.scrollTop;
+            }).sort((a, b) => a - b);
+
+            const scrollTop = pane.scrollTop;
+            const threshold = 5;
+
+            const hasAbove = positions.some(p => p < scrollTop - threshold);
+            const hasBelow = positions.some(p => p > scrollTop + threshold);
+
+            upBtn.classList.toggle('hidden', !hasAbove);
+            downBtn.classList.toggle('hidden', !hasBelow);
+        }
+
         function toggleCat(k, e) {
             if (e) e.stopPropagation();
             db.collapsedStates[k] = !db.collapsedStates[k];
